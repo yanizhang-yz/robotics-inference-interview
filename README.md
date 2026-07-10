@@ -7,10 +7,22 @@ Coding questions, solutions, and test suites for robotics inference engineer int
 ```bash
 cd robotics-inference-interview
 uv sync
-uv run pytest                        # run all tests
+uv run pytest                        # verify reference solutions (all tests)
 uv run pytest questions/01_algorithms # run one category
 uv run pytest -v -k "nms"            # run a specific question
 ```
+
+## How to practice
+
+1. Pick a question and read its `README.md`.
+2. Write your own solution in `starter.py` (don't peek at `solution.py`).
+3. Run the tests **against your attempt**:
+
+```bash
+PRACTICE=1 uv run pytest questions/01_algorithms/001_sliding_window_maximum -v
+```
+
+4. Compare with the reference in `solution.py` and note the differences.
 
 ## Structure
 
@@ -28,8 +40,11 @@ Each question folder contains:
 | File | Purpose |
 |------|---------|
 | `README.md` | Problem statement, context, follow-up questions |
+| `starter.py` | Skeleton with signatures + hints — write your attempt here |
 | `solution.py` | Reference solution |
-| `test_solution.py` | pytest test suite |
+| `test_solution.py` | pytest test suite (runs against reference, or your starter with `PRACTICE=1`) |
+
+C++ questions (when added) follow the same pattern: `starter.cpp`, `solution.cpp`, and a test harness.
 
 ## Questions
 
