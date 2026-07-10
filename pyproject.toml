@@ -1,0 +1,16 @@
+[project]
+name = "robotics-inference-interview"
+version = "0.1.0"
+description = "Robotics inference engineer interview prep — coding questions with solutions and tests"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy",
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["questions"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --import-mode=importlib"
