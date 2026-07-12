@@ -9,6 +9,30 @@ Track which questions you've attempted, your notes, and what to study next.
 
 ---
 
+## Language ramp-up (do before the questions)
+
+### Python (from Java)
+- [ ] Read `ramp_up/python/LEARNING_POINTS.md`
+- [ ] 01 Collections & slicing
+- [ ] 02 Comprehensions & generators
+- [ ] 03 Strings & text
+- [ ] 04 Dicts, sets, counters
+- [ ] 05 Functions & closures
+- [ ] 06 Classes & dataclasses
+- [ ] 07 Iteration, heapq, bisect
+- [ ] 08 NumPy essentials
+
+### C++ (from Java)
+- [ ] Read `ramp_up/cpp/LEARNING_POINTS.md`
+- [ ] 01 STL containers
+- [ ] 02 Ownership & RAII
+
+### Rust / TypeScript
+- [ ] Read `ramp_up/rust/LEARNING_POINTS.md`
+- [ ] Read `ramp_up/typescript/LEARNING_POINTS.md`
+
+---
+
 ## 01 — Algorithms
 - [ ] 001 Sliding Window Maximum — _monotonic deque_
 - [ ] 002 *(next: Median of Data Stream)*

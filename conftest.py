@@ -27,8 +27,9 @@ def pytest_pycollect_makemodule(module_path, parent):
         impl = path.parent / ("starter.py" if PRACTICE_MODE else "solution.py")
         if not impl.exists():
             impl = path.parent / "solution.py"
-        spec = importlib.util.spec_from_file_location("solution", impl)
-        mod = importlib.util.module_from_spec(spec)
-        sys.modules["solution"] = mod
-        spec.loader.exec_module(mod)
+        if impl.exists():  # C++ questions have no .py implementation — their tests compile the .cpp themselves
+            spec = importlib.util.spec_from_file_location("solution", impl)
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules["solution"] = mod
+            spec.loader.exec_module(mod)
     # Returning None lets pytest handle collection normally
