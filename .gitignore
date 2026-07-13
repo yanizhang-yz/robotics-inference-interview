@@ -5,3 +5,6 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 dist/
+
+# Editor (local practice settings stay out of the public repo)
+.vscode/
