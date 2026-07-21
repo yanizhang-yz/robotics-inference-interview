@@ -87,182 +87,166 @@ double = lambda x: x * 2      # works, but for a NAMED function prefer: def doub
 sorted(words, key=lambda w: len(w))   # the natural habitat of lambda: inline key functions
 ```
 
-### 3. Closures — functions that remember where they were born
+### 3. Closures — a function that brings its own variables
 
-Start with the puzzle, because from a Java point of view this code should not work:
+You already have the two facts this section is built from. From section 1: **a
+function is an object** that you can store in a variable and return from another
+function. From section 2: **`()` is what runs it** — until then it's just a value
+being passed around. This section adds one new fact — a function can be defined
+*inside* another function — and then combines the three. Take it in four small
+steps; every snippet is runnable, so type them in as you read.
+
+#### Step 1 — a function inside a function (nothing new yet)
+
+In Java, methods live in classes, never inside other methods. In Python you can
+write a `def` inside a `def`, and the inner function may use the outer function's
+variables:
+
+```python
+def greet_team():
+    team = "Weld"
+    def greet():                   # a function defined INSIDE another function
+        print("Hello, " + team)    # it may use greet_team's variables
+    greet()                        # call it while greet_team is still running
+
+greet_team()                       # -> Hello, Weld
+```
+
+No surprises: while `greet_team` is running, `team` exists, so the inner function
+can read it. So far this is just tidier scoping.
+
+#### Step 2 — return the inner function instead of calling it
+
+Functions are values — so the outer function can hand the inner one back to the
+caller instead of running it:
+
+```python
+def make_greeter(name):
+    def greet():
+        return "Hello, " + name
+    return greet                   # NO parentheses: return the function itself, un-run
+
+hello_ann = make_greeter("Ann")
+hello_bob = make_greeter("Bob")
+hello_ann()                        # -> 'Hello, Ann'
+hello_bob()                        # -> 'Hello, Bob'
+hello_ann()                        # -> 'Hello, Ann'   works every time, not just once
+```
+
+Play the first call in slow motion, like stepping through a debugger:
+
+1. `make_greeter("Ann")` starts running. Its parameter `name` holds `"Ann"`.
+2. The `def greet():` line runs. Running a `def` does **not** run the body — it
+   just *creates a function object* (section 1).
+3. `return greet` hands that new object back; it lands in `hello_ann`.
+4. `make_greeter` finishes.
+5. Later, `hello_ann()` runs the body at last — and the body needs `name`.
+   It finds `"Ann"`.
+
+Step 5 should bother you. In Java, a method's local variables stop existing the
+moment the method returns — and `make_greeter` returned back in step 4. Where did
+`name` survive?
+
+#### Step 3 — the answer: the function packs a backpack
+
+At step 2 — the moment Python creates the inner function object — it looks at the
+inner body, notices which of the outer function's variables it uses (here: `name`),
+and **packs those variables into the function object itself**. Think of a small
+backpack zipped onto `greet`. Wherever the function object travels, the backpack
+travels with it; when the body finally runs and needs `name`, it looks in the
+backpack.
+
+That's the whole secret, and it has a name: a **closure** is an inner function
+carrying a backpack of variables from the function it was born in. Nothing more.
+
+Two consequences, both already visible above:
+
+- **One backpack per factory call.** `make_greeter("Ann")` and `make_greeter("Bob")`
+  each created their *own* `greet` with its *own* backpack — which is why the two
+  greeters never interfere.
+- **The backpack is permanent.** Call `hello_ann()` a thousand times, tomorrow, from
+  another file — `"Ann"` rides along.
+
+You have actually built this machine in Java many times — as a tiny class:
+
+```java
+class Greeter {
+    private final String name;                    // <- the backpack
+    Greeter(String name) { this.name = name; }    // <- make_greeter(name)
+    String greet() { return "Hello, " + name; }   // <- the inner function
+}
+```
+
+`make_greeter("Ann")` plays the role of `new Greeter("Ann")`, and `hello_ann()`
+plays the role of `.greet()`. **A closure is an object with one method — minus the
+class ceremony.** (Java's anonymous inner classes did the same trick: they copied
+the `final` locals they used into the object. Python just does it automatically.)
+
+#### Step 4 — *changing* a backpack variable needs `nonlocal`
+
+Everything so far only **reads** from the backpack, and reading needs no special
+syntax. The `make_counter` drill needs one thing more: updating the variable between
+calls.
 
 ```python
 def make_counter():
-    count = 0                 # a local variable of make_counter
+    count = 0
     def counter():
-        nonlocal count        # (explained below — ignore for 60 seconds)
-        count += 1
+        nonlocal count             # "count is the one in my backpack — not a new variable"
+        count = count + 1
         return count
     return counter
 
-c = make_counter()            # make_counter has now RETURNED...
-c()                           # -> 1
-c()                           # -> 2   ...yet count is alive and counting?!
-```
-
-In Java, a method's local variables die when the method returns. `make_counter` has
-returned — so where is `count` living, and who is updating it? Three steps to the
-answer.
-
-#### Step 1 — `def` creates an object; the body runs later
-
-A `def` statement does **not** run the function body. It does two things: build a
-*function object*, and bind a name to it. The body runs only when you call it with
-`(...)`:
-
-```python
-def shout():
-    print("running!")         # <- does NOT print when this def line executes
-
-f = shout                     # no parentheses: handing the OBJECT around; still silent
-f()                           # -> running!    the () is what executes the body
-```
-
-So `return counter` inside `make_counter` returns a function **object** — a value
-you can store in a variable, with its body not yet run. Java's nearest analog is
-returning a `Supplier<Integer>`; the difference is that in Python this needs no
-interface, because functions are already ordinary objects.
-
-#### Step 2 — the anchor: a closure is an object with a private field, minus the class
-
-You have written `make_counter` hundreds of times in Java. It looked like this:
-
-```java
-class Counter {
-    private int count = 0;        // hidden state
-    int next() {                  // the one method allowed to touch it
-        count += 1;
-        return count;
-    }
-}
-Counter c = new Counter();
-c.next();   // 1
-c.next();   // 2
-```
-
-Same program, piece by piece:
-
-| Java | Python |
-|---|---|
-| `class Counter { ... }` | `def make_counter(): ...` |
-| `new Counter()` — constructor runs | `make_counter()` — outer body runs |
-| `private int count = 0;` | `count = 0` (outer function's local) |
-| the `next()` method | the inner `counter` function |
-| the instance stored in `c` | the returned function object stored in `c` |
-| `c.next()` | `c()` |
-
-A **closure** is exactly this bundle: the inner function *plus* the outer variables
-it uses (we say it **captures** them, and call the outer function's scope the
-**enclosing scope**). It is an object with one method and hidden fields, written
-without a class. And like instances, every factory call makes an independent one:
-
-```python
-a = make_counter()
-b = make_counter()
-a(); a(); a()                 # -> 1, 2, 3
-b()                           # -> 1     b has its OWN count — two `new Counter()`s
-```
-
-#### Step 3 — where `count` actually lives
-
-Python's compiler notices that the inner function uses `count` from the enclosing
-scope. So it does *not* store `count` in `make_counter`'s soon-to-die stack frame —
-it stores it in a small heap-allocated box (called a **cell**) that gets attached to
-the returned function object. The frame dies; the box survives, because `c` holds a
-reference to it. You can literally see it:
-
-```python
 c = make_counter()
-c.__closure__                     # -> (<cell at 0x...: int object at 0x...>,)
-c.__closure__[0].cell_contents    # -> 0     there's count, living in the box
-c(); c()
-c.__closure__[0].cell_contents    # -> 2     the box after two calls
+c()                                # -> 1
+c()                                # -> 2
+d = make_counter()
+d()                                # -> 1    separate backpack, separate count
 ```
 
-You will never write `__closure__` in real code — but see it once and the magic
-dissolves: captured state is just an object on the heap, exactly like a Java field,
-reachable only through the function that captured it.
-
-#### Reading a captured variable is free; REBINDING needs `nonlocal`
-
-The read-only case needs no keyword at all — this is the classic **function
-factory**:
-
-```java
-// Java: k is captured read-only ("effectively final" — reassigning it is a compile error)
-Function<Double, Double> makeMultiplier(double k) {
-    return x -> x * k;
-}
-```
-
-```python
-def make_multiplier(k):
-    return lambda x: x * k    # reads k: no declaration needed
-
-triple = make_multiplier(3)
-triple(5)                     # -> 15
-```
-
-**Rebinding** — making the name point at a *new* object, as `count += 1` does with a
-new int — is where Java and Python split. Java forbids it outright (that's what
-*effectively final* means). Python allows it, but you must declare your intent with
-`nonlocal count`: "count is not mine — it lives in the enclosing function; rebind
-that one."
-
-Why the declaration is required: **assignment is how Python decides what's local.**
-The compiler sees `count += 1` inside `counter`, concludes `count` must be a new
-local variable of `counter`, and then catches you reading it before it has a value:
+Why is the `nonlocal` line needed at all? Because of a Python rule you haven't
+needed until now: **assigning to a name inside a function creates a local variable
+of that function.** Python has no `int count;` declarations — the assignment itself
+is the declaration. So without `nonlocal`, the line `count = count + 1` would mean
+"create a brand-new `count` that belongs to `counter`" — and then reading
+`count + 1` before that new variable has a value is an error:
 
 ```python
 def make_counter_broken():
     count = 0
     def counter():
-        count += 1            # forgot nonlocal -> count is now a LOCAL of counter
+        count = count + 1          # forgot nonlocal -> Python: "count is a NEW local"
         return count
     return counter
 
-make_counter_broken()()       # UnboundLocalError: cannot access local variable
-                              # 'count' where it is not associated with a value
+make_counter_broken()()   # UnboundLocalError: cannot access local variable 'count'
+                          # where it is not associated with a value
 ```
 
-When you see `UnboundLocalError` inside a nested function, the fix is almost always
-a missing `nonlocal`. (Its sibling `global` does the same for module-level names —
-mentioned for completeness, avoided in practice.)
+`nonlocal count` switches that rule off for one name: "don't create a local —
+`count` means the variable in my backpack." Rule of thumb:
 
-#### The second gotcha — late binding
+- **Read** a backpack variable → nothing special needed (`make_greeter`).
+- **Assign to** a backpack variable → declare `nonlocal` first (`make_counter`).
+- **See `UnboundLocalError` in a nested function** → you forgot `nonlocal`.
 
-A closure looks up the captured variable's value **when it is called**, not when it
-was defined. All lambdas created in a loop share the *same* loop variable — so after
-the loop, they all see its final value:
+Calibration against Java: Java lambdas may only capture locals that are *effectively
+final* — never reassigned; the compiler rejects anything else. So what `nonlocal`
+permits is something Java flatly bans — that's why the Java column of this lesson
+needed the `AtomicInteger` smuggling trick.
 
-```python
-fns = [lambda: i for i in range(3)]
-[f() for f in fns]            # -> [2, 2, 2]   all three read the same i, now 2
+#### Why closures are worth the trouble
 
-fns = [lambda i=i: i for i in range(3)]   # fix: default value freezes i per lambda
-[f() for f in fns]            # -> [0, 1, 2]
-```
+- **Function factories** — `make_multiplier(k)`, `make_adder(n)`: the standard
+  phone-screen question for this topic, two lines each.
+- **Decorators** (section 6) are closures — `memoize`'s cache dict lives in a
+  backpack and survives between calls, exactly like `count`.
+- **Robotics callbacks**: `on_frame(handler)` — a closure handler remembers its
+  camera id or threshold with no one-off class in sight.
 
-(Why the fix works is in the next section: defaults are evaluated immediately.)
-See Gotcha 8 in [`../LEARNING_POINTS.md`](../LEARNING_POINTS.md) for a deeper dive.
-
-#### Why you should care
-
-Closures are not a party trick; they are load-bearing Python:
-
-- **Function factories** — `make_multiplier`, `make_adder(n)`: the standard
-  interview screener for this topic.
-- **Decorators** (section 6) are closures: `memoize`'s cache dict is a captured
-  variable that survives between calls — exactly `count` in disguise.
-- **Callbacks with baked-in context**: in robotics code you register
-  `on_frame(callback)` handlers everywhere; a closure lets the callback remember its
-  camera id or threshold without defining a one-off class — the Java pattern of an
-  anonymous inner class holding a final field, in two lines.
+*(Optional curiosity, skip freely: the backpack is real and inspectable. After
+`c = make_counter()`, the expression `c.__closure__[0].cell_contents` shows the
+current `count`. Never needed in real code — just proof there's no magic.)*
 
 ### 4. Default values and keyword arguments replace overloading
 
@@ -289,24 +273,42 @@ than by position. Java has nothing like it; it is why Python APIs with six optio
 parameters stay readable. In real code (and this repo's tests) you will constantly
 see calls like `sorted(xs, key=len, reverse=True)`.
 
-Now the most famous bug in Python. **Default values are evaluated exactly once, when
-the `def` statement runs — not once per call.** For immutable defaults (`speed=1.0`)
-this is invisible. For a *mutable* default like a list, every call that omits the
-argument shares the same single object:
+Now the most famous bug in Python. To see it coming, ask a question you have
+probably never asked: **when does the `speed=1.0` part actually run?**
+
+Remember from the closure section that a `def` line is itself a statement that
+Python *executes* — once, when it first reaches it (usually while loading the file)
+— and that executing a `def` creates the function object. Here is the new fact: **at
+that same moment, Python also computes every default value, once, and stores the
+result on the function object.** A call that omits the argument is simply handed the
+stored object. Not a fresh one — *the* stored one, every time.
+
+For `speed=1.0` you will never notice, because a float is **immutable** — it cannot
+be changed in place, and sharing a value nobody can change is harmless. But make the
+default a *list* — which CAN be changed in place — and watch:
 
 ```python
-def append_to(item, target=[]):   # BROKEN: this [] is created ONE time
+def append_to(item, target=[]):    # the [] runs ONCE, here, at def time
     target.append(item)
     return target
 
-append_to(1)                  # -> [1]
-append_to(2)                  # -> [1, 2]   surprise: same list as the first call
+append_to(1)                  # -> [1]      target = the one stored list
+append_to(2)                  # -> [1, 2]   target = the SAME stored list. Surprise.
 ```
 
-In Java terms, the default behaves like a **static field** initialized at class-load
-time, not like `new ArrayList<>()` executed inside each overload. The fix is the
-**None-sentinel idiom** — a **sentinel** is a special placeholder value meaning "the
-caller gave nothing"; `None` (Python's `null`) is the standard choice:
+Timeline, spelled out:
+
+```
+file loads:      def line runs → ONE empty list is created and stored on append_to
+append_to(1):    no target given → Python hands over the stored list → [1]
+append_to(2):    no target given → the SAME list again              → [1, 2]
+```
+
+In Java terms: you expected `new ArrayList<>()` inside each call, but what you wrote
+behaves like a **static field** initialized once at class-load time. The fix is the
+**None-sentinel idiom** — a **sentinel** is a placeholder value meaning "the caller
+gave nothing"; `None` (Python's `null`) is the standard choice, and the real object
+gets built *inside the body*, which runs fresh on every call:
 
 ```python
 def append_to(item, target=None):
@@ -314,11 +316,62 @@ def append_to(item, target=None):
         target = []           # a FRESH list, created per call
     target.append(item)
     return target
+
+append_to(1)                  # -> [1]
+append_to(2)                  # -> [2]     independent calls, as you expected
 ```
 
-Actionable rule: never put `[]`, `{}`, or any other mutable object in a parameter
-default. Default to `None` and build the object inside the body. (This is Gotcha 1
-in `../LEARNING_POINTS.md`, and a favorite interview trivia question.)
+Actionable rule: numbers, strings, `True`/`False`/`None` are safe as defaults
+(immutable); never put `[]`, `{}`, `set()`, or any other changeable object in a
+parameter default. (This is Gotcha 1 in `../LEARNING_POINTS.md`, and a favorite
+interview trivia question: "what does this print, and why?")
+
+#### The loop gotcha — functions made in a loop all see the LAST value
+
+You now hold both ingredients (closures read their backpack *when called*; defaults
+are computed *at def time*), so you can digest a classic trap. Build three tiny
+functions in a loop:
+
+```python
+fns = [lambda: i for i in range(3)]     # three lambdas, made while i = 0, 1, 2
+[f() for f in fns]                      # -> [2, 2, 2]    ...not [0, 1, 2]?!
+```
+
+Why: a backpack does **not** hold a photocopy of `i`'s value at packing time — all
+three lambdas' backpacks contain the *same shared variable* `i`, and the loop keeps
+overwriting it: 0, then 1, then 2. The lambda bodies run only *later*, and each one
+then looks in the backpack and reads `i` **as it is now**: 2. One sentence to
+remember: **a closure remembers where the variable lives, not what it was.**
+
+Fix 1 — the interview classic, using the default-value rule you just learned.
+Defaults are computed at def time, and here "def time" is *during the loop
+iteration*, while `i` is still 0 (then 1, then 2):
+
+```python
+fns = [lambda i=i: i for i in range(3)]
+[f() for f in fns]                      # -> [0, 1, 2]
+```
+
+Read `lambda i=i: i` as two different `i`s: the right one is the loop variable,
+evaluated on the spot; the left one is a brand-new parameter belonging to this one
+lambda, with that number frozen in as its default. A private photocopy per lambda,
+instead of the shared variable.
+
+Fix 2 — cleaner and more readable: a factory function. Each *call* of the outer
+function packs a fresh backpack (that is exactly `make_greeter`):
+
+```python
+def make_fn(i):
+    return lambda: i                    # captures THIS call's i
+
+fns = [make_fn(i) for i in range(3)]
+[f() for f in fns]                      # -> [0, 1, 2]
+```
+
+The real-world symptom of this bug is always the same: "all my callbacks act on the
+last camera / button / task." When you see that, think *shared variable in the
+backpack* — and reach for a factory or the `i=i` freeze. (Deep dive: Gotcha 8 in
+[`../LEARNING_POINTS.md`](../LEARNING_POINTS.md).)
 
 ### 5. `*args` and `**kwargs` — variadic in both directions
 
@@ -458,7 +511,7 @@ Type these until they require no thought:
 ```python
 f = some_function; f(x)                            # store a function, call it — no .apply()
 return lambda x: x * k                             # closure factory
-nonlocal count                                     # rebind enclosing-scope state
+nonlocal count                                     # assign to a backpack (outer-function) variable
 def f(item, target=None):                          # the None-sentinel default
     if target is None: target = []
 def wrapper(*args, **kwargs): return f(*args, **kwargs)   # accept-anything forwarding
