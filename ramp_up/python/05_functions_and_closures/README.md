@@ -89,67 +89,180 @@ sorted(words, key=lambda w: len(w))   # the natural habitat of lambda: inline ke
 
 ### 3. Closures — functions that remember where they were born
 
-A **closure** is a function that carries with it the variables from the scope where
-it was defined (its **enclosing scope** — the function it was written inside). We say
-it **captures** those variables. Java lambdas are closures too, but with the
-*effectively final* restriction: captured locals may never be reassigned. Python has
-no such rule.
+Start with the puzzle, because from a Java point of view this code should not work:
+
+```python
+def make_counter():
+    count = 0                 # a local variable of make_counter
+    def counter():
+        nonlocal count        # (explained below — ignore for 60 seconds)
+        count += 1
+        return count
+    return counter
+
+c = make_counter()            # make_counter has now RETURNED...
+c()                           # -> 1
+c()                           # -> 2   ...yet count is alive and counting?!
+```
+
+In Java, a method's local variables die when the method returns. `make_counter` has
+returned — so where is `count` living, and who is updating it? Three steps to the
+answer.
+
+#### Step 1 — `def` creates an object; the body runs later
+
+A `def` statement does **not** run the function body. It does two things: build a
+*function object*, and bind a name to it. The body runs only when you call it with
+`(...)`:
+
+```python
+def shout():
+    print("running!")         # <- does NOT print when this def line executes
+
+f = shout                     # no parentheses: handing the OBJECT around; still silent
+f()                           # -> running!    the () is what executes the body
+```
+
+So `return counter` inside `make_counter` returns a function **object** — a value
+you can store in a variable, with its body not yet run. Java's nearest analog is
+returning a `Supplier<Integer>`; the difference is that in Python this needs no
+interface, because functions are already ordinary objects.
+
+#### Step 2 — the anchor: a closure is an object with a private field, minus the class
+
+You have written `make_counter` hundreds of times in Java. It looked like this:
 
 ```java
-// Java factory: k is captured read-only
+class Counter {
+    private int count = 0;        // hidden state
+    int next() {                  // the one method allowed to touch it
+        count += 1;
+        return count;
+    }
+}
+Counter c = new Counter();
+c.next();   // 1
+c.next();   // 2
+```
+
+Same program, piece by piece:
+
+| Java | Python |
+|---|---|
+| `class Counter { ... }` | `def make_counter(): ...` |
+| `new Counter()` — constructor runs | `make_counter()` — outer body runs |
+| `private int count = 0;` | `count = 0` (outer function's local) |
+| the `next()` method | the inner `counter` function |
+| the instance stored in `c` | the returned function object stored in `c` |
+| `c.next()` | `c()` |
+
+A **closure** is exactly this bundle: the inner function *plus* the outer variables
+it uses (we say it **captures** them, and call the outer function's scope the
+**enclosing scope**). It is an object with one method and hidden fields, written
+without a class. And like instances, every factory call makes an independent one:
+
+```python
+a = make_counter()
+b = make_counter()
+a(); a(); a()                 # -> 1, 2, 3
+b()                           # -> 1     b has its OWN count — two `new Counter()`s
+```
+
+#### Step 3 — where `count` actually lives
+
+Python's compiler notices that the inner function uses `count` from the enclosing
+scope. So it does *not* store `count` in `make_counter`'s soon-to-die stack frame —
+it stores it in a small heap-allocated box (called a **cell**) that gets attached to
+the returned function object. The frame dies; the box survives, because `c` holds a
+reference to it. You can literally see it:
+
+```python
+c = make_counter()
+c.__closure__                     # -> (<cell at 0x...: int object at 0x...>,)
+c.__closure__[0].cell_contents    # -> 0     there's count, living in the box
+c(); c()
+c.__closure__[0].cell_contents    # -> 2     the box after two calls
+```
+
+You will never write `__closure__` in real code — but see it once and the magic
+dissolves: captured state is just an object on the heap, exactly like a Java field,
+reachable only through the function that captured it.
+
+#### Reading a captured variable is free; REBINDING needs `nonlocal`
+
+The read-only case needs no keyword at all — this is the classic **function
+factory**:
+
+```java
+// Java: k is captured read-only ("effectively final" — reassigning it is a compile error)
 Function<Double, Double> makeMultiplier(double k) {
-    return x -> x * k;        // fine — but only because k is never reassigned
+    return x -> x * k;
 }
 ```
 
 ```python
 def make_multiplier(k):
-    return lambda x: x * k    # the lambda closes over k
+    return lambda x: x * k    # reads k: no declaration needed
 
 triple = make_multiplier(3)
-triple(5)                     # -> 15; each call to make_multiplier gets its OWN k
+triple(5)                     # -> 15
 ```
 
-Now the part Java simply cannot do: a closure that *rebinds* the captured variable.
-**Rebind** means making the name point at a new object (`count = count + 1`), as
-opposed to mutating the object it already points at. To rebind an enclosing-scope
-variable you must declare `nonlocal`:
+**Rebinding** — making the name point at a *new* object, as `count += 1` does with a
+new int — is where Java and Python split. Java forbids it outright (that's what
+*effectively final* means). Python allows it, but you must declare your intent with
+`nonlocal count`: "count is not mine — it lives in the enclosing function; rebind
+that one."
+
+Why the declaration is required: **assignment is how Python decides what's local.**
+The compiler sees `count += 1` inside `counter`, concludes `count` must be a new
+local variable of `counter`, and then catches you reading it before it has a value:
 
 ```python
-def make_counter():
+def make_counter_broken():
     count = 0
     def counter():
-        nonlocal count        # "count lives in the enclosing function — rebind THAT one"
-        count += 1
+        count += 1            # forgot nonlocal -> count is now a LOCAL of counter
         return count
     return counter
 
-c = make_counter()
-c(); c(); c()                 # -> 1, 2, 3 — state with no class, no AtomicInteger
+make_counter_broken()()       # UnboundLocalError: cannot access local variable
+                              # 'count' where it is not associated with a value
 ```
 
-The gotcha, spelled out: if you forget `nonlocal`, the line `count += 1` makes
-Python treat `count` as a **new local variable** of `counter` — and then complains
-you're reading it before assigning it: `UnboundLocalError: cannot access local
-variable 'count' where it is not associated with a value`. When you see
-UnboundLocalError inside a nested function, the fix is almost always a missing
-`nonlocal` declaration. (Reading a captured variable needs nothing; only rebinding
-does.)
+When you see `UnboundLocalError` inside a nested function, the fix is almost always
+a missing `nonlocal`. (Its sibling `global` does the same for module-level names —
+mentioned for completeness, avoided in practice.)
 
-Second closure gotcha — **late binding**: a closure looks up the captured variable's
-value when it is *called*, not when it was defined. Create lambdas in a loop and they
-all end up seeing the loop variable's final value:
+#### The second gotcha — late binding
+
+A closure looks up the captured variable's value **when it is called**, not when it
+was defined. All lambdas created in a loop share the *same* loop variable — so after
+the loop, they all see its final value:
 
 ```python
 fns = [lambda: i for i in range(3)]
-[f() for f in fns]            # -> [2, 2, 2]   all three share the same i
+[f() for f in fns]            # -> [2, 2, 2]   all three read the same i, now 2
 
-fns = [lambda i=i: i for i in range(3)]   # fix: a default value freezes i per lambda
+fns = [lambda i=i: i for i in range(3)]   # fix: default value freezes i per lambda
 [f() for f in fns]            # -> [0, 1, 2]
 ```
 
 (Why the fix works is in the next section: defaults are evaluated immediately.)
 See Gotcha 8 in [`../LEARNING_POINTS.md`](../LEARNING_POINTS.md) for a deeper dive.
+
+#### Why you should care
+
+Closures are not a party trick; they are load-bearing Python:
+
+- **Function factories** — `make_multiplier`, `make_adder(n)`: the standard
+  interview screener for this topic.
+- **Decorators** (section 6) are closures: `memoize`'s cache dict is a captured
+  variable that survives between calls — exactly `count` in disguise.
+- **Callbacks with baked-in context**: in robotics code you register
+  `on_frame(callback)` handlers everywhere; a closure lets the callback remember its
+  camera id or threshold without defining a one-off class — the Java pattern of an
+  anonymous inner class holding a final field, in two lines.
 
 ### 4. Default values and keyword arguments replace overloading
 
