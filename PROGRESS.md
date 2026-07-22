@@ -26,6 +26,10 @@ Track which questions you've attempted, your notes, and what to study next.
 - [ ] Read `ramp_up/cpp/LEARNING_POINTS.md`
 - [ ] 01 STL containers
 - [ ] 02 Ownership & RAII
+- [ ] 03 Move semantics & Rule of Five
+- [ ] 04 Virtual functions & vtables
+- [ ] 05 Memory layout & cache
+- [ ] 06 Threads, atomics, queues
 
 ### Rust / TypeScript
 - [ ] Read `ramp_up/rust/LEARNING_POINTS.md`

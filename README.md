@@ -37,7 +37,7 @@ questions/               # Interview questions by topic
 
 ramp_up/                 # Language fluency drills (for devs coming from Java)
 ├── python/              # LEARNING_POINTS.md + 8 drill sets — do these FIRST
-├── cpp/                 # LEARNING_POINTS.md + STL & RAII drills
+├── cpp/                 # LEARNING_POINTS.md + 6 drill sets (STL, RAII, moves, vtables, cache, threads)
 ├── rust/                # LEARNING_POINTS.md (exercises coming)
 └── typescript/          # LEARNING_POINTS.md (exercises coming)
 ```
@@ -62,6 +62,17 @@ reference card — then work through the drill sets in order:
 Same practice flow as the questions: code in `starter.py`, check with
 `PRACTICE=1 uv run pytest ramp_up/python/01_collections_and_slicing -v`.
 C++ drills compile and run via the same pytest command (needs `clang++` or `g++`).
+
+The C++ track goes deeper — it's the language of the inference hot path:
+
+| # | Drill set | Interview topic it covers |
+|---|-----------|---------------------------|
+| 01 | STL containers | vector/string/map fluency, pass-by-const-reference |
+| 02 | Ownership & RAII | unique_ptr, destructors as deterministic cleanup |
+| 03 | Move semantics & Rule of Five | why copies are silent perf killers, std::move |
+| 04 | Virtual functions & vtables | the virtual-destructor classic, dispatch cost |
+| 05 | Memory layout & cache | padding, cache lines, AoS/SoA, traversal order |
+| 06 | Threads, atomics, queues | data races, mutex vs atomic, producer/consumer |
 
 Each question folder contains:
 | File | Purpose |
