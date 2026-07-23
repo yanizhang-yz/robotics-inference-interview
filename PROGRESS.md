@@ -58,11 +58,11 @@ Track which questions you've attempted, your notes, and what to study next.
 - [ ] 003 *(next: Forward kinematics 2-link arm)*
 
 ## 05 — Systems
-- [ ] 001 *(next: Implement a thread-safe ring buffer)*
+- [ ] 001 Thread-Safe Ring Buffer — _wraparound, locks, drop-oldest_
 - [ ] 002 *(next: Memory-aligned struct layout)*
 
 ## 06 — Linear Algebra
-- [ ] 001 *(next: Power iteration for dominant eigenvector)*
+- [ ] 001 Power Iteration — _dominant eigenpair, Rayleigh quotient_
 - [ ] 002 *(next: Least-squares via QR decomposition)*
 
 ---
