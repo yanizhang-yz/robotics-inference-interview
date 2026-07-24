@@ -8,8 +8,10 @@ import subprocess
 import pytest
 
 
-QUEST_DIR = Path(__file__).parents[1]
-TEST_DRIVER = Path(__file__).with_name("test_driver.cpp")
+PRACTICE_MODE = os.environ.get("PRACTICE") == "1"
+HEADER = "starter.hpp" if PRACTICE_MODE else "reference.hpp"
+QUESTION_DIR = Path(__file__).resolve().parent
+TEST_DRIVER = QUESTION_DIR / "test_driver.cpp"
 
 
 def find_compiler() -> str:
@@ -25,8 +27,6 @@ def find_compiler() -> str:
 
 @pytest.fixture()
 def test_binary(tmp_path: Path) -> Path:
-    impl = os.environ.get("CPP_QUEST_IMPL", "reference")
-    header = f"{impl}.hpp"
     binary = tmp_path / "bounded_blocking_queue_tests"
     compiler = find_compiler()
 
@@ -38,8 +38,8 @@ def test_binary(tmp_path: Path) -> Path:
         "-Wextra",
         "-Werror",
         "-I",
-        str(QUEST_DIR),
-        f'-DQUEST_HEADER="{header}"',
+        str(QUESTION_DIR),
+        f'-DQUEST_HEADER="{HEADER}"',
         str(TEST_DRIVER),
         "-o",
         str(binary),
