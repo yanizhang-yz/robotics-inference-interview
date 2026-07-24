@@ -5,6 +5,19 @@
 Implement CPU-side helpers for model output processing: numerically stable softmax,
 argmax, and top-k index selection.
 
+## Input and Output Contract
+
+The public interface is the declaration shown below. Inputs, return values,
+blocking behavior, ownership rules, and shutdown behavior are part of the
+contract and are exercised by `test_solution.py` plus `test_driver.cpp`.
+
+```cpp
+std::vector<float> softmax(std::span<const float> logits);
+std::size_t argmax(std::span<const float> values);
+std::vector<std::size_t> top_k_indices(std::span<const float> values,
+                                       std::size_t k);
+```
+
 ## Requirements
 
 Implement:
@@ -83,3 +96,20 @@ vocabulary.
 cd "/Users/yanizhang/Documents/Inference engineer/robotics-inference-lab"
 CPP_QUEST_IMPL=starter .venv/bin/python -m pytest -q quests/12-cpp-softmax-topk-sampling/tests/test_softmax_topk_sampling.py
 ```
+
+## Complexity Targets
+
+For `n` input values, `softmax` and `argmax` run in `O(n)` time; `softmax` returns
+`O(n)` storage while `argmax` uses `O(1)` auxiliary space. `top_k_indices` runs in
+`O(n log k)` time and uses `O(n)` storage because it builds an index vector for all
+inputs before the partial sort. There is no synchronization. The bounds treat each
+floating-point operation, comparison, and exponential as constant time and exclude
+allocator latency for returned and working vectors, while still counting their
+storage.
+
+## Interview Follow-ups
+
+1. Which invariant makes this implementation correct?
+2. What fails first under overload or malformed input?
+3. Which metric would reveal that failure in production?
+4. What changes for a robot control loop versus an offline batch job?

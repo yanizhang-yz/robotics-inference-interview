@@ -6,6 +6,28 @@ Implement a fixed-capacity ring buffer for recent sensor samples. The buffer sho
 avoid dynamic allocation after construction, preserve FIFO behavior, and expose an
 ASCII visualization of head and tail positions.
 
+## Input and Output Contract
+
+The public interface is the declaration shown below. Inputs, return values,
+blocking behavior, ownership rules, and shutdown behavior are part of the
+contract and are exercised by `test_solution.py` plus `test_driver.cpp`.
+
+```cpp
+template <typename T>
+class RingBuffer {
+ public:
+  explicit RingBuffer(std::size_t capacity);
+
+  bool push(T item);
+  std::optional<T> pop();
+  std::size_t size() const;
+  std::size_t capacity() const;
+  bool empty() const;
+  bool full() const;
+  std::string visualize() const;
+};
+```
+
 ## Requirements
 
 Implement:
@@ -89,3 +111,19 @@ It prevents unbounded memory growth and avoids dynamic allocation in a hot path.
 cd "/Users/yanizhang/Documents/Inference engineer/robotics-inference-lab"
 CPP_QUEST_IMPL=starter .venv/bin/python -m pytest -q quests/06-cpp-ring-buffer/tests/test_ring_buffer.py
 ```
+
+## Complexity Targets
+
+For capacity `C`, construction is `O(C)` time and `O(C)` retained space.
+`push`, `pop`, and all state queries are `O(1)`; `visualize` is `O(C)` time and
+produces `O(C)` output space. The ring storage allocates only during construction,
+while `visualize` may allocate for its returned string. There is no internal
+synchronization. The bounds exclude element move/destruction costs and allocator
+latency during construction and visualization.
+
+## Interview Follow-ups
+
+1. Which invariant makes this implementation correct?
+2. What fails first under overload or malformed input?
+3. Which metric would reveal that failure in production?
+4. What changes for a robot control loop versus an offline batch job?

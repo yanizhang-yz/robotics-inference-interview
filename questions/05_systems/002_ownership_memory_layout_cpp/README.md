@@ -6,6 +6,33 @@ Design a tiny tensor buffer API for inference preprocessing code. The API should
 memory safely, pass views without copying, support move semantics, and expose simple
 operations over contiguous data.
 
+## Input and Output Contract
+
+The public interface is the declaration shown below. Inputs, return values,
+blocking behavior, ownership rules, and shutdown behavior are part of the
+contract and are exercised by `test_solution.py` plus `test_driver.cpp`.
+
+```cpp
+class OwnedTensor {
+ public:
+  explicit OwnedTensor(std::vector<float> values);
+
+  OwnedTensor(const OwnedTensor&) = delete;
+  OwnedTensor& operator=(const OwnedTensor&) = delete;
+  OwnedTensor(OwnedTensor&&) noexcept = default;
+  OwnedTensor& operator=(OwnedTensor&&) noexcept = default;
+
+  std::span<float> values();
+  std::span<const float> values() const;
+  std::size_t size() const;
+  const float* data() const;
+};
+
+float dot_product(std::span<const float> lhs, std::span<const float> rhs);
+void normalize_in_place(std::span<float> values);
+OwnedTensor make_scaled_copy(std::span<const float> values, float scale);
+```
+
 ## Requirements
 
 Implement:
@@ -111,3 +138,20 @@ Reference:
 ```bash
 .venv/bin/python -m pytest -q quests/05-cpp-ownership-memory-layout/tests/test_ownership_memory_layout.py
 ```
+
+## Complexity Targets
+
+For `n` elements, tensor view, size, and data access are `O(1)`.
+`dot_product`, `normalize_in_place`, and `make_scaled_copy` are `O(n)` time;
+the first two use `O(1)` auxiliary space and the scaled copy owns `O(n)` output
+space. Moving an `OwnedTensor` is `O(1)` for its standard vector allocator. There is
+no synchronization. The bounds exclude allocator latency for the scaled copy and
+elementary floating-point operation costs, while still counting the copied output
+storage.
+
+## Interview Follow-ups
+
+1. Which invariant makes this implementation correct?
+2. What fails first under overload or malformed input?
+3. Which metric would reveal that failure in production?
+4. What changes for a robot control loop versus an offline batch job?

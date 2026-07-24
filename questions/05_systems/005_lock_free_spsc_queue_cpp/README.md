@@ -6,6 +6,27 @@ Implement a bounded lock-free single-producer/single-consumer queue for a sensor
 One thread writes samples, one thread reads samples, and neither side should take a
 mutex in the hot path.
 
+## Input and Output Contract
+
+The public interface is the declaration shown below. Inputs, return values,
+blocking behavior, ownership rules, and shutdown behavior are part of the
+contract and are exercised by `test_solution.py` plus `test_driver.cpp`.
+
+```cpp
+template <typename T>
+class SpscQueue {
+ public:
+  explicit SpscQueue(std::size_t capacity);
+
+  bool try_push(T item);
+  std::optional<T> try_pop();
+  std::size_t capacity() const;
+  std::size_t size() const;
+  bool empty() const;
+  bool full() const;
+};
+```
+
 ## Requirements
 
 Implement:
@@ -95,3 +116,19 @@ high-performance queues.
 cd "/Users/yanizhang/Documents/Inference engineer/robotics-inference-lab"
 CPP_QUEST_IMPL=starter .venv/bin/python -m pytest -q quests/07-cpp-lock-free-spsc-queue/tests/test_spsc_queue.py
 ```
+
+## Complexity Targets
+
+For capacity `C`, construction is `O(C)` time and retained space. Each `try_push`,
+`try_pop`, and state query is `O(1)` and non-blocking, with no queue allocation
+after construction. These guarantees require exactly one producer and one consumer.
+The bounds exclude cache-coherence and atomic memory-ordering latency plus element
+move/destruction costs; no mutex, condition-variable, or allocator cost is hidden in
+the queue operations themselves.
+
+## Interview Follow-ups
+
+1. Which invariant makes this implementation correct?
+2. What fails first under overload or malformed input?
+3. Which metric would reveal that failure in production?
+4. What changes for a robot control loop versus an offline batch job?

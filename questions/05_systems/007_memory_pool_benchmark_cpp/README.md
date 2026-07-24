@@ -6,6 +6,26 @@ Implement a fixed-size memory block pool for a latency-sensitive inference path.
 pool should preallocate memory, hand out fixed-size blocks, reuse released blocks, and
 fail predictably when exhausted.
 
+## Input and Output Contract
+
+The public interface is the declaration shown below. Inputs, return values,
+blocking behavior, ownership rules, and shutdown behavior are part of the
+contract and are exercised by `test_solution.py` plus `test_driver.cpp`.
+
+```cpp
+class FixedBlockPool {
+ public:
+  FixedBlockPool(std::size_t block_size, std::size_t block_count);
+
+  void* acquire();
+  void release(void* ptr);
+  bool owns(const void* ptr) const;
+  std::size_t available() const;
+  std::size_t capacity() const;
+  std::size_t block_size() const;
+};
+```
+
 ## Requirements
 
 Implement:
@@ -94,3 +114,20 @@ real-time-ish memory discipline.
 cd "/Users/yanizhang/Documents/Inference engineer/robotics-inference-lab"
 CPP_QUEST_IMPL=starter .venv/bin/python -m pytest -q quests/11-cpp-memory-pool-benchmark/tests/test_memory_pool.py
 ```
+
+## Complexity Targets
+
+For requested block size `S` and block count `B`, construction initializes
+`O(B * round_up(S))` bytes of block storage plus `O(B)` free-list entries and
+retains `O(B * round_up(S) + B)` storage. `acquire`, `release`, `owns`, and each
+size query are `O(1)`. Valid acquire/release cycles perform no heap allocation after
+construction. The pool has no internal synchronization, so concurrent callers must
+synchronize externally; the bounds exclude constructor allocator latency and cache
+effects.
+
+## Interview Follow-ups
+
+1. Which invariant makes this implementation correct?
+2. What fails first under overload or malformed input?
+3. Which metric would reveal that failure in production?
+4. What changes for a robot control loop versus an offline batch job?

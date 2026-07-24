@@ -8,6 +8,28 @@ Multiple client threads push requests into the queue. Worker threads pop request
 the queue and run inference. The queue must provide backpressure when it is full,
 block consumers when it is empty, and shut down cleanly.
 
+## Input and Output Contract
+
+The public interface is the declaration shown below. Inputs, return values,
+blocking behavior, ownership rules, and shutdown behavior are part of the
+contract and are exercised by `test_solution.py` plus `test_driver.cpp`.
+
+```cpp
+template <typename T>
+class BoundedBlockingQueue {
+ public:
+  explicit BoundedBlockingQueue(std::size_t capacity);
+
+  bool push(T item);
+  std::optional<T> pop();
+  void close();
+
+  std::size_t size() const;
+  std::size_t capacity() const;
+  bool closed() const;
+};
+```
+
 ## Requirements
 
 Implement:
@@ -285,3 +307,19 @@ That means every wait must check a real shared state predicate such as:
 closed_ || items_.size() < capacity_
 closed_ || !items_.empty()
 ```
+
+## Complexity Targets
+
+Once its wait predicate is satisfied, each `push`, `pop`, and state query performs
+`O(1)` queue work; `close` performs `O(1)` shared-state work and wakes all waiters.
+The queue retains `O(capacity)` elements. These bounds exclude unbounded blocking
+time, mutex contention, condition-variable wake-up and OS scheduling costs, and
+allocator latency or element move/destruction costs from the underlying `std::deque`;
+the logical capacity bounds elements but does not promise a preallocated deque.
+
+## Interview Follow-ups
+
+1. Which invariant makes this implementation correct?
+2. What fails first under overload or malformed input?
+3. Which metric would reveal that failure in production?
+4. What changes for a robot control loop versus an offline batch job?

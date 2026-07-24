@@ -5,6 +5,24 @@
 Implement a small thread pool that accepts inference tasks, runs them on worker
 threads, returns futures to callers, and shuts down cleanly.
 
+## Input and Output Contract
+
+The public interface is the declaration shown below. Inputs, return values,
+blocking behavior, ownership rules, and shutdown behavior are part of the
+contract and are exercised by `test_solution.py` plus `test_driver.cpp`.
+
+```cpp
+class ThreadPool {
+ public:
+  explicit ThreadPool(std::size_t num_workers);
+
+  template <typename Fn>
+  auto submit(Fn fn) -> std::future<std::invoke_result_t<Fn>>;
+
+  void shutdown();
+};
+```
+
 ## Requirements
 
 Implement:
@@ -87,3 +105,21 @@ This quest connects request lifecycle, futures, worker threads, and graceful shu
 cd "/Users/yanizhang/Documents/Inference engineer/robotics-inference-lab"
 CPP_QUEST_IMPL=starter .venv/bin/python -m pytest -q quests/09-cpp-thread-pool-inference-server/tests/test_thread_pool.py
 ```
+
+## Complexity Targets
+
+For `w` workers and `q` queued tasks, construction performs `O(w)` thread setup,
+`submit` performs `O(1)` expected queue work, and shutdown performs `O(w + q)` pool
+bookkeeping while waiting for all accepted task runtimes to finish. Retained pool
+overhead is `O(w + q)` plus the storage owned by user callables and future results.
+These bounds exclude task execution time, mutex contention, condition-variable
+wake-up, thread creation/join and OS scheduling latency, and per-submission
+allocation latency for the packaged task, shared ownership, callable wrapper, future
+state, and queue storage.
+
+## Interview Follow-ups
+
+1. Which invariant makes this implementation correct?
+2. What fails first under overload or malformed input?
+3. Which metric would reveal that failure in production?
+4. What changes for a robot control loop versus an offline batch job?
