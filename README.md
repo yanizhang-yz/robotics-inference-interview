@@ -1,6 +1,11 @@
-# Robotics Inference Engineer — Interview Prep
+# Robotics Inference Interview
 
-Coding questions, solutions, and test suites for robotics inference engineer interviews. Built for hands-on practice: read the problem, write your own solution, then run the tests.
+Test-driven coding practice for robotics inference roles: algorithms, computer
+vision, ML inference, robotics math, linear algebra, and C++ systems.
+
+Every interview question defines an input/output contract, starter
+implementation, reference implementation, automated tests, complexity
+analysis, and production-oriented follow-ups.
 
 ## Setup
 
@@ -15,14 +20,15 @@ uv run pytest -v -k "nms"            # run a specific question
 ## How to practice
 
 1. Pick a question and read its `README.md`.
-2. Write your own solution in `starter.py` (don't peek at `solution.py`).
+2. Write your own solution in `starter.py` or `starter.hpp` (don't peek at the
+   reference implementation).
 3. Run the tests **against your attempt**:
 
 ```bash
 PRACTICE=1 uv run pytest questions/01_algorithms/001_sliding_window_maximum -v
 ```
 
-4. Compare with the reference in `solution.py` and note the differences.
+4. Compare with `solution.py` or `reference.hpp` and note the differences.
 
 ## Structure
 
@@ -32,7 +38,7 @@ questions/               # Interview questions by topic
 ├── 02_computer_vision/  # NMS, IoU, convolution, image transforms
 ├── 03_ml_inference/     # Quantization, batching, latency, TensorRT concepts
 ├── 04_robotics/         # Rotation matrices, kinematics, coordinate frames
-├── 05_systems/          # Memory layout, CUDA basics, concurrency
+├── 05_systems/          # Ownership, memory layout, queues, concurrency
 └── 06_linear_algebra/   # SVD, PCA, eigendecomposition
 
 ramp_up/                 # Language fluency drills (for devs coming from Java)
@@ -75,46 +81,69 @@ The C++ track goes deeper — it's the language of the inference hot path:
 | 06 | Threads, atomics, queues | data races, mutex vs atomic, producer/consumer |
 
 Each question folder contains:
-| File | Purpose |
-|------|---------|
-| `README.md` | Problem statement, context, follow-up questions |
-| `starter.py` | Skeleton with signatures + hints — write your attempt here |
-| `solution.py` | Reference solution |
-| `test_solution.py` | pytest test suite (runs against reference, or your starter with `PRACTICE=1`) |
 
-C++ questions (when added) follow the same pattern: `starter.cpp`, `solution.cpp`, and a test harness.
+| Part | Python | C++ |
+|------|--------|-----|
+| Contract, complexity, follow-ups | `README.md` | `README.md` |
+| Starter implementation | `starter.py` | `starter.hpp` |
+| Reference implementation | `solution.py` | `reference.hpp` |
+| Automated tests | `test_solution.py` | `test_solution.py` + `test_driver.cpp` |
+
+C++ questions also include `DISCUSSION.md` for production-oriented design
+analysis. Tests run against the reference by default and against the starter
+when `PRACTICE=1` is set.
 
 ## Questions
 
 ### 01 — Algorithms
-| # | Question | Difficulty | Key concept |
-|---|----------|-----------|-------------|
-| 001 | [Sliding Window Maximum](questions/01_algorithms/001_sliding_window_maximum/) | Medium | Monotonic deque |
+
+| # | Question | Language | Focus |
+|---|----------|----------|-------|
+| 001 | [Sliding Window Maximum](questions/01_algorithms/001_sliding_window_maximum/) | Python | Monotonic deque |
 
 ### 02 — Computer Vision
-| # | Question | Difficulty | Key concept |
-|---|----------|-----------|-------------|
-| 001 | [Non-Maximum Suppression](questions/02_computer_vision/001_non_maximum_suppression/) | Medium | IoU, greedy |
+
+| # | Question | Language | Focus |
+|---|----------|----------|-------|
+| 001 | [Non-Maximum Suppression](questions/02_computer_vision/001_non_maximum_suppression/) | Python | IoU, greedy suppression |
 
 ### 03 — ML Inference
-| # | Question | Difficulty | Key concept |
-|---|----------|-----------|-------------|
-| 001 | [Quantize Tensor (INT8)](questions/03_ml_inference/001_quantize_tensor/) | Medium | Symmetric quant, scale |
+
+| # | Question | Language | Focus |
+|---|----------|----------|-------|
+| 001 | [Quantize Tensor (INT8)](questions/03_ml_inference/001_quantize_tensor/) | Python | Symmetric quantization |
+| 002 | [Dynamic Batcher](questions/03_ml_inference/002_dynamic_batcher_cpp/) | C++20 | Batching, futures, shutdown |
+| 003 | [Softmax, Top-K, and Sampling](questions/03_ml_inference/003_softmax_topk_sampling_cpp/) | C++20 | Stable output processing |
 
 ### 04 — Robotics
-| # | Question | Difficulty | Key concept |
-|---|----------|-----------|-------------|
-| 001 | [3D Rotation Matrix](questions/04_robotics/001_rotation_matrix_3d/) | Medium | SO(3), coordinate frames |
+
+| # | Question | Language | Focus |
+|---|----------|----------|-------|
+| 001 | [3D Rotation Matrix](questions/04_robotics/001_rotation_matrix_3d/) | Python | SO(3), coordinate frames |
+| 004 | [Sensor Stream Alignment](questions/04_robotics/004_sensor_stream_alignment_cpp/) | C++20 | Timestamped sensor fusion |
 
 ### 05 — Systems
-*(coming soon)*
+
+| # | Question | Language | Focus |
+|---|----------|----------|-------|
+| 001 | [Thread-Safe Ring Buffer](questions/05_systems/001_thread_safe_ring_buffer/) | Python | Fixed-capacity concurrency |
+| 002 | [Ownership and Memory Layout](questions/05_systems/002_ownership_memory_layout_cpp/) | C++20 | Ownership, views, moves |
+| 003 | [Bounded Blocking Queue](questions/05_systems/003_bounded_blocking_queue_cpp/) | C++20 | Backpressure, shutdown |
+| 004 | [Ring Buffer](questions/05_systems/004_ring_buffer_cpp/) | C++20 | Allocation-free FIFO storage |
+| 005 | [Lock-Free SPSC Queue](questions/05_systems/005_lock_free_spsc_queue_cpp/) | C++20 | Atomics, memory ordering |
+| 006 | [Thread Pool Inference Server](questions/05_systems/006_thread_pool_inference_server_cpp/) | C++20 | Workers, tasks, futures |
+| 007 | [Memory Pool and Allocation Benchmark](questions/05_systems/007_memory_pool_benchmark_cpp/) | C++20 | Fixed-block allocation |
 
 ### 06 — Linear Algebra
-*(coming soon)*
+
+| # | Question | Language | Focus |
+|---|----------|----------|-------|
+| 001 | [Power Iteration](questions/06_linear_algebra/001_power_iteration/) | Python | Dominant eigenpairs |
 
 ## Contributing
 
-Open a PR or issue with a new question. Each PR should add a full folder: `README.md` + `solution.py` + `test_solution.py`.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the question contract and validation
+commands.
 
 ---
 

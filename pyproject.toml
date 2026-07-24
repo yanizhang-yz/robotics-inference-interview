@@ -1,7 +1,7 @@
 [project]
 name = "robotics-inference-interview"
 version = "0.1.0"
-description = "Robotics inference engineer interview prep — coding questions with solutions and tests"
+description = "Test-driven robotics inference interview questions with explicit contracts, solutions, and tests"
 requires-python = ">=3.11"
 dependencies = [
     "numpy",
