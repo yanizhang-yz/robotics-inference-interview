@@ -107,9 +107,16 @@ It prevents unbounded memory growth and avoids dynamic allocation in a hot path.
 
 ## Player Task
 
+Run the starter implementation:
+
 ```bash
-cd "/Users/yanizhang/Documents/Inference engineer/robotics-inference-lab"
-CPP_QUEST_IMPL=starter .venv/bin/python -m pytest -q quests/06-cpp-ring-buffer/tests/test_ring_buffer.py
+PRACTICE=1 uv run pytest questions/05_systems/004_ring_buffer_cpp -q
+```
+
+Run the reference implementation:
+
+```bash
+uv run pytest questions/05_systems/004_ring_buffer_cpp -q
 ```
 
 ## Complexity Targets

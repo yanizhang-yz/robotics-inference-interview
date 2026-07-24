@@ -112,9 +112,16 @@ high-performance queues.
 
 ## Player Task
 
+Run the starter implementation:
+
 ```bash
-cd "/Users/yanizhang/Documents/Inference engineer/robotics-inference-lab"
-CPP_QUEST_IMPL=starter .venv/bin/python -m pytest -q quests/07-cpp-lock-free-spsc-queue/tests/test_spsc_queue.py
+PRACTICE=1 uv run pytest questions/05_systems/005_lock_free_spsc_queue_cpp -q
+```
+
+Run the reference implementation:
+
+```bash
+uv run pytest questions/05_systems/005_lock_free_spsc_queue_cpp -q
 ```
 
 ## Complexity Targets

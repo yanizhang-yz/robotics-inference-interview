@@ -265,18 +265,16 @@ Useful production metrics:
 
 Fill in `starter.hpp`.
 
-Run the player implementation:
+Run the starter implementation:
 
 ```bash
-cd "/Users/yanizhang/Documents/Inference engineer/robotics-inference-lab"
-CPP_QUEST_IMPL=starter .venv/bin/python -m pytest -q quests/04-cpp-bounded-blocking-queue/tests/test_bounded_blocking_queue.py
+PRACTICE=1 uv run pytest questions/05_systems/003_bounded_blocking_queue_cpp -q
 ```
 
 Run the reference implementation:
 
 ```bash
-cd "/Users/yanizhang/Documents/Inference engineer/robotics-inference-lab"
-.venv/bin/python -m pytest -q quests/04-cpp-bounded-blocking-queue/tests/test_bounded_blocking_queue.py
+uv run pytest questions/05_systems/003_bounded_blocking_queue_cpp -q
 ```
 
 ## Core Mental Model

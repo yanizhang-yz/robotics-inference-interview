@@ -101,9 +101,16 @@ This quest connects request lifecycle, futures, worker threads, and graceful shu
 
 ## Player Task
 
+Run the starter implementation:
+
 ```bash
-cd "/Users/yanizhang/Documents/Inference engineer/robotics-inference-lab"
-CPP_QUEST_IMPL=starter .venv/bin/python -m pytest -q quests/09-cpp-thread-pool-inference-server/tests/test_thread_pool.py
+PRACTICE=1 uv run pytest questions/05_systems/006_thread_pool_inference_server_cpp -q
+```
+
+Run the reference implementation:
+
+```bash
+uv run pytest questions/05_systems/006_thread_pool_inference_server_cpp -q
 ```
 
 ## Complexity Targets

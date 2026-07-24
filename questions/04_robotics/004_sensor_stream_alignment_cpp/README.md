@@ -128,9 +128,16 @@ the systems connection between sensors and inference.
 
 ## Player Task
 
+Run the starter implementation:
+
 ```bash
-cd "/Users/yanizhang/Documents/Inference engineer/robotics-inference-lab"
-CPP_QUEST_IMPL=starter .venv/bin/python -m pytest -q quests/08-cpp-sensor-stream-alignment/tests/test_sensor_stream_alignment.py
+PRACTICE=1 uv run pytest questions/04_robotics/004_sensor_stream_alignment_cpp -q
+```
+
+Run the reference implementation:
+
+```bash
+uv run pytest questions/04_robotics/004_sensor_stream_alignment_cpp -q
 ```
 
 ## Complexity Targets

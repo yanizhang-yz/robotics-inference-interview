@@ -92,9 +92,16 @@ vocabulary.
 
 ## Player Task
 
+Run the starter implementation:
+
 ```bash
-cd "/Users/yanizhang/Documents/Inference engineer/robotics-inference-lab"
-CPP_QUEST_IMPL=starter .venv/bin/python -m pytest -q quests/12-cpp-softmax-topk-sampling/tests/test_softmax_topk_sampling.py
+PRACTICE=1 uv run pytest questions/03_ml_inference/003_softmax_topk_sampling_cpp -q
+```
+
+Run the reference implementation:
+
+```bash
+uv run pytest questions/03_ml_inference/003_softmax_topk_sampling_cpp -q
 ```
 
 ## Complexity Targets

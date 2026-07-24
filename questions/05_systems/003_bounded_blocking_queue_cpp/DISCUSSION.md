@@ -4,11 +4,11 @@ Use this file after your first attempt.
 
 ## What I Implemented
 
-- 
+-
 
 ## Bugs I Hit
 
-- 
+-
 
 ## Interview Explanation
 

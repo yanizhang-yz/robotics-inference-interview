@@ -3,9 +3,10 @@
 Test-driven coding practice for robotics inference roles: algorithms, computer
 vision, ML inference, robotics math, linear algebra, and C++ systems.
 
-Every interview question defines an input/output contract, starter
+The migrated C++20 track defines an input/output contract, starter
 implementation, reference implementation, automated tests, complexity
-analysis, and production-oriented follow-ups.
+analysis, and production-oriented follow-ups for every question. The Python
+track retains its original problem statements, starters, solutions, and tests.
 
 ## Setup
 
@@ -82,16 +83,17 @@ The C++ track goes deeper — it's the language of the inference hot path:
 
 Each question folder contains:
 
-| Part | Python | C++ |
-|------|--------|-----|
-| Contract, complexity, follow-ups | `README.md` | `README.md` |
+| Part | Python | Normalized C++20 track |
+|------|--------|------------------------|
+| Problem statement | `README.md` | `README.md` |
+| Explicit contract, complexity, follow-ups | Varies by question | `README.md` |
 | Starter implementation | `starter.py` | `starter.hpp` |
 | Reference implementation | `solution.py` | `reference.hpp` |
 | Automated tests | `test_solution.py` | `test_solution.py` + `test_driver.cpp` |
 
-C++ questions also include `DISCUSSION.md` for production-oriented design
-analysis. Tests run against the reference by default and against the starter
-when `PRACTICE=1` is set.
+The normalized C++20 questions also include `DISCUSSION.md` for
+production-oriented design analysis. Tests run against the reference by
+default and against the starter when `PRACTICE=1` is set.
 
 ## Questions
 

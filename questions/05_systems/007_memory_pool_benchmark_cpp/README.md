@@ -110,9 +110,16 @@ real-time-ish memory discipline.
 
 ## Player Task
 
+Run the starter implementation:
+
 ```bash
-cd "/Users/yanizhang/Documents/Inference engineer/robotics-inference-lab"
-CPP_QUEST_IMPL=starter .venv/bin/python -m pytest -q quests/11-cpp-memory-pool-benchmark/tests/test_memory_pool.py
+PRACTICE=1 uv run pytest questions/05_systems/007_memory_pool_benchmark_cpp -q
+```
+
+Run the reference implementation:
+
+```bash
+uv run pytest questions/05_systems/007_memory_pool_benchmark_cpp -q
 ```
 
 ## Complexity Targets

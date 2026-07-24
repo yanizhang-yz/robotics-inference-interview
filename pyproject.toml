@@ -9,7 +9,7 @@ dependencies = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["questions", "ramp_up"]
+testpaths = ["questions", "ramp_up", "tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

@@ -128,15 +128,16 @@ and copy avoidance.
 
 Fill in `starter.hpp`.
 
+Run the starter implementation:
+
 ```bash
-cd "/Users/yanizhang/Documents/Inference engineer/robotics-inference-lab"
-CPP_QUEST_IMPL=starter .venv/bin/python -m pytest -q quests/05-cpp-ownership-memory-layout/tests/test_ownership_memory_layout.py
+PRACTICE=1 uv run pytest questions/05_systems/002_ownership_memory_layout_cpp -q
 ```
 
-Reference:
+Run the reference implementation:
 
 ```bash
-.venv/bin/python -m pytest -q quests/05-cpp-ownership-memory-layout/tests/test_ownership_memory_layout.py
+uv run pytest questions/05_systems/002_ownership_memory_layout_cpp -q
 ```
 
 ## Complexity Targets
