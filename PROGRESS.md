@@ -49,17 +49,23 @@ Track which questions you've attempted, your notes, and what to study next.
 
 ## 03 — ML Inference
 - [ ] 001 Quantize Tensor (INT8 symmetric) — _scale, clamp, round_
-- [ ] 002 *(next: Dynamic batching throughput model)*
-- [ ] 003 *(next: ONNX graph traversal)*
+- [ ] 002 C++ Dynamic Batcher — _batching, futures, timeout, shutdown_
+- [ ] 003 C++ Softmax, Top-K, and Sampling — _numerical stability, selection_
 
 ## 04 — Robotics
 - [ ] 001 3D Rotation Matrix — _SO(3), orthogonality_
 - [ ] 002 *(next: Quaternion to rotation matrix)*
 - [ ] 003 *(next: Forward kinematics 2-link arm)*
+- [ ] 004 C++ Sensor Stream Alignment — _timestamps, tolerance, interpolation_
 
 ## 05 — Systems
 - [ ] 001 Thread-Safe Ring Buffer — _wraparound, locks, drop-oldest_
-- [ ] 002 *(next: Memory-aligned struct layout)*
+- [ ] 002 C++ Ownership and Memory Layout — _RAII, views, moves, contiguity_
+- [ ] 003 C++ Bounded Blocking Queue — _backpressure, condition variables, shutdown_
+- [ ] 004 C++ Ring Buffer — _fixed capacity, FIFO, no post-construction allocation_
+- [ ] 005 C++ Lock-Free SPSC Queue — _atomics, memory ordering_
+- [ ] 006 C++ Thread Pool Inference Server — _workers, tasks, futures, shutdown_
+- [ ] 007 C++ Memory Pool and Allocation Benchmark — _fixed-block allocation, latency_
 
 ## 06 — Linear Algebra
 - [ ] 001 Power Iteration — _dominant eigenpair, Rayleigh quotient_
