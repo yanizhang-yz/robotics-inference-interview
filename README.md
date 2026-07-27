@@ -8,6 +8,14 @@ implementation, reference implementation, automated tests, complexity
 analysis, and production-oriented follow-ups for every question. The Python
 track retains its original problem statements, starters, solutions, and tests.
 
+## Part of the Software-to-Robotics-Inference Path
+
+For a Java/C-oriented software engineer, first bridge into the interview
+languages with the [Python ramp](ramp_up/python/) and [C++ ramp](ramp_up/cpp/).
+Then use this repository to turn [M0 — skill translation](https://github.com/yanizhang-yz/software-to-robotics-inference/blob/main/docs/milestones/m0-skill-translation.md)
+into practiced implementations and carry completed artifacts into
+[M6 — contribute and present the evidence](https://github.com/yanizhang-yz/software-to-robotics-inference/blob/main/docs/milestones/m6-contribute-and-present.md).
+
 ## Setup
 
 ```bash
@@ -19,6 +27,9 @@ uv run pytest -v -k "nms"            # run a specific question
 ```
 
 ## How to practice
+
+[Follow the milestone-to-interview practice map](docs/milestone-to-interview-map.md)
+to connect completed exercises to coding, system-design, and artifact stories.
 
 1. Pick a question and read its `README.md`.
 2. Write your own solution in `starter.py` or `starter.hpp` (don't peek at the
