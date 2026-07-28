@@ -51,7 +51,8 @@ questions/               # Interview questions by topic
 ├── 03_ml_inference/     # Quantization, batching, latency, TensorRT concepts
 ├── 04_robotics/         # Rotation matrices, kinematics, coordinate frames
 ├── 05_systems/          # Ownership, memory layout, queues, concurrency
-└── 06_linear_algebra/   # SVD, PCA, eigendecomposition
+├── 06_linear_algebra/   # Eigenvectors, least squares, PCA
+└── 07_llm_and_agents/   # Sampling, KV cache, agentic tool loops
 
 ramp_up/                 # Language fluency drills (for devs coming from Java)
 ├── python/              # LEARNING_POINTS.md + 8 drill sets — do these FIRST
@@ -113,12 +114,16 @@ default and against the starter when `PRACTICE=1` is set.
 | # | Question | Language | Focus |
 |---|----------|----------|-------|
 | 001 | [Sliding Window Maximum](questions/01_algorithms/001_sliding_window_maximum/) | Python | Monotonic deque |
+| 002 | [Median of a Data Stream](questions/01_algorithms/002_median_of_data_stream/) | Python | Two heaps |
+| 003 | [K Closest Points](questions/01_algorithms/003_k_closest_points/) | Python | Heap, squared distance |
 
 ### 02 — Computer Vision
 
 | # | Question | Language | Focus |
 |---|----------|----------|-------|
 | 001 | [Non-Maximum Suppression](questions/02_computer_vision/001_non_maximum_suppression/) | Python | IoU, greedy suppression |
+| 002 | [Conv2d from Scratch](questions/02_computer_vision/002_conv2d_from_scratch/) | Python | Padding, stride, output shape |
+| 003 | [Connected Components](questions/02_computer_vision/003_connected_components/) | Python | Grid BFS, blob labeling |
 
 ### 03 — ML Inference
 
@@ -127,13 +132,17 @@ default and against the starter when `PRACTICE=1` is set.
 | 001 | [Quantize Tensor (INT8)](questions/03_ml_inference/001_quantize_tensor/) | Python | Symmetric quantization |
 | 002 | [Dynamic Batcher](questions/03_ml_inference/002_dynamic_batcher_cpp/) | C++20 | Batching, futures, shutdown |
 | 003 | [Softmax, Top-K, and Sampling](questions/03_ml_inference/003_softmax_topk_sampling_cpp/) | C++20 | Stable output processing |
+| 004 | [Scaled Dot-Product Attention](questions/03_ml_inference/004_scaled_dot_product_attention/) | Python | Stable softmax, causal mask |
 
 ### 04 — Robotics
 
 | # | Question | Language | Focus |
 |---|----------|----------|-------|
 | 001 | [3D Rotation Matrix](questions/04_robotics/001_rotation_matrix_3d/) | Python | SO(3), coordinate frames |
+| 002 | [Quaternion Operations](questions/04_robotics/002_quaternion_operations/) | Python | Hamilton product, to-matrix |
+| 003 | [A* on an Occupancy Grid](questions/04_robotics/003_astar_occupancy_grid/) | Python | Heap, admissible heuristic |
 | 004 | [Sensor Stream Alignment](questions/04_robotics/004_sensor_stream_alignment_cpp/) | C++20 | Timestamped sensor fusion |
+| 005 | [1-D Kalman Filter](questions/04_robotics/005_kalman_filter_1d/) | Python | Predict/update, gain intuition |
 
 ### 05 — Systems
 
@@ -146,12 +155,22 @@ default and against the starter when `PRACTICE=1` is set.
 | 005 | [Lock-Free SPSC Queue](questions/05_systems/005_lock_free_spsc_queue_cpp/) | C++20 | Atomics, memory ordering |
 | 006 | [Thread Pool Inference Server](questions/05_systems/006_thread_pool_inference_server_cpp/) | C++20 | Workers, tasks, futures |
 | 007 | [Memory Pool and Allocation Benchmark](questions/05_systems/007_memory_pool_benchmark_cpp/) | C++20 | Fixed-block allocation |
+| 008 | [LRU Cache](questions/05_systems/008_lru_cache/) | Python | Dict + doubly-linked list |
 
 ### 06 — Linear Algebra
 
 | # | Question | Language | Focus |
 |---|----------|----------|-------|
 | 001 | [Power Iteration](questions/06_linear_algebra/001_power_iteration/) | Python | Dominant eigenpairs |
+| 002 | [Least-Squares Fit](questions/06_linear_algebra/002_least_squares_fit/) | Python | Normal equations, lstsq |
+
+### 07 — LLM & Agents
+
+| # | Question | Language | Focus |
+|---|----------|----------|-------|
+| 001 | [Sampling: Temperature, Top-k, Top-p](questions/07_llm_and_agents/001_sampling_topk_topp/) | Python | Serving-config math |
+| 002 | [KV Cache](questions/07_llm_and_agents/002_kv_cache/) | Python | Memory formula, O(n) decode |
+| 003 | [Agent Tool Loop](questions/07_llm_and_agents/003_agent_tool_loop/) | Python | Transcript state, error recovery |
 
 ## Contributing
 
