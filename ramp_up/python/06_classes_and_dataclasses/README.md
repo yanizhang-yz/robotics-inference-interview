@@ -1,64 +1,31 @@
 # 06 — Classes and Dataclasses
 
 After this lesson you can write a Python class that does everything a well-crafted
-Java class does — value equality, use as a map key, sorting, iteration, a readable
-string form, controlled attribute access — in roughly a tenth of the code. You will
-know exactly which one-line Python feature replaces each block of Java ceremony:
-`@dataclass` replaces the POJO boilerplate, *dunder methods* replace `implements
-Comparable`/`Iterable`/`toString`, `@property` replaces getter/setter pairs,
-`@classmethod` replaces static factories, and *duck typing* replaces the interface
-itself. Every one of those terms is defined below before you need it.
+class should — value equality, use as a dict key, sorting, iteration, a readable
+string form, controlled attribute access — in a handful of lines. You will
+know exactly which one-line Python feature does each job:
+`@dataclass` generates the constructor/equality/printing boilerplate, *dunder
+methods* plug your type into operators and builtins, `@property` replaces
+getter/setter pairs, `@classmethod` builds alternate constructors, and *duck typing*
+replaces interface declarations. Every one of those terms is defined below before
+you need it.
 
-## The Java you know
+## The problem this lesson solves
 
-This is the class you have written a hundred times — an immutable 2D vector,
-done properly:
-
-```java
-public final class Vector2D {
-    private final double x;
-    private final double y;
-
-    public Vector2D(double x, double y) { this.x = x; this.y = y; }
-
-    public double getX() { return x; }
-    public double getY() { return y; }
-
-    public Vector2D add(Vector2D o) { return new Vector2D(x + o.x, y + o.y); }
-
-    @Override public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Vector2D)) return false;
-        Vector2D v = (Vector2D) o;
-        return Double.compare(x, v.x) == 0 && Double.compare(y, v.y) == 0;
-    }
-    @Override public int hashCode() { return Objects.hash(x, y); }
-    @Override public String toString() { return "Vector2D(" + x + ", " + y + ")"; }
-}
-```
-
-Add `implements Comparable<Vector2D>` and a `compareTo` if you want sorting.
-Twenty-five lines before any actual logic, and `a.add(b).add(c)` instead of `a + b + c`.
-Lombok's `@Value` exists precisely because this hurts. Python builds the equivalent
-of Lombok into the standard library, and this lesson is about using it.
+A proper value class — say, an immutable 2D vector — needs a constructor, field
+storage, content-based equality, a matching hash so sets and dict keys work, a
+readable printed form, and ideally `v1 + v2` instead of `v1.add(v2)`. Written by
+hand, that is twenty-five lines of ceremony before any actual logic, and it must be
+kept consistent every time a field changes. Python builds the generator for all of
+it into the standard library, and this lesson is about using it.
 
 ## The lesson
 
 ### 1. A class with no ceremony
 
-A minimal Python class, next to its Java twin:
-
-```java
-// Java
-public class Motor {
-    private int rpm;
-    public Motor(int rpm) { this.rpm = rpm; }
-}
-Motor m = new Motor(50);
-```
+A minimal Python class:
 
 ```python
-# Python
 class Motor:
     def __init__(self, rpm):
         self.rpm = rpm      # this line CREATES the field — no declaration above
@@ -66,12 +33,12 @@ class Motor:
 m = Motor(50)               # no `new` keyword; calling the class constructs it
 ```
 
-What changed, piece by piece:
+Piece by piece:
 
 - **`__init__` is the constructor** (strictly: the *initializer* — the object already
   exists when it runs, but "constructor" is the right mental model). You never call it
   directly; `Motor(50)` does.
-- **`self` is Java's `this`, but explicit.** Every instance method takes it as the
+- **`self` is the object itself, passed explicitly.** Every instance method takes it as the
   first parameter, and Python fills it in when you call `m.method()`. Forget it and
   the error is confusing until you've seen it once: defining `def speak():` (no
   `self`) on `Motor` and calling `m.speak()` gives
@@ -86,14 +53,14 @@ What changed, piece by piece:
   `self._items` means "internal, don't touch" — but nothing enforces it;
   `m._items` works fine. It's a signal to readers, not a lock.
 
-### 2. `@dataclass` — Lombok built into the language
+### 2. `@dataclass` — the boilerplate generator in the standard library
 
 A **decorator** is a function applied to a class or function at definition time,
-written `@name` on the line above — Java annotations look the same but are passive
-metadata; a Python decorator actively *transforms* what it decorates. `@dataclass`
+written `@name` on the line above; it actively *transforms* what it decorates.
+`@dataclass`
 (from the standard library's `dataclasses` module) reads your field declarations and
-generates `__init__`, `__eq__`, and `__repr__` for you — the same job as Lombok's
-`@Data`, with no build plugin:
+generates `__init__`, `__eq__`, and `__repr__` for you — no plugin, no code
+generation step:
 
 ```python
 from dataclasses import dataclass
@@ -108,23 +75,23 @@ print(t)                            # -> Task(priority=1, name='ship')
 print(Task(1, "ship") == Task(1, "ship"))   # -> True  (field-by-field equality)
 ```
 
-Three things Java makes you earn, shown in those four lines:
+Three things you'd normally hand-write, shown in those four lines:
 
 - **Value semantics for free.** *Value semantics* means two objects are equal when
-  their contents are equal, regardless of being distinct objects in memory — what you
-  get in Java only after hand-writing `equals()`. A plain (non-dataclass) Python class
-  behaves like Java's default: `==` falls back to identity, so
+  their contents are equal, regardless of being distinct objects in memory. A plain
+  (non-dataclass) Python class
+  defaults to the opposite: `==` falls back to identity, so
   `Motor(50) == Motor(50)` is `False` (two distinct objects with equal contents).
   `@dataclass` writes the field-comparing `__eq__` for you.
-- **`==` vs `is`.** In Python, `==` always calls the `__eq__` method (Java's
-  `.equals()`), and `is` compares object identity (Java's `==` on references). This
-  is inverted from Java muscle memory — see Gotcha 2 in
+- **`==` vs `is`.** In Python, `==` always calls the `__eq__` method (content
+  equality, once defined), and `is` compares object identity (same object in
+  memory). Keep the two questions separate — see Gotcha 2 in
   [`../LEARNING_POINTS.md`](../LEARNING_POINTS.md).
 - **A debugger-ready string form.** The generated `__repr__` prints as the
   constructor call: `Task(priority=1, name='ship')`. More on `__repr__` below.
 
 **`frozen=True` — the immutable value type.** *Immutable* means no field can be
-reassigned after construction (Java: all fields `final`). It also solves hashing:
+reassigned after construction. It also solves hashing:
 
 ```python
 @dataclass(frozen=True)
@@ -138,13 +105,13 @@ print(len({Vector2D(1.0, 2.0), Vector2D(1.0, 2.0)}))   # -> 1 (duplicates collap
 ```
 
 *Hashable* means an object can be reduced to a stable integer (its *hash*) that
-dicts and sets use to pick a storage bucket — exactly what `hashCode()` is for.
-The Java contract "if you override `equals`, override `hashCode` consistently"
-exists in Python too, and `frozen=True` generates both correctly, together.
+dicts and sets use to pick a storage bucket.
+The classic contract "equality and hashing must agree — equal objects need equal
+hashes" exists in Python too, and `frozen=True` generates both correctly, together.
 
 **The gotcha:** a *non*-frozen dataclass is deliberately **unhashable** — its fields
-can change, which would corrupt any set or dict holding it (the same reason mutating
-a Java `HashMap` key loses the entry). Try `{Task(1, "ship")}` and you get
+can change, which would corrupt any set or dict holding it (a key that changes after
+insertion is filed in the wrong bucket and lost). Try `{Task(1, "ship")}` and you get
 `TypeError: unhashable type: 'Task'`. If you want dict-key/set behavior, reach for
 `frozen=True`.
 
@@ -153,9 +120,8 @@ a Java `HashMap` key loses the entry). Try `{Task(1, "ship")}` and you get
 A **dunder method** ("double underscore", e.g. `__add__`, `__len__`) is a method
 with a reserved name that the *language itself* calls when you use an operator or
 builtin. You define `__add__`; users write `+`. This is **operator overloading** —
-defining what an operator means for your own type — which Java forbids (only `+` on
-`String` is special-cased, which is why `BigDecimal` arithmetic reads as
-`a.add(b).multiply(c)`).
+defining what an operator means for your own type, so arithmetic on your objects
+reads as `a + b * c` instead of a chain of method calls.
 
 ```python
 @dataclass(frozen=True)
@@ -172,7 +138,7 @@ print(Vector2D(1.0, 2.0) + Vector2D(3.0, 4.0))    # -> Vector2D(x=4.0, y=6.0)
 Use an operator on a type that doesn't define its dunder and you get
 `TypeError: unsupported operand type(s) for +: 'NoAdd' and 'NoAdd'`.
 
-**`__repr__` is `toString()` with a convention.** `repr(obj)` is the developer-facing
+**`__repr__` is your type's string form, with a convention.** `repr(obj)` is the developer-facing
 string (logs, debugger, test failures); the convention is output that looks like the
 constructor call, so you can copy-paste it back into code: `Vector2D(x=1.0, y=2.0)`.
 Dataclasses generate exactly that. There is also `__str__` for user-facing display;
@@ -180,7 +146,7 @@ if you don't define it, `str(obj)` and `print(obj)` fall back to `__repr__`, so
 `__repr__` alone is enough (define it on every class — an unhelpful default like
 `<__main__.Motor object at 0x104f3ce90>` is what you get otherwise).
 Inside an **f-string** (Python's interpolated string literal — `f"rpm={rpm}"`
-embeds the value in place, like `String.format` without the ceremony), the `!r`
+embeds the value directly in the text), the `!r`
 conversion means "use the repr":
 `f"Dog(name={name!r})"` -> `Dog(name='Rex')` — note the quotes around Rex, which
 is why the tests can distinguish a string field from its bare value.
@@ -192,18 +158,12 @@ the left operand of every `+`.
 
 ### 4. `@property` — getter/setter pairs, retrofitted only when needed
 
-Java drills "always write getters, even trivial ones" because a public field can
+Classic object-oriented style drills "always write getters, even trivial ones,"
+because a public field can
 never later gain logic without breaking every caller (`obj.field` cannot become
-`obj.getField()` at call sites). Python removes the reason for that rule: a plain
+`obj.get_field()` at call sites). Python removes the reason for that rule: a plain
 public attribute can be *upgraded in place* to a computed one, and callers never
 notice, because both use the same syntax.
-
-```java
-// Java: the ceremony is mandatory up front
-private double celsius;
-public double getFahrenheit()        { return celsius * 9 / 5 + 32; }
-public void   setFahrenheit(double f) { this.celsius = (f - 32) * 5 / 9; }
-```
 
 ```python
 class Temperature:
@@ -230,27 +190,25 @@ Notes that save you a debugging session:
   *second* method **with the same name**. Yes, the same name twice — that's the syntax.
 - Skip the setter and the property is read-only: assigning raises
   `AttributeError: property 'fahrenheit' of 'Temperature' object has no setter`.
-- **The gotcha:** don't write `getCelsius`-style methods in Python. Reviewers (and
-  interviewers) read a `get_x()`/`set_x()` pair as "Java accent"; use a plain
+- **The gotcha:** don't write `get_celsius`-style methods in Python. Reviewers (and
+  interviewers) read a `get_x()`/`set_x()` pair as imported ceremony; use a plain
   attribute until you actually need logic, then `@property`.
 
 ### 5. The container protocol — `__len__`, `__bool__`, `__iter__`
 
-In Java, being a container means declaring it: `implements Iterable<T>`, write an
-`iterator()` returning a hand-rolled `Iterator<T>`, add `size()` and `isEmpty()`.
+Nothing declares "this class is a container" anywhere.
 In Python, a **protocol** is an informal contract: define the right dunders and
 every language feature that consumes that contract works with your type — no
-declaration anywhere.
+interface, no size/isEmpty method pair, no declaration.
 
-- **`__len__`** makes `len(stack)` work (Java: `size()`).
+- **`__len__`** makes `len(stack)` work.
 - **`__bool__`** defines *truthiness* — what your object means in `if stack:`.
   Empty containers being "false" is idiomatic Python (Gotcha 3 in
   [`../LEARNING_POINTS.md`](../LEARNING_POINTS.md)). Defaults matter here: an object
   with neither dunder is **always truthy**; if only `__len__` is defined, Python
   falls back to `len(obj) != 0`. Defining `__bool__` just makes the contract explicit.
 - **`__iter__`** must return an **iterator** — an object that hands out one element
-  per step until exhausted (Java's `Iterator<T>`, `hasNext`/`next` fused into one
-  concept). An **iterable** is anything that can produce an iterator; `for`,
+  per step until exhausted. An **iterable** is anything that can produce an iterator; `for`,
   `list()`, `any()` all accept iterables. You almost never write an iterator class:
   return one you already have. `reversed(self._items)` *is* an iterator
   (`list_reverseiterator`), so a stack that yields top-first is one line.
@@ -275,8 +233,8 @@ while s:                  # truthiness in action: loop until empty, no isEmpty()
 Because `__iter__` returns a *fresh* iterator each call, iterating twice gives the
 same elements twice — the stack is not consumed.
 
-**Errors: EAFP over LBYL.** Java pre-checks (`if (stack.isEmpty()) throw new
-EmptyStackException()`) — *Look Before You Leap* (LBYL). Python's idiom is *Easier
+**Errors: EAFP over LBYL.** One style pre-checks every hazard ("if the stack is
+empty, throw") — *Look Before You Leap* (LBYL). Python's idiom is *Easier
 to Ask Forgiveness than Permission* (EAFP): just do the operation and let the
 natural exception fly. `[].pop()` already raises
 `IndexError: pop from empty list`, and `[][-1]` raises
@@ -286,7 +244,7 @@ exceptions-as-flow is cheap and idiomatic in Python.)
 
 ### 6. Ordering — `__lt__` makes `sorted()` and `heapq` accept your type
 
-Java's `Comparable<T>` demands a three-way `compareTo` returning negative/zero/
+Some sorting APIs demand a three-way comparison method returning negative/zero/
 positive. Python's sorting machinery only ever asks one question — "is a less than
 b?" — so you implement one dunder, `__lt__` ("less than"):
 
@@ -306,16 +264,16 @@ print([t.name for t in sorted(tasks)])   # -> ['ship', 'test', 'clean']
 - Without `__lt__`, `sorted()` fails with
   `TypeError: '<' not supported between instances of 'Task' and 'Task'`.
 - **`sorted()` is stable**: elements that compare equal keep their original relative
-  order (like Java's `Collections.sort`), so sorting only by priority never
+  order, so sorting only by priority never
   scrambles same-priority tasks.
-- **`heapq` is `PriorityQueue`.** A *heap* is the array-backed tree behind a
+- **`heapq` is the priority queue.** A *heap* is the array-backed tree behind a
   priority queue: the smallest element is always first out. Python's `heapq` module
   operates on a plain list, and like `sorted()` it only needs `<`:
   `heapq.heappush(heap, Task(1, "ship"))` then `heapq.heappop(heap)` returns the
   lowest-priority-number task.
 - Shortcut worth knowing: `@dataclass(order=True)` generates `__lt__` (and friends)
   comparing fields *lexicographically* — meaning field by field in declaration
-  order, like a `Comparator.comparing(...).thenComparing(...)` chain, or how words
+  order, earlier fields more significant, like how words
   order in a dictionary. Here we hand-write `__lt__` because the drill orders by
   priority only, ignoring the name.
 - **The gotcha:** the common no-class alternative is pushing tuples,
@@ -325,10 +283,11 @@ print([t.name for t in sorted(tasks)])   # -> ['ship', 'test', 'clean']
   Defining `__lt__` on the object (or padding with a counter:
   `(priority, i, task)`) avoids it.
 
-### 7. `@classmethod` — the static factory that knows its class
+### 7. `@classmethod` — the factory method that knows its class
 
-Java static factories (`Optional.of`, `Integer.valueOf`, `LocalDate.parse`) are
-`static` methods that hard-code the class they construct. A Python **classmethod**
+A **factory method** is a method on the class that builds an instance from some
+other form of input — a string, a dict, a file. An ordinary static method would
+have to hard-code the class it constructs. A Python **classmethod**
 receives the class itself as the first parameter — named `cls` by convention, the
 class-level mirror of `self` — so it constructs whatever class it was *called on*,
 subclasses included:
@@ -352,27 +311,19 @@ print(Point.from_string(" 1.5, -2.0 "))   # -> Point(x=1.5, y=-2.0)
 - **Why `cls(...)` and not `Point(...)`:** if a subclass calls the factory —
   `LabeledPoint.from_string("0,0")` — `cls` *is* `LabeledPoint`, so the subclass
   gets back an instance of itself. Hard-coding `Point(...)` would silently return
-  the wrong type. This is the behavior Java static factories can't have without
-  reflection tricks.
+  the wrong type.
 - Naming convention: `from_<what>` — `from_string`, `from_dict`, `from_config`.
 
 ### 8. Duck typing — the interface you never declare
 
 **Duck typing**: "if it walks like a duck and quacks like a duck, it's a duck" —
 a function that calls `obj.speak()` accepts *any* object that has a `speak()`
-method. There is no interface to declare, no `implements`, no shared base class,
+method. There is no interface to declare, no shared base class,
 no cast. The method lookup happens at runtime; the "contract" is just the method
 existing.
 
-```java
-// Java: the contract must be declared before the call site compiles
-interface Speaker { String speak(); }
-class Dog implements Speaker { public String speak() { return "woof"; } }
-static String describe(Speaker s) { return s.speak(); }
-```
-
 ```python
-# Python: no interface exists anywhere in this program
+# No interface exists anywhere in this program
 class Dog:
     def speak(self): return "woof"
 
@@ -386,9 +337,10 @@ print(describe(Dog()))     # -> Dog: woof
 print(describe(Robot()))   # -> Robot: beep boop
 ```
 
-- `type(obj).__name__` is `obj.getClass().getSimpleName()` — the class name as a
+- `type(obj).__name__` is the object's class name as a
   string, handy for reprs and messages.
-- **The trade you're making:** Java rejects a non-`Speaker` at compile time; Python
+- **The trade you're making:** a declared, statically checked interface rejects a
+  wrong type before the program runs; Python
   finds out at the call — `describe(Cat())` on a speechless `Cat` raises
   `AttributeError: 'Cat' object has no attribute 'speak'` *at runtime*. That's the
   deal across all of Python: flexibility now, errors at execution. (Static type
@@ -426,7 +378,7 @@ def __iter__(self):                        # reuse an existing iterator
 def from_string(cls, s):                   # factory; cls(...) not ClassName(...)
     return cls(...)
 
-type(obj).__name__                         # getClass().getSimpleName()
+type(obj).__name__                         # the class name as a string
 ```
 
 ## The drills
@@ -449,8 +401,8 @@ math.hypot(3.0, 4.0)                       # -> 5.0  (magnitude, no manual sqrt)
 ```
 
 **Where you'll see it:** the frozen-value-type pattern is the Python answer to the
-classic Java interview question "make this class safe as a `HashMap` key" — the
-`equals`/`hashCode` contract, generated. Grid-search problems ("Number of Islands",
+classic interview question "make this class safe as a dict key" — equality and
+hashing, generated together and consistent. Grid-search problems ("Number of Islands",
 "Rotting Oranges", any BFS/DFS over coordinates) need positions in a `visited` set;
 most solutions use bare tuples, but a frozen `Pose`/`Point` dataclass is the
 readable production version — robotics code is full of exactly this class
@@ -469,7 +421,7 @@ t.celsius                 # -> 100.0
 ```
 
 **Where you'll see it:** rarely a whiteboard algorithm — this is the idiom that
-code-review and "design a class" rounds check, and Java-refugee screens
+code-review and "design a class" rounds check, and screeners
 specifically look for the anti-pattern (`get_x()`/`set_x()` pairs). In real
 ML/robotics code, `@property` is everywhere: computed fields on configs, derived
 quantities on state objects (`robot.gripper_open`, `dataset.num_frames`), setters
@@ -544,8 +496,8 @@ describe(Dog("Rex"))     # -> 'Dog: Rex says woof'
 describe(Robot("R2"))    # -> 'Robot: R2 goes beep boop'
 ```
 
-**Where you'll see it:** this is the conceptual question Java-background
-candidates get asked directly — "Python has no interfaces; how do you program to a
+**Where you'll see it:** this is a conceptual question interviewers ask
+directly — "Python has no interface declarations; how do you program to a
 contract?" Duck typing is the answer, and being able to articulate the trade
 (flexibility vs. runtime `AttributeError`) matters as much as the code. In the
 wild: file-like objects (anything with `.read()` passes as a file), test mocks
@@ -566,6 +518,6 @@ PRACTICE=1 uv run pytest ramp_up/python/06_classes_and_dataclasses -v
 
 The tests check the exact `__repr__` strings listed at the top of `starter.py` —
 if a repr test fails, compare quotes and spacing character by character (`!r`
-is usually the missing piece). For the language-wide background (gotchas, the
-Java-to-Python rosetta table, interview idioms), see
+is usually the missing piece). For the language-wide background (gotchas,
+container cheatsheets, interview idioms), see
 [`../LEARNING_POINTS.md`](../LEARNING_POINTS.md).
