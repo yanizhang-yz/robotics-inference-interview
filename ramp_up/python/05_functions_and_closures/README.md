@@ -1,43 +1,20 @@
 # 05 — Functions and Closures
 
 After this lesson you will be able to pass functions around like ordinary variables,
-build functions that manufacture other functions, replace Java's method overloading
-with default and keyword arguments, write a decorator from scratch, handle errors the
+build functions that manufacture other functions, replace method overloading with
+default and keyword arguments, write a decorator from scratch, handle errors the
 Python way (`try` first, check later), and sort anything by any combination of fields
 with a one-line key function. These are not exotic tricks — they are the baseline
 idioms an interviewer expects to see flow out of your fingers without pauses.
 
-## The Java you know
+## The problem this lesson solves
 
-In Java, "a piece of behavior" is never naked. To pass it anywhere you wrap it in a
-**functional interface** — an interface with exactly one abstract method, like
-`Function<T,R>` or `Supplier<T>` — and invoke it through that method:
-
-```java
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.Comparator;
-
-Function<Integer, Integer> doubler = x -> x * 2;
-int y = doubler.apply(5);                        // -> 10; always .apply(), never doubler(5)
-
-// A lambda may only READ locals, and only if they are effectively final
-// (never reassigned). To mutate captured state you smuggle it in a box:
-AtomicInteger count = new AtomicInteger();
-Supplier<Integer> counter = count::incrementAndGet;
-counter.get();                                   // -> 1
-counter.get();                                   // -> 2
-
-// Optional parameters = overloading (two methods, same name):
-double safeDivide(double a, double b) { return safeDivide(a, b, 0.0); }
-double safeDivide(double a, double b, double dflt) { return b == 0 ? dflt : a / b; }
-
-// Multi-field ordering = a Comparator chain:
-tasks.sort(Comparator.comparing(Task::priority).thenComparing(Task::name));
-```
-
-Every one of those five patterns has a shorter Python replacement. That is this lesson.
+Five everyday needs — pass a piece of behavior into another function, keep private
+state between calls, make a parameter optional, wrap a function with extra behavior,
+and order records by several fields at once. Many languages need a wrapper class, a
+method-overload pair, or a comparator object for each of these. Python covers all
+five with one idea — a function is an ordinary value — plus a handful of small
+idioms built on it. That is this lesson.
 
 ## The lesson
 
@@ -45,24 +22,18 @@ Every one of those five patterns has a shorter Python replacement. That is this 
 
 In Python a function is a **first-class value**: a normal object you can assign to a
 variable, put in a list or dict, pass as an argument, and return from another
-function — exactly like an `int` or a string. There is no functional-interface
-wrapper and no `.apply()`; if `f` holds a function, `f(x)` calls it. A function that
+function — exactly like an `int` or a string. There is no wrapper interface and no
+special invoke method; if `f` holds a function, `f(x)` calls it. A function that
 takes or returns another function is called a **higher-order function** (that's the
 whole definition — nothing mystical).
 
-```java
-// Java: behavior must be boxed before it can travel
-Function<String, Integer> f = String::length;
-int n = f.apply("hello");                        // -> 5
-```
-
 ```python
-# Python: the function IS the value
+# The function IS the value
 f = len                       # no parentheses = the function itself, not a call
 f("hello")                    # -> 5
 
 handlers = {"stop": stop, "home": home}   # a dispatch table: dict of functions
-handlers["home"]()            # -> calls home(); Java needs a Map<String, Runnable>
+handlers["home"]()            # -> calls home()
 ```
 
 The gotcha: `f = len()` with parentheses *calls* `len` (and here crashes with a
@@ -77,7 +48,8 @@ given`, not at "compile time". There is no compiler to catch it earlier.
 
 ### 2. `lambda` — the one-expression function literal
 
-`lambda x: x * 2` is an anonymous function, like Java's `x -> x * 2`, with one hard
+`lambda x: x * 2` is an anonymous function — a function defined inline, without a
+name — with one hard
 limit: the body must be a **single expression** (something that produces a value — no
 statements, no `if:` blocks, no loops, no assignments). Need more than one line? Use
 a named `def`; Python style actually prefers `def` for anything non-trivial.
@@ -98,9 +70,8 @@ steps; every snippet is runnable, so type them in as you read.
 
 #### Step 1 — a function inside a function (nothing new yet)
 
-In Java, methods live in classes, never inside other methods. In Python you can
-write a `def` inside a `def`, and the inner function may use the outer function's
-variables:
+In Python you can write a `def` inside a `def`, and the inner function may use the
+outer function's variables:
 
 ```python
 def greet_team():
@@ -143,9 +114,9 @@ Play the first call in slow motion, like stepping through a debugger:
 5. Later, `hello_ann()` runs the body at last — and the body needs `name`.
    It finds `"Ann"`.
 
-Step 5 should bother you. In Java, a method's local variables stop existing the
-moment the method returns — and `make_greeter` returned back in step 4. Where did
-`name` survive?
+Step 5 should bother you. In most languages you'd expect a function's local
+variables to be gone once it returns — and `make_greeter` returned back in step 4.
+Where did `name` survive?
 
 #### Step 3 — the answer: the function packs a backpack
 
@@ -167,20 +138,9 @@ Two consequences, both already visible above:
 - **The backpack is permanent.** Call `hello_ann()` a thousand times, tomorrow, from
   another file — `"Ann"` rides along.
 
-You have actually built this machine in Java many times — as a tiny class:
-
-```java
-class Greeter {
-    private final String name;                    // <- the backpack
-    Greeter(String name) { this.name = name; }    // <- make_greeter(name)
-    String greet() { return "Hello, " + name; }   // <- the inner function
-}
-```
-
-`make_greeter("Ann")` plays the role of `new Greeter("Ann")`, and `hello_ann()`
-plays the role of `.greet()`. **A closure is an object with one method — minus the
-class ceremony.** (Java's anonymous inner classes did the same trick: they copied
-the `final` locals they used into the object. Python just does it automatically.)
+If you have ever built a tiny class whose constructor stores one value in a field
+and whose single method uses it, you have built this machine by hand: **a closure is
+an object with one method — minus the class ceremony.**
 
 #### Step 4 — *changing* a backpack variable needs `nonlocal`
 
@@ -230,11 +190,6 @@ make_counter_broken()()   # UnboundLocalError: cannot access local variable 'cou
 - **Assign to** a backpack variable → declare `nonlocal` first (`make_counter`).
 - **See `UnboundLocalError` in a nested function** → you forgot `nonlocal`.
 
-Calibration against Java: Java lambdas may only capture locals that are *effectively
-final* — never reassigned; the compiler rejects anything else. So what `nonlocal`
-permits is something Java flatly bans — that's why the Java column of this lesson
-needed the `AtomicInteger` smuggling trick.
-
 #### Why closures are worth the trouble
 
 - **Function factories** — `make_multiplier(k)`, `make_adder(n)`: the standard
@@ -251,14 +206,9 @@ current `count`. Never needed in real code — just proof there's no magic.)*
 ### 4. Default values and keyword arguments replace overloading
 
 Python has **no method overloading**: one name, one function. Write a second `def`
-with the same name and it silently *replaces* the first. Optional behavior comes from
-**default parameter values** instead:
-
-```java
-// Java: two overloads
-void moveTo(double x, double y) { moveTo(x, y, 1.0); }
-void moveTo(double x, double y, double speed) { ... }
-```
+with the same name and it silently *replaces* the first. So instead of two
+definitions — one that takes a speed and one that fills in a standard value —
+optional behavior comes from **default parameter values**:
 
 ```python
 def move_to(x, y, speed=1.0): ...
@@ -269,7 +219,7 @@ move_to(y=2, x=1)             # keywords may come in any order
 ```
 
 A **keyword argument** is an argument passed by parameter name (`speed=0.5`) rather
-than by position. Java has nothing like it; it is why Python APIs with six optional
+than by position. It is why Python APIs with six optional
 parameters stay readable. In real code (and this repo's tests) you will constantly
 see calls like `sorted(xs, key=len, reverse=True)`.
 
@@ -304,10 +254,11 @@ append_to(1):    no target given → Python hands over the stored list → [1]
 append_to(2):    no target given → the SAME list again              → [1, 2]
 ```
 
-In Java terms: you expected `new ArrayList<>()` inside each call, but what you wrote
-behaves like a **static field** initialized once at class-load time. The fix is the
+In other words: you expected a fresh empty list to be created inside each call, but
+what you wrote behaves like a variable initialized once at load time and shared by
+every call ever made. The fix is the
 **None-sentinel idiom** — a **sentinel** is a placeholder value meaning "the caller
-gave nothing"; `None` (Python's `null`) is the standard choice, and the real object
+gave nothing"; `None` is the standard choice, and the real object
 gets built *inside the body*, which runs fresh on every call:
 
 ```python
@@ -375,8 +326,8 @@ backpack* — and reach for a factory or the `i=i` freeze. (Deep dive: Gotcha 8 
 
 ### 5. `*args` and `**kwargs` — variadic in both directions
 
-**Variadic** means "accepts a variable number of arguments." Java has `Object...
-varargs` for extra positional arguments; Python has that *plus* the keyword side:
+**Variadic** means "accepts a variable number of arguments." Python collects extra
+positional arguments *and* extra keyword arguments, each on its own side:
 
 ```python
 def describe_call(*args, **kwargs):
@@ -410,8 +361,8 @@ def slow(x): ...
 slow = memoize(slow)
 ```
 
-Java's closest relatives are a caching/logging proxy or Spring's annotation-driven
-AOP — but there the framework does the weaving; here it is five lines of plain code:
+Frameworks in other ecosystems offer the same idea as caching or logging proxies
+woven in by the framework; here it is five lines of plain code:
 
 ```python
 import functools
@@ -444,19 +395,12 @@ fib(30)                       # -> 832040, in 31 real calls instead of ~2.7 mill
 
 ### 7. EAFP — try first, apologize later
 
-Java style is **LBYL** — "Look Before You Leap": pre-check every hazard
-(`if (b != 0)`, `if (map.containsKey(k))`). Idiomatic Python is **EAFP** — "Easier to
+One error-handling style is **LBYL** — "Look Before You Leap": pre-check every
+hazard (`if b != 0`, `if key in mapping`) before acting. Idiomatic Python is **EAFP** — "Easier to
 Ask Forgiveness than Permission": attempt the operation and catch the specific
-exception if it fails. Python exceptions are all *unchecked* (no `throws` clauses, no
-compiler forcing you to catch), and raising/catching is cheap enough to use as a
+exception if it fails. Python exceptions are all *unchecked* (no declared exception
+lists, no compiler forcing you to catch), and raising/catching is cheap enough to use as a
 normal control path:
-
-```java
-double safeDivide(double a, double b, double dflt) {
-    if (b == 0) return dflt;          // LBYL pre-check
-    return a / b;
-}
-```
 
 ```python
 def safe_divide(a, b, default=None):
@@ -476,18 +420,14 @@ Two rules to act on: catch the most specific exception class you can (a bare
 so the log still points at the real failure line. See Gotcha 11 in
 `../LEARNING_POINTS.md`.
 
-### 8. Sort keys — a tuple is a Comparator chain
+### 8. Sort keys — a tuple sorts by several fields at once
 
-Python sorting never uses pairwise `compare(a, b)` logic. You supply a **key
+Python sorting never asks you for pairwise "compare a to b" logic. You supply a **key
 function**: it maps each element to a value, and elements are ordered by their
 mapped values. For multi-field ordering the key returns a tuple, because tuples
 compare **lexicographically** — element by element, left to right, like dictionary
-alphabetical order — which does exactly what
-`Comparator.comparing(...).thenComparing(...)` does:
-
-```java
-tasks.sort(Comparator.comparing(Task::priority).thenComparing(Task::name));
-```
+alphabetical order — so "sort by priority, break ties by name" is just a
+two-element tuple key:
 
 ```python
 sorted(rows, key=lambda r: (r["priority"], r["name"]))   # priority, ties broken by name
@@ -509,7 +449,7 @@ reliable.
 Type these until they require no thought:
 
 ```python
-f = some_function; f(x)                            # store a function, call it — no .apply()
+f = some_function; f(x)                            # store a function, call it directly
 return lambda x: x * k                             # closure factory
 nonlocal count                                     # assign to a backpack (outer-function) variable
 def f(item, target=None):                          # the None-sentinel default
@@ -518,7 +458,7 @@ def wrapper(*args, **kwargs): return f(*args, **kwargs)   # accept-anything forw
 @functools.wraps(f)                                # on every wrapper, always
 try: ...
 except ZeroDivisionError: ...                      # EAFP, narrowest exception
-sorted(xs, key=lambda r: (r["a"], r["b"]))         # tuple key = thenComparing
+sorted(xs, key=lambda r: (r["a"], r["b"]))         # tuple key = multi-field ordering
 xs.sort(key=len, reverse=True)                     # in place, returns None
 ```
 
@@ -696,5 +636,5 @@ PRACTICE=1 uv run pytest ramp_up/python/05_functions_and_closures -v
 ```
 
 Deep dives referenced above — mutable defaults (Gotcha 1), late-binding closures
-(Gotcha 8), EAFP (Gotcha 11), and the Java-to-Python container cheatsheet — live in
+(Gotcha 8), EAFP (Gotcha 11), and the container cheatsheet — live in
 [`../LEARNING_POINTS.md`](../LEARNING_POINTS.md).
