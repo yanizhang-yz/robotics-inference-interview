@@ -11,7 +11,7 @@ Track which questions you've attempted, your notes, and what to study next.
 
 ## Language ramp-up (do before the questions)
 
-### Python (from Java)
+### Python
 - [ ] Read `ramp_up/python/LEARNING_POINTS.md`
 - [ ] 01 Collections & slicing
 - [ ] 02 Comprehensions & generators
@@ -22,7 +22,7 @@ Track which questions you've attempted, your notes, and what to study next.
 - [ ] 07 Iteration, heapq, bisect
 - [ ] 08 NumPy essentials
 
-### C++ (from Java)
+### C++
 - [ ] Read `ramp_up/cpp/LEARNING_POINTS.md`
 - [ ] 01 STL containers
 - [ ] 02 Ownership & RAII

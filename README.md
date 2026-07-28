@@ -10,7 +10,7 @@ track retains its original problem statements, starters, solutions, and tests.
 
 ## Part of the Software-to-Robotics-Inference Path
 
-For a Java/C-oriented software engineer, first bridge into the interview
+Coming from another language? First bridge into the interview
 languages with the [Python ramp](ramp_up/python/) and [C++ ramp](ramp_up/cpp/).
 Then use this repository to turn [M0 — skill translation](https://github.com/yanizhang-yz/software-to-robotics-inference/blob/main/docs/milestones/m0-skill-translation.md)
 into practiced implementations and carry completed artifacts into
@@ -54,29 +54,29 @@ questions/               # Interview questions by topic
 ├── 06_linear_algebra/   # Eigenvectors, least squares, PCA
 └── 07_llm_and_agents/   # Sampling, KV cache, agentic tool loops
 
-ramp_up/                 # Language fluency drills (for devs coming from Java)
+ramp_up/                 # Language fluency drills (Python, C++, Rust, TypeScript)
 ├── python/              # LEARNING_POINTS.md + 8 drill sets — do these FIRST
 ├── cpp/                 # LEARNING_POINTS.md + 6 drill sets (STL, RAII, moves, vtables, cache, threads)
 ├── rust/                # LEARNING_POINTS.md (exercises coming)
 └── typescript/          # LEARNING_POINTS.md (exercises coming)
 ```
 
-## Language ramp-up (coming from Java?)
+## Language ramp-up
 
-If you think in Java (or another language) and the friction is *writing* Python, start with
-[`ramp_up/python/LEARNING_POINTS.md`](ramp_up/python/LEARNING_POINTS.md) — a Java→Python
-reference card — then work through the drill sets in order:
+New to Python, or writing it slower than you think? Start with
+[`ramp_up/python/LEARNING_POINTS.md`](ramp_up/python/LEARNING_POINTS.md) — a dense map of
+the language's mental model and its classic traps — then work through the drill sets in order:
 
-| # | Drill set | What it replaces from Java |
-|---|-----------|---------------------------|
-| 01 | Collections & slicing | Arrays / ArrayList / Collections.sort |
-| 02 | Comprehensions & generators | Streams API |
-| 03 | Strings & text | String / StringBuilder |
-| 04 | Dicts, sets, counters | HashMap / HashSet boilerplate |
-| 05 | Functions & closures | Functional interfaces, method refs |
-| 06 | Classes & dataclasses | POJOs / Lombok / interfaces |
-| 07 | Iteration, heapq, bisect | Iterator / PriorityQueue / TreeMap |
-| 08 | NumPy essentials | (no Java equivalent — vectorization) |
+| # | Drill set | What it teaches |
+|---|-----------|-----------------|
+| 01 | Collections & slicing | Lists, tuples, negative indexing, slice-and-copy idioms |
+| 02 | Comprehensions & generators | Building lists/dicts/sets in one expression; lazy iteration |
+| 03 | Strings & text | split/join, f-strings, working with immutable strings |
+| 04 | Dicts, sets, counters | Hash-map fluency: defaultdict, Counter, set algebra |
+| 05 | Functions & closures | First-class functions, closures, decorators, default values |
+| 06 | Classes & dataclasses | dataclasses, dunder methods, properties, duck typing |
+| 07 | Iteration, heapq, bisect | Iterators, heaps, binary search over sorted data |
+| 08 | NumPy essentials | Vectorization, broadcasting, boolean masks |
 
 Same practice flow as the questions: code in `starter.py`, check with
 `PRACTICE=1 uv run pytest ramp_up/python/01_collections_and_slicing -v`.
