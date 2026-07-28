@@ -15,7 +15,7 @@ Repr convention used throughout (tests check these exactly):
     Dog(name='Rex')
     Robot(model='R2')
 """
-
+import math
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
@@ -42,14 +42,14 @@ class Vector2D:
         JAVA:   public Vector2D add(Vector2D other)
         PYTHON: __add__ is what the + operator calls; return a NEW Vector2D.
         """
-        raise NotImplementedError
+        return Vector2D(self.x + other.x, self.y + other.y)
 
     def __sub__(self, other: "Vector2D") -> "Vector2D":
         """
         JAVA:   public Vector2D subtract(Vector2D other)
         PYTHON: __sub__ powers the - operator; return a NEW Vector2D.
         """
-        raise NotImplementedError
+        return Vector2D(self.x - other.x, self.y - other.y)
 
     def scaled(self, k: float) -> "Vector2D":
         """
@@ -58,14 +58,14 @@ class Vector2D:
         PYTHON: same idea; frozen dataclasses can't mutate, so build and
                 return a new Vector2D.
         """
-        raise NotImplementedError
+        return Vector2D(self.x * k, self.y * k)
 
     def magnitude(self) -> float:
         """
         JAVA:   Math.sqrt(x * x + y * y) or Math.hypot(x, y).
         PYTHON: math.hypot(self.x, self.y).
         """
-        raise NotImplementedError
+        return math.hypot(self.x, self.y)
 
 
 class Temperature:
@@ -83,21 +83,21 @@ class Temperature:
     """
 
     def __init__(self, celsius: float) -> None:
-        raise NotImplementedError
+        self.celsius = celsius
 
     @property
     def fahrenheit(self) -> float:
         """Computed from self.celsius on every read."""
-        raise NotImplementedError
+        return self.celsius * 9 / 5 + 32
 
     @fahrenheit.setter
     def fahrenheit(self, value: float) -> None:
         """Convert back and store into self.celsius."""
-        raise NotImplementedError
+        self.celsius = (value - 32) * 5 / 9
 
     def __repr__(self) -> str:
         """Return 'Temperature(celsius=25.0)' style (like toString())."""
-        raise NotImplementedError
+        return f"Temperature(celsius={self.celsius})"
 
 
 class Stack:
@@ -119,31 +119,31 @@ class Stack:
     """
 
     def __init__(self) -> None:
-        raise NotImplementedError
+        self._items: list[Any] = []
 
     def push(self, item: Any) -> None:
-        raise NotImplementedError
+        self._items.append(item)
 
     def pop(self) -> Any:
         """Remove and return the top item; IndexError if empty."""
-        raise NotImplementedError
+        return self._items.pop()
 
     def peek(self) -> Any:
         """Return the top item without removing it; IndexError if empty."""
-        raise NotImplementedError
+        return self._items[-1]
 
     def __len__(self) -> int:
-        raise NotImplementedError
+        return len(self._items)
 
     def __bool__(self) -> bool:
-        raise NotImplementedError
+        return bool(self._items)
 
     def __iter__(self) -> Iterator[Any]:
-        raise NotImplementedError
+        return reversed(self._items)
 
     def __repr__(self) -> str:
         """Return 'Stack([1, 2, 3])' with items bottom-to-top."""
-        raise NotImplementedError
+        return f"Stack({self._items!r})"
 
 
 @dataclass
@@ -163,7 +163,7 @@ class Task:
 
     def __lt__(self, other: "Task") -> bool:
         """Order by priority only (name is not part of the ordering)."""
-        raise NotImplementedError
+        return self.priority < other.priority
 
 
 @dataclass
@@ -183,37 +183,38 @@ class Point:
         Parse "3,4" (whitespace around numbers allowed, e.g. "3, 4")
         into Point(x=3.0, y=4.0).
         """
-        raise NotImplementedError
+        x_str, y_str = s.split(",")
+        return cls(float(x_str), float(y_str))
 
 
 class Dog:
     """A speaker with no shared base class or interface — see describe()."""
 
     def __init__(self, name: str) -> None:
-        raise NotImplementedError
+        self._name = name
 
     def speak(self) -> str:
         """Return '<name> says woof'."""
-        raise NotImplementedError
+        return f"{self._name} says woof"
 
     def __repr__(self) -> str:
         """Return "Dog(name='Rex')" style."""
-        raise NotImplementedError
+        return f"Dog(name={self._name!r})"
 
 
 class Robot:
     """Also speaks; shares NO base class with Dog. That's the point."""
 
     def __init__(self, model: str) -> None:
-        raise NotImplementedError
+        self._model = model
 
     def speak(self) -> str:
         """Return '<model> goes beep boop'."""
-        raise NotImplementedError
+        return f"{self._model} goes beep boop"
 
     def __repr__(self) -> str:
         """Return "Robot(model='R2')" style."""
-        raise NotImplementedError
+        return f"Robot(model={self._model!r})"
 
 
 def describe(obj: Any) -> str:
@@ -227,4 +228,4 @@ def describe(obj: Any) -> str:
             interface, no cast, no common superclass. Use type(obj).__name__
             for the class name.
     """
-    raise NotImplementedError
+    return f"{type(obj).__name__}: {obj.speak()}"

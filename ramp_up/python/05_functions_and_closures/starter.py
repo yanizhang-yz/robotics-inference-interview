@@ -6,7 +6,7 @@ Write your implementations here, then run the tests against them:
 
 Peek at solution.py only after you've tried each drill.
 """
-
+import functools
 from collections.abc import Callable
 from typing import Any
 
@@ -19,7 +19,9 @@ def apply_n_times(f: Callable[[Any], Any], n: int, x: Any) -> Any:
             in a functional interface before you can pass it around.
     PYTHON: functions are ordinary values; just call f(x) in a loop.
     """
-    raise NotImplementedError
+    for _ in range(n):
+        x = f(x)
+    return x
 
 
 def make_multiplier(k: float) -> Callable[[float], float]:
@@ -32,7 +34,7 @@ def make_multiplier(k: float) -> Callable[[float], float]:
     PYTHON: return a lambda (or inner def) that closes over k. No interface,
             no .apply(), no finality rule.
     """
-    raise NotImplementedError
+    return lambda x: x*k
 
 
 def make_counter() -> Callable[[], int]:
@@ -46,7 +48,12 @@ def make_counter() -> Callable[[], int]:
             `nonlocal count` first. Forgetting nonlocal (and getting
             UnboundLocalError) is THE classic closure gotcha.
     """
-    raise NotImplementedError
+    count = 0
+    def counter() -> int:
+        nonlocal count
+        count += 1
+        return count
+    return counter
 
 
 def safe_divide(a: float, b: float, default: float | None = None) -> float | None:
@@ -58,7 +65,10 @@ def safe_divide(a: float, b: float, default: float | None = None) -> float | Non
     PYTHON: one function with a default parameter value; EAFP style —
             try the division and catch ZeroDivisionError.
     """
-    raise NotImplementedError
+    try:
+        return a / b
+    except ZeroDivisionError:
+        return default
 
 
 def append_to(item: Any, target: list | None = None) -> list:
@@ -72,7 +82,10 @@ def append_to(item: Any, target: list | None = None) -> list:
             calls (see README). Use the None-sentinel idiom: default to None,
             then create the list inside the body.
     """
-    raise NotImplementedError
+    if target is None:
+        target = []
+    target.append(item)
+    return target
 
 
 def describe_call(*args: Any, **kwargs: Any) -> str:
@@ -86,7 +99,7 @@ def describe_call(*args: Any, **kwargs: Any) -> str:
     PYTHON: *args collects extra positionals into a tuple, **kwargs collects
             keyword arguments into a dict (insertion-ordered).
     """
-    raise NotImplementedError
+    return f"args={args} kwargs={kwargs}"
 
 
 def compose(*funcs: Callable[[Any], Any]) -> Callable[[Any], Any]:
@@ -98,7 +111,11 @@ def compose(*funcs: Callable[[Any], Any]) -> Callable[[Any], Any]:
     PYTHON: return a new function that loops over reversed(funcs), threading
             the value through. Functions building functions.
     """
-    raise NotImplementedError
+    def composed(x: Any) -> Any:
+        for f in reversed(funcs):
+            x = f(x)
+        return x
+    return composed
 
 
 def memoize(f: Callable[..., Any]) -> Callable[..., Any]:
@@ -117,7 +134,14 @@ def memoize(f: Callable[..., Any]) -> Callable[..., Any]:
             closing over a cache dict. (In real code: functools.lru_cache;
             here you build it yourself to learn the mechanics.)
     """
-    raise NotImplementedError
+
+    cache: dict[tuple, Any] = {}
+    @functools.wraps(f)
+    def wrapper(*args: Any) -> Any:
+        if args not in cache:
+            cache[args] = f(*args)
+        return cache[args]
+    return wrapper
 
 
 def call_with_retry(f: Callable[[], Any], attempts: int) -> Any:
@@ -131,7 +155,15 @@ def call_with_retry(f: Callable[[], Any], attempts: int) -> Any:
     PYTHON: same shape but EAFP is the norm, exceptions are unchecked, and a
             bare `raise last_exc` re-raises with the traceback intact.
     """
-    raise NotImplementedError
+    if attempts < 1:
+        raise ValueError(f"attempts must be >= 1, got {attempts}")
+    last_exception: Exception | None = None
+    for _ in range(attempts):
+        try:
+            return f()
+        except Exception as exception:
+            last_exception = exception
+    raise last_exception
 
 
 def sort_by(records: list[dict], *fields: str) -> list[dict]:
@@ -145,4 +177,4 @@ def sort_by(records: list[dict], *fields: str) -> list[dict]:
     PYTHON: sorted(records, key=lambda r: tuple-of-field-values) — tuples
             compare element by element, which IS the thenComparing chain.
     """
-    raise NotImplementedError
+    return sorted(records, key=lambda r: tuple(r[field] for field in fields))
