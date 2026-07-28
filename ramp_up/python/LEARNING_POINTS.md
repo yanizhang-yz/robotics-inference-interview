@@ -1,8 +1,10 @@
-# A Java Developer's Map to Python
+# A Working Programmer's Map to Python
 
-Read this **before** doing any drills. It is a reference card, not a textbook: every entry
-names the Java idiom you already know, then the Pythonic replacement. Come back to it
-whenever a drill feels weird — the weirdness is almost always one of the items below.
+Read this **before** doing any drills — it pairs with the drill sets in this directory
+(`01_*` onward). It is a reference card, not a textbook: it assumes you already program in
+*some* language (variables, loops, functions, classes — nothing more specific) and shows
+the Pythonic way to do each familiar thing. Come back to it whenever a drill feels weird —
+the weirdness is almost always one of the items below.
 
 ---
 
@@ -10,18 +12,12 @@ whenever a drill feels weird — the weirdness is almost always one of the items
 
 ### 1.1 Everything is an object — including functions, classes, and `int`
 
-Java splits the world into primitives (`int`, `double`) and objects, and functions are not
-values (you wrap them in `Runnable`/`Function<T,R>`). In Python there are no primitives and
-functions are ordinary values you pass around.
-
-```java
-// Java: a function is not a value — wrap it
-Function<Integer, Integer> square = x -> x * x;
-int y = square.apply(5);
-```
+Some languages split the world into primitives and objects, and make you wrap a function
+in an object before you can pass it around. Python has no primitives, and functions are
+ordinary values.
 
 ```python
-# Python: a function IS a value
+# A function IS a value
 def square(x: int) -> int:
     return x * x
 
@@ -32,18 +28,12 @@ y = f(5)
 
 ### 1.2 Duck typing vs interfaces
 
-Java asks "what type are you?" (nominal typing: `implements Comparable`). Python asks
-"what can you do?" — if it has the right methods, it works. No declaration needed.
-
-```java
-// Java: must declare the contract
-class Robot implements Iterable<Joint> {
-    public Iterator<Joint> iterator() { ... }
-}
-```
+Nominal typing asks "what type are you?" — a type must declare the contracts it satisfies.
+Python asks "what can you do?" — if it has the right methods, it works. No declaration
+needed.
 
 ```python
-# Python: just define __iter__ — now `for joint in robot:` works.
+# Just define __iter__ — now `for joint in robot:` works.
 class Robot:
     def __iter__(self):
         return iter(self.joints)
@@ -54,27 +44,19 @@ modern equivalent of an interface — structural, not declared at the class.
 
 ### 1.3 No compile step — errors surface at runtime, on the line executed
 
-`javac` catches typos, wrong arity, missing methods before anything runs. Python parses the
-file and that's it: a misspelled method inside an `if` branch explodes only when that branch
-runs. Consequences for you:
+A compiler catches typos, wrong arity, and missing methods before anything runs. Python
+parses the file and that's it: a misspelled method inside an `if` branch explodes only
+when that branch runs. Consequences for you:
 
 - Run code early and often (`uv run pytest`, `uv run python file.py`).
 - Type hints (`def f(x: int) -> str:`) are **documentation + tooling**, not enforcement.
   Nothing stops you passing a `str`. Tools like `mypy`/`pyright` check them offline — that's
-  the closest thing to `javac`.
+  the closest thing to a compile step.
 
 ### 1.4 Indentation IS the syntax
 
 No braces, no semicolons. A block is "everything indented one level deeper", ended by
 dedenting. The colon `:` introduces every block (`if`, `for`, `def`, `class`, `with`).
-
-```java
-if (x > 0) {
-    doA();
-    doB();
-}
-doC();
-```
 
 ```python
 if x > 0:
@@ -83,43 +65,37 @@ if x > 0:
 do_c()          # dedent = block over. Mixing tabs/spaces = error. Use 4 spaces.
 ```
 
-### 1.5 Modules vs packages/classpath
+### 1.5 Modules and packages
 
-A Java "unit" is a class; files must match class names; the classpath resolves packages.
+In some languages the unit of code is the class, and file names must match class names.
 In Python the unit is the **module = one `.py` file**. Any file is importable; a directory
 of modules is a package. There is no "one public class per file" rule — a module freely
 mixes functions, classes, and constants.
 
-```java
-// Java: import a class
-import java.util.PriorityQueue;
-```
-
 ```python
-# Python: import a module (or names from it)
-import heapq                    # use as heapq.heappush(...)
-from collections import deque   # pull one name in
+import heapq                     # import a module; use as heapq.heappush(...)
+from collections import deque    # pull one name in
 ```
 
-`if __name__ == "__main__":` is the `public static void main` equivalent — it runs only when
-the file is executed directly, not when imported.
+`if __name__ == "__main__":` is the entry-point idiom — the block runs only when the file
+is executed directly, not when imported.
 
 ### 1.6 "There should be one obvious way to do it"
 
-Java culture tolerates many equivalent styles (for loop vs stream vs iterator). Python
-culture has strong opinions: interviewers **notice** when you write the non-idiomatic
-version. `for i in range(len(xs))` where `for x in xs` works reads like an accent.
-The drills in this directory exist to retrain those defaults. Run `import this` for the
-full manifesto ("The Zen of Python").
+Many language cultures tolerate several equivalent styles (index loop vs iterator vs
+pipeline). Python culture has strong opinions: interviewers **notice** when you write the
+non-idiomatic version. `for i in range(len(xs))` where `for x in xs` works reads like an
+accent. The drills in this directory exist to retrain those defaults. Run `import this`
+for the full manifesto ("The Zen of Python").
 
 ---
 
-## 2. The 15 gotchas that bite Java developers hardest
+## 2. The 15 gotchas that bite newcomers hardest
 
 ### Gotcha 1: Mutable default arguments (the classic)
 
-Default values are evaluated **once at function definition**, not per call — unlike your
-mental model of "default parameter".
+Default values are evaluated **once at function definition**, not per call — probably not
+what your mental model of "default parameter" expects.
 
 ```python
 def add_reading(reading, log=[]):      # BUG: one shared list for ALL calls
@@ -136,14 +112,15 @@ def add_reading(reading, log=None):    # FIX: the None-sentinel idiom
     return log
 ```
 
-### Gotcha 2: `is` vs `==` (inverted from Java!)
+### Gotcha 2: `is` vs `==`
 
-Java: `==` is reference equality, `.equals()` is value equality.
-Python: `==` is **value** equality (calls `__eq__`), `is` is identity (Java's `==`).
+`==` is **value** equality (calls `__eq__`); `is` is **identity** (same object in memory).
+Some languages use `==` for reference identity and a method for value equality — Python is
+the other way around.
 
 ```python
-[1, 2] == [1, 2]     # True  — value equality, like .equals()
-[1, 2] is [1, 2]     # False — different objects, like Java ==
+[1, 2] == [1, 2]     # True  — value equality
+[1, 2] is [1, 2]     # False — two distinct objects
 x is None            # the ONE place you use `is`: None checks
 ```
 
@@ -152,12 +129,7 @@ which is worse than always false.
 
 ### Gotcha 3: Truthiness — empty collections are false
 
-No `if (list.isEmpty())`. Empty containers, `0`, `""`, and `None` are all falsy.
-
-```java
-if (!queue.isEmpty()) { ... }
-if (s != null && !s.isEmpty()) { ... }
-```
+No explicit is-empty checks needed. Empty containers, `0`, `""`, and `None` are all falsy.
 
 ```python
 if queue:            # non-empty → truthy
@@ -170,13 +142,14 @@ Caution: `if x:` treats `0` as false. If `0` is a valid value, write `if x is no
 
 ### Gotcha 4: `/` is float division; `//` is integer division
 
-In Java, `7 / 2 == 3` for ints. In Python, `/` **always** returns a float.
+In many languages integer division truncates: `7 / 2 == 3`. In Python, `/` **always**
+returns a float.
 
 ```python
 7 / 2      # 3.5   (float, always)
-7 // 2     # 3     (floor division — this is Java's int /)
--7 // 2    # -4    ← floors toward -inf, NOT truncation! Java gives -3.
--7 % 2     # 1     ← % sign follows the divisor; Java gives -1
+7 // 2     # 3     (floor division — the integer-division operator)
+-7 // 2    # -4    ← floors toward -inf, NOT truncation! Truncating languages give -3.
+-7 % 2     # 1     ← the % sign follows the divisor; truncating languages give -1
 ```
 
 The negative-number behavior is a real interview trap (binary search mid, modular hashing).
@@ -184,14 +157,14 @@ For truncation toward zero use `int(-7 / 2)` → `-3`.
 
 ### Gotcha 5: No `++` / `--`
 
-`x++` is a syntax error; `--x` silently double-negates (it parses as `-(-x)`!). Use `x += 1`.
-There is also no `for(;;)` — use `for i in range(n)` or `while True:`.
+There is no `++` operator: `x++` is a syntax error, and `--x` silently double-negates (it
+parses as `-(-x)`!). Use `x += 1`. There is also no three-clause `for (init; test; step)`
+loop — use `for i in range(n)` or `while True:`.
 
 ### Gotcha 6: Chained comparisons are real (and idiomatic)
 
-```java
-if (0 <= i && i < n) { ... }
-```
+The bounds check that takes two comparisons joined by "and" elsewhere is one chained
+expression:
 
 ```python
 if 0 <= i < n:       # exactly what it looks like; evaluates i once
@@ -202,9 +175,9 @@ Flip side: `if a == b == c:` means all-three-equal, and `x < y > z` is legal but
 
 ### Gotcha 7: No block scope — LEGB scoping
 
-Java scopes to the `{}` block. Python has only four scopes: **L**ocal (function),
-**E**nclosing (outer function), **G**lobal (module), **B**uilt-in. Loop variables and
-`if`-branch variables leak into the whole function:
+Many languages scope a variable to its enclosing braces. Python has only four scopes:
+**L**ocal (function), **E**nclosing (outer function), **G**lobal (module), **B**uilt-in.
+Loop variables and `if`-branch variables leak into the whole function:
 
 ```python
 for i in range(10):
@@ -219,8 +192,8 @@ if you do, say why.
 
 ### Gotcha 8: Late-binding closures in loops
 
-Lambdas capture the **variable**, not its current value (Java forces effectively-final
-capture precisely to prevent this confusion).
+Lambdas capture the **variable**, not its current value (some languages force captured
+variables to be effectively final precisely to prevent this confusion).
 
 ```python
 fns = [lambda: i for i in range(3)]
@@ -233,7 +206,8 @@ fns = [lambda i=i: i for i in range(3)]   # FIX: default arg freezes the value
 ### Gotcha 9: Shallow vs deep copy
 
 `list(xs)`, `xs[:]`, `xs.copy()`, `dict(d)` all copy **one level** — nested objects are
-shared (same trap as cloning arrays of references in Java).
+shared (the classic trap of copying an array of references: the references are copied,
+the objects are not).
 
 ```python
 grid = [[0] * 3 for _ in range(3)]   # RIGHT: 3 independent rows
@@ -244,34 +218,26 @@ import copy
 b = copy.deepcopy(a)                 # true deep copy when you need it
 ```
 
-Also: `b = a` copies **nothing** — it's just a second reference, like Java object assignment.
+Also: `b = a` copies **nothing** — it's just a second name for the same object.
 
 ### Gotcha 10: Strings are immutable — `+=` in a loop is O(n²)
 
-Same reason you use `StringBuilder` in Java. The Python `StringBuilder` is
+Each `+=` allocates a brand-new string, so repeated concatenation is quadratic — the same
+reason other ecosystems have a dedicated string-builder type. Python's string builder is
 "collect into a list, `''.join()` at the end":
-
-```java
-StringBuilder sb = new StringBuilder();
-for (String p : parts) sb.append(p);
-return sb.toString();
-```
 
 ```python
 return "".join(parts)                          # one line, O(n)
 return "".join(f(x) for x in xs)               # with transformation
 ```
 
-There's no `charAt` either — `s[i]` — and no character type: `s[i]` is a length-1 `str`.
+Indexing is `s[i]`, and there is no separate character type: `s[i]` is a length-1 `str`.
 
 ### Gotcha 11: Exceptions as control flow — EAFP over LBYL
 
-Java culture: check first ("Look Before You Leap"). Python culture: "Easier to Ask
-Forgiveness than Permission" — try it and catch. Exceptions are cheap-ish and idiomatic:
-
-```java
-if (map.containsKey(k)) { v = map.get(k); } else { v = def; }
-```
+Many codebases check before acting ("Look Before You Leap"). Python culture prefers
+"Easier to Ask Forgiveness than Permission" — try it and catch. Exceptions are cheap-ish
+and idiomatic:
 
 ```python
 v = d.get(k, default)        # the dict-specific answer
@@ -289,7 +255,7 @@ normal vocabulary, not exceptional failures. Never write `except:` bare — catc
 
 CPython's Global Interpreter Lock lets only one thread execute Python bytecode at a time.
 `threading` gives concurrency for **I/O-bound** work (camera reads, network, disk) but
-**zero speedup for CPU-bound** work — the opposite of your Java `ExecutorService` instincts.
+**zero speedup for CPU-bound** work — adding threads will not make computation faster.
 
 - CPU-bound → `multiprocessing` (separate processes), or push the work into C/NumPy
   (NumPy releases the GIL inside its kernels — this is why vectorized code parallelizes).
@@ -301,7 +267,7 @@ assume the GIL exists unless told otherwise.)
 
 ### Gotcha 13: `range` / `zip` / `map` / `dict.keys()` are lazy, not lists
 
-They return one-shot iterators/views, closer to a Java `Stream` than a `List`:
+They return one-shot iterators/views — lazy streams, not materialized lists:
 
 ```python
 pairs = zip(names, scores)
@@ -315,7 +281,7 @@ comprehensions are preferred (see §4).
 
 ### Gotcha 14: Negative indexing and slice forgiveness
 
-`xs[-1]` is the last element (Java: `xs.get(xs.size() - 1)`). `xs[-2]` second-to-last.
+`xs[-1]` is the last element — no length-minus-one arithmetic. `xs[-2]` second-to-last.
 Out-of-range **indexing** raises `IndexError`, but **slicing** never does:
 `xs[2:999]` and `"abc"[5:]` quietly clamp/return empty. That silent clamping hides
 off-by-one bugs — a wrong slice bound won't throw the way a wrong index would.
@@ -323,7 +289,7 @@ off-by-one bugs — a wrong slice bound won't throw the way a wrong index would.
 ### Gotcha 15: Tuple vs list — immutability is a feature you'll use
 
 Not just "immutable list". Tuples are hashable → usable as dict keys and set members,
-which Java makes you write a `record` + `equals`/`hashCode` for:
+with no hand-written wrapper class carrying equality and hash methods:
 
 ```python
 visited = set()
@@ -338,32 +304,32 @@ list = homogeneous growable sequence.
 
 ---
 
-## 3. Rosetta table: Java construct → Python equivalent
+## 3. Rosetta table: concept → how Python does it
 
-| Java | Python | Notes |
+| Concept | Python | Notes |
 |---|---|---|
-| `ArrayList<T>` | `list` | `append`/`pop` O(1) at the END; `pop(0)`/`insert(0, x)` are O(n) — use `deque` |
-| `HashMap<K,V>` | `dict` | Insertion-ordered since 3.7. `d.get(k, default)`, `d.setdefault(k, [])` |
-| `HashSet<T>` | `set` | Literals: `{1, 2}`; empty set is `set()` (`{}` is an empty **dict**) |
-| `PriorityQueue<T>` | `heapq` on a plain list | Min-heap only; functions not methods: `heapq.heappush(h, x)`. Max-heap: push negated values. Custom priority: push `(priority, item)` tuples |
-| `TreeMap` / `TreeSet` | sorted `list` + `bisect` | No built-in balanced BST. `bisect.insort` is O(n) insert; say "in Java I'd use TreeMap; here I'd keep a sorted list with bisect, or a heap if I only need the min" |
-| `ArrayDeque` / `LinkedList` | `collections.deque` | O(1) `appendleft`/`popleft` — the BFS queue |
-| `Comparator` / `compareTo` | `key=` function | `sorted(xs, key=lambda p: (p.dist, p.name))` — return a tuple for multi-key. Descending: `reverse=True` or negate in the key. No comparator objects |
-| `Stream` + `collect` | comprehensions / generator expressions | `[f(x) for x in xs if p(x)]` replaces filter+map+collect. Lazy version: `(f(x) for x in xs)` |
-| `Optional<T>` | `None` + or-default | `value = maybe or default` (careful: treats `0`/`""` as missing); explicit: `x if x is not None else default`. Check with `is None` |
-| try-with-resources | `with` statement | `with open(path) as f:` — closes on exit, exception or not |
-| `interface` | duck typing / `typing.Protocol` | Usually you just... call the method. `abc.ABC` for enforced abstract bases |
-| `StringBuilder` | `"".join(parts)` | Or f-strings for formatting single values |
-| `Arrays.sort` / `Collections.sort` | `xs.sort()` (in place) / `sorted(xs)` (new list) | Both stable (Timsort), O(n log n). `sorted` works on ANY iterable |
-| `instanceof` | `isinstance(x, T)` | Accepts a tuple of types: `isinstance(x, (int, float))` |
-| `toString()` | `__repr__` (debugging) / `__str__` (display) | Define `__repr__` at minimum; `print(f"{obj!r}")` calls it |
-| `equals()` + `hashCode()` | `__eq__` + `__hash__` | Must stay consistent, same contract as Java. Or let `@dataclass(frozen=True)` generate both |
-| Lombok / `record` | `@dataclass` | `@dataclass` gives `__init__`, `__repr__`, `__eq__`; `frozen=True` ≈ `record` (immutable + hashable) |
-| Javadoc | docstrings | `"""Triple-quoted, first statement in def/class."""` — runtime-accessible via `help()` |
-| Maven / Gradle | `uv` (modern) / `pip` | `pyproject.toml` ≈ `pom.xml`; `uv run pytest` runs in the project venv; `uv.lock` pins versions |
-| `static` method | module-level function | Don't wrap functions in classes; a bare function in a module is idiomatic |
-| `enum` | `enum.Enum` | Or module-level constants for simple cases |
-| `synchronized` / `Lock` | `threading.Lock` | Exists and works — but see Gotcha 12 before reaching for threads |
+| Resizable array | `list` | `append`/`pop` O(1) at the END; `pop(0)`/`insert(0, x)` are O(n) — use `deque` |
+| Hash map | `dict` | Insertion-ordered since 3.7. `d.get(k, default)`, `d.setdefault(k, [])` |
+| Hash set | `set` | Literals: `{1, 2}`; empty set is `set()` (`{}` is an empty **dict**) |
+| Priority queue | `heapq` on a plain list | Min-heap only; functions not methods: `heapq.heappush(h, x)`. Max-heap: push negated values. Custom priority: push `(priority, item)` tuples |
+| Sorted map / sorted set | sorted `list` + `bisect` | No built-in balanced BST. `bisect.insort` is O(n) insert; say "there's no sorted container in the standard library, so I'd keep a sorted list with bisect, or a heap if I only need the min" |
+| Double-ended queue | `collections.deque` | O(1) `appendleft`/`popleft` — the BFS queue |
+| Custom sort order | `key=` function | `sorted(xs, key=lambda p: (p.dist, p.name))` — return a tuple for multi-key. Descending: `reverse=True` or negate in the key. No comparator objects |
+| Map/filter pipeline | comprehensions / generator expressions | `[f(x) for x in xs if p(x)]` is filter + map in one expression. Lazy version: `(f(x) for x in xs)` |
+| Optional / "no value" | `None` + or-default | `value = maybe or default` (careful: treats `0`/`""` as missing); explicit: `x if x is not None else default`. Check with `is None` |
+| Scoped resource cleanup | `with` statement | `with open(path) as f:` — closes on exit, exception or not |
+| Interface / contract | duck typing / `typing.Protocol` | Usually you just... call the method. `abc.ABC` for enforced abstract bases |
+| String builder | `"".join(parts)` | Or f-strings for formatting single values |
+| Sorting | `xs.sort()` (in place) / `sorted(xs)` (new list) | Both stable (Timsort), O(n log n). `sorted` works on ANY iterable |
+| Runtime type check | `isinstance(x, T)` | Accepts a tuple of types: `isinstance(x, (int, float))` |
+| Printable representation | `__repr__` (debugging) / `__str__` (display) | Define `__repr__` at minimum; `print(f"{obj!r}")` calls it |
+| Value equality + hashing | `__eq__` + `__hash__` | Must stay consistent with each other. Or let `@dataclass(frozen=True)` generate both |
+| Data class / record | `@dataclass` | Gives `__init__`, `__repr__`, `__eq__`; `frozen=True` adds immutability + hashability |
+| Doc comments | docstrings | `"""Triple-quoted, first statement in def/class."""` — runtime-accessible via `help()` |
+| Build tool + dependency manager | `uv` (modern) / `pip` | `pyproject.toml` declares the project; `uv run pytest` runs in the project venv; `uv.lock` pins versions |
+| Free-standing function | module-level function | Don't wrap functions in classes; a bare function in a module is idiomatic |
+| Enumerated constants | `enum.Enum` | Or module-level constants for simple cases |
+| Lock / mutex | `threading.Lock` | Exists and works — but see Gotcha 12 before reaching for threads |
 
 ---
 
@@ -391,7 +357,7 @@ dict(zip(keys, values))             # two lists → dict
 for a, b in zip(xs, xs[1:]):        # adjacent pairs
     ...
 
-# Comprehensions — the replacement for stream().filter().map().collect()
+# Comprehensions — filter + map in one expression
 squares = [x * x for x in xs if x > 0]        # list
 seen    = {x % 10 for x in xs}                # set
 index   = {v: i for i, v in enumerate(xs)}    # dict
@@ -405,10 +371,10 @@ f"{x=}"                      # debug form → "x=42"
 from collections import Counter, defaultdict, deque
 Counter("mississippi").most_common(2)   # [('i', 4), ('s', 4)] — freq map in one call
 Counter(a) == Counter(b)                # anagram check
-g = defaultdict(list); g[u].append(v)   # adjacency list, no containsKey dance
+g = defaultdict(list); g[u].append(v)   # adjacency list, no key-check dance
 q = deque([start]); q.popleft()         # BFS queue
 
-# Sorting with key tuples (Comparator.comparing(...).thenComparing(...))
+# Sorting with key tuples (primary key, then tie-break)
 xs.sort(key=lambda w: (-counts[w], w))  # count desc, then alphabetical asc
 
 # min / max with key
@@ -440,16 +406,16 @@ Naming the idiom signals fluency faster than anything else. Steal these lines:
 
 - **"I'll use a dict here — Python dicts are insertion-ordered, and I'll use `.get` with a
   default rather than checking membership first."** (Shows you know EAFP and post-3.7 dicts.)
-- **"In Java I'd reach for a PriorityQueue; in Python that's `heapq` — it's a min-heap over
-  a plain list, so for max-heap behavior I'll push negated priorities."**
-- **"There's no TreeMap in the standard library, so I'll keep a sorted list with `bisect` —
-  and I'll flag that insertion is O(n), so if inserts dominate I'd rethink."**
+- **"For a priority queue, Python's answer is `heapq` — a min-heap over a plain list, so
+  for max-heap behavior I'll push negated priorities."**
+- **"There's no sorted-map container in the standard library, so I'll keep a sorted list
+  with `bisect` — and I'll flag that insertion is O(n), so if inserts dominate I'd rethink."**
 - **"I'll build the string parts in a list and `join` at the end — string concatenation in
-  a loop is quadratic, same reason you'd use StringBuilder in Java."**
+  a loop is quadratic, because each `+=` copies the whole string."**
 - **"Tuples are hashable, so I can put `(row, col)` straight into the visited set — no
   wrapper class needed."**
 - **"I'll sort with a key tuple: negative count for descending, then the word itself for the
-  tie-break — that's Python's Comparator.thenComparing."**
+  tie-break — one tuple expresses the primary key and the tie-break."**
 - **"Default argument gotcha — I'll take `None` and create the list inside, since defaults
   are evaluated once at definition time."**
 - **"This is CPU-bound, so threads won't help because of the GIL — I'd use multiprocessing,
