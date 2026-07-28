@@ -1,69 +1,144 @@
 # 02 — Ownership and RAII: unique_ptr, std::move, destructors
 
-This is the chapter Java never had. After this lesson you will be able to: write a class
-that owns heap memory and frees it automatically with zero cleanup code, hand an object
-from one function to another so that exactly one place is ever responsible for it, and
-build "run this cleanup at the closing brace, no matter what" utilities — the pattern
-behind every file handle, lock, and timer in production C++. Every term is defined the
-first time it appears; every snippet's output was verified with `clang++ -std=c++17`.
+This lesson teaches the most important idea in C++. After it, you will be able to: write
+a class that owns heap memory and frees it automatically with zero cleanup code, hand an
+object from one function to another so that exactly one place is ever responsible for it,
+and build "run this cleanup at the closing brace, no matter what" utilities — the pattern
+behind every file handle, lock, and timer in production C++.
 
-## The Java you know
+Every term is defined the first time it appears; every snippet's output, error message,
+and exit code was verified with `clang++ -std=c++17` on this Mac.
 
-```java
-// Memory: every object lives on the heap; variables are references; the GC frees things.
-int[] data = new int[5];        // heap allocation, zero-initialized
-int[] alias = data;             // a second reference to the SAME array — cheap, always legal
-// Nobody "owns" the array. It lives until the garbage collector notices that no
-// reference can reach it anymore — milliseconds or minutes later, you can't know.
+## The problem this lesson solves
 
-// Cleanup: only AutoCloseable objects get deterministic release, and only
-// inside try-with-resources:
-try (FileInputStream in = new FileInputStream("cfg.bin")) {
-    // ... use in ...
-}                               // close() runs here, guaranteed
-// Everything else gets finalize()/Cleaner: runs "eventually, maybe, on some thread".
-```
+Lesson 01 taught you that a variable is a box of bytes, and that a local variable's box
+vanishes at its closing brace. That model has a hole in it: what about data that must
+**outlive** the function that created it? A factory function that builds an object and
+returns it. A camera frame that travels through a pipeline long after the capture
+function returned. That data can't live in a box that dies with the function.
 
-Both halves of this model are different in C++: there is no garbage collector, and
-*every* object gets the try-with-resources treatment automatically.
+Every language has to answer this, and most answer it with a **garbage collector**: all
+objects go in one big pool, and background machinery periodically hunts for objects
+nothing refers to anymore and frees them. It works — at the cost of *when*. Collection
+runs when the collector decides, and it can pause your program to do it.
+
+C++ refuses that trade, on purpose. A robot control loop at 50 Hz has 20 milliseconds
+per tick, every tick, forever; an inference server promises a latency budget per request.
+A collector that pauses the world at a moment of its choosing breaks both. So C++ has no
+garbage collector — and that means some line of *your* code must free every piece of
+long-lived memory, at a moment you can point to.
+
+Doing that by hand is famously error-prone. This lesson shows you the failure modes
+honestly, then the C++ solution — which is not "be careful", but a mechanism that makes
+cleanup automatic *and* deterministic at once: ownership, enforced by destructors.
 
 ## The lesson
 
-### 1. Ownership: the question Java never asks
+### 1. The stack: memory that frees itself
 
-Two kinds of memory first (Java has them too, it just hides one):
+When a function is called, it gets a **stack frame**: a block of scratch memory for its
+local variables. When the function returns, the frame is handed back — instantly, by
+moving a single pointer. All the frames form the **stack**: called functions pile frames
+on top, returns pop them off.
 
-- The **stack** is the scratch space a function gets when it's called and gives back the
-  instant it returns. Fast, automatic, but dies with the function.
-- The **heap** is the big shared pool for data that must outlive a single function call.
-  In Java, *all* objects live here and the **garbage collector** (GC) — background
-  machinery that periodically finds unreachable objects — frees them for you.
+```cpp
+int square(int x) {     // calling square pushes a frame; x and result live in it
+    int result = x * x;
+    return result;
+}                       // frame popped: x and result are GONE, cost ~zero
 
-C++ has no GC. Heap memory you allocate stays allocated until some line of code frees
-it. Get that wrong and you hit the three classic C++ bugs:
+int main() {
+    int nine = square(3);   // nine lives in main's frame
+}
+```
 
-- **Memory leak** — you allocated and never freed; the process's memory grows forever.
-- **Dangling pointer** — you kept an address to memory that was already freed. A
-  **pointer** is just a variable holding a memory address (a Java reference is a pointer
-  you're not allowed to do arithmetic on). Touching freed memory through one is
-  **undefined behavior** — a C++ term of art meaning the standard allows *anything*:
-  a crash, silently wrong values, or code that works for months and fails in a demo.
-  Java throws `NullPointerException`; C++ does not check.
-- **Double free** — two places both freed the same memory. Crash, or silently
-  scrambled memory.
+Every local variable you have written so far lived on the stack. That's why lesson 01's
+scope rule works: the closing brace *is* the deallocation. Stack memory is fast,
+automatic, and impossible to leak — and it dies with the function. Which is exactly why
+it can't hold data that must outlive the function.
 
-Modern C++ prevents all three with one discipline: **ownership**. Every heap object has
-*exactly one* owner at any moment. The owner — and only the owner — frees the object,
-automatically, at the moment the owner itself dies. The rest of this lesson is the
-machinery that makes the compiler enforce that discipline for you.
+### 2. The heap: memory that outlives the function
 
-### 2. Destructors: cleanup that runs on a specific line
+For that, C++ gives you the **heap**: a big pool of memory that any function can allocate
+from, where blocks live until some line of code explicitly frees them. The raw tools are
+`new` (allocate a block, get back its address) and `delete` (free it):
+
+```cpp
+int* p = new int(42);   // heap-allocate an int, initialized to 42
+```
+
+`p` is a **pointer**: a variable whose 8-byte box holds a memory *address* — the number
+of the slot where the int lives. The int is on the heap; only the address is in the
+function's frame. `*p` reads the value at that address ("dereferencing"); when the
+function returns, the pointer's box dies, but the heap int lives on.
+
+```cpp
+*p;             // -> 42            follow the address, read the int
+delete p;       // free the block; the heap gets the memory back
+```
+
+`new` also has an array form, and it must be paired with the array form of delete:
+
+```cpp
+int* a = new int[1000];   // heap-allocate a block of 1000 ints
+a[0] = 7;                 // index it like an array
+delete[] a;               // array new -> array delete. Mismatching is undefined behavior.
+```
+
+That `delete` line is the whole problem. Nothing reminds you to write it. Nothing stops
+you writing it twice. The compiler accepts every wrong variant silently.
+
+### 3. The two classic disasters
+
+**Disaster 1: the leak.** You allocate and never free. The block stays allocated forever
+— no collector exists to notice it's unreachable. This program was compiled and run;
+its peak memory was measured at about **800 MB**, for a program whose live data is one
+4 MB block:
+
+```cpp
+for (int i = 0; i < 250; ++i) {
+    int* block = new int[1'000'000];              // 4 MB
+    for (int j = 0; j < 1'000'000; ++j) block[j] = j;
+    // no delete[] — and `block` is overwritten next turn, so the address is LOST
+}
+// runs "fine". No error, no warning. The memory is simply gone until the process exits.
+```
+
+A leak never announces itself. The process just grows — for a robot that runs for days,
+that's a slow-motion crash.
+
+**Disaster 2: the double free.** Two places both free the same block. The allocator's
+bookkeeping is corrupted, and it kills the process. Verified — this program prints its
+first two lines, then dies on the second `delete` (exit code 133, no exception, no
+recovery):
+
+```cpp
+int* p = new int(5);
+std::cout << "first delete" << std::endl;
+delete p;
+std::cout << "second delete" << std::endl;
+delete p;                                  // process KILLED here
+std::cout << "never printed" << std::endl;
+```
+
+(Close cousin: the **dangling pointer** — keeping an address after freeing the block, and
+reading through it later. That's undefined behavior: the language makes no promises —
+crash, garbage values, or code that works for months and fails in a demo are all allowed.)
+
+Look at what both disasters have in common: the same block had an unclear number of
+responsible parties — zero for the leak, two for the double free. So modern C++ enforces
+one discipline: **ownership**. Every heap block has *exactly one* owner at any moment.
+The owner — and only the owner — frees it. The rest of this lesson is the machinery that
+makes the compiler enforce that discipline for you, starting with the hook it all hangs
+on.
+
+### 4. The destructor: a hook that runs at the closing brace
 
 A **destructor** is a method named `~ClassName()` that the compiler calls automatically
 at the exact moment an object dies. For a local variable, that moment is the closing
-brace of its **scope** — the region between `{` and `}` where the variable exists. (The
-demo below prints `ctor` from the constructor and `dtor` from the destructor — those are
-just common C++ shorthand for the two words, not keywords.)
+brace of its **scope** — the `{ ... }` region where the variable exists. You never call
+it; the closing brace does. Verified output, with the construction messages interleaved
+(`ctor`/`dtor` are just common shorthand for constructor/destructor, not keywords):
 
 ```cpp
 struct Noisy {                 // struct = class whose members are public by default
@@ -90,14 +165,11 @@ int main() {
 // dtor a
 ```
 
-Two properties Java cannot give you:
+Reverse order matters: `c` was built after `b` and might depend on it, so `c` is torn
+down first. Later-built objects always die before the objects they might lean on.
 
-- **Deterministic**: cleanup happens *on that brace*, not "when the GC feels like it".
-  Java's `finalize()` runs eventually-maybe and is deprecated; `try-with-resources` is
-  deterministic but only for `AutoCloseable`, and only where the caller remembers to
-  write the `try`. A C++ destructor needs no interface and no cooperation from callers.
-- **Exception-proof**: if an exception is thrown, destructors of everything in the
-  scopes being exited still run on the way out:
+And the guarantee holds even when the scope exits *sideways*. If an exception is thrown,
+destructors of everything in the scopes being exited still run on the way out — verified:
 
 ```cpp
 struct Guard { ~Guard() { std::cout << "cleanup ran\n"; } };
@@ -112,15 +184,17 @@ try {
 // caught: boom
 ```
 
-So in C++ every class is its own `finally` block.
+This is the deterministic cleanup the garbage-collected world can't give you: not
+"eventually", not "when the collector runs", but *on that brace, in that order, every
+time, even mid-exception*. Cleanup rides on scope.
 
-### 3. RAII: the pattern with the terrible name
+### 5. RAII: tie every resource to a scope
 
-**RAII** stands for "Resource Acquisition Is Initialization" — an awful name for a
-simple idea: *tie a resource to an object's lifetime*. The constructor acquires the
-resource (opens the file, locks the mutex, allocates the memory); the destructor
-releases it. Then scope rules from section 2 guarantee the release with no cleanup code
-at the call site, ever.
+**RAII** stands for "Resource Acquisition Is Initialization" — a terrible name for a
+simple pattern: *put the resource inside an object*. The constructor acquires the
+resource (opens the file, locks the lock, allocates the memory); the destructor releases
+it. Section 4's scope rules then guarantee the release with no cleanup code at the call
+site, ever — you cannot forget to free something you never had to remember.
 
 The entire standard library is built on this one mechanism:
 
@@ -128,40 +202,38 @@ The entire standard library is built on this one mechanism:
 |---|---|---|
 | `std::ifstream` | opens the file | closes it |
 | `std::lock_guard` | locks a **mutex** (a lock only one thread may hold at a time) | unlocks it |
-| `std::vector` | (grows) heap array for its elements | frees it |
+| `std::vector` | (grows) the heap block for its elements | frees it |
 | `std::unique_ptr` | takes charge of a heap object | deletes it |
 
-Where Java needed three language features (`finally`, try-with-resources, `Cleaner`),
-C++ needs only destructors. Deep dive: `../LEARNING_POINTS.md` §2–3.
+Read that third row again: you have been using RAII since lesson 01. A `vector`'s
+elements live on the heap — that's how it grows — yet you never freed anything, because
+the vector's destructor did it at every closing brace. Now we meet the last row: RAII
+applied to a single heap object.
 
-### 4. `std::unique_ptr`: ownership as a type
+### 6. `std::unique_ptr`: a pointer that owns what it points to
 
-A **smart pointer** is an object that *behaves* like a pointer — you can **dereference**
-it (follow the address to reach the object it points at), and it can be null — but has a
-destructor that frees what it points to. `std::unique_ptr<T>` is the sole-owner smart
-pointer: the one place responsible for one heap object. The angle brackets are a
-**template parameter** — like Java generics, except they work for any type including
-`int`. (Java generics can't hold a primitive: the compiler wraps each `int` in an
-`Integer` object — that wrapping is *autoboxing*, one heap allocation per value. C++
-templates generate real code for `int` itself; no wrappers exist. See
-`../LEARNING_POINTS.md` §9.)
+`std::unique_ptr<T>` is a pointer that owns what it points to and deletes it in its
+destructor. That's the entire concept. It behaves like the raw pointer from section 2 —
+holds an address, can be dereferenced, can be null — but when it dies at its closing
+brace, it frees the object it points at. Ownership as a type.
 
 You almost never write `new`, and *never* `delete`. The one-step allocator is
-`std::make_unique`:
+`std::make_unique<T>(constructor-args)` — it heap-allocates a `T` and hands you the
+owning pointer:
 
 ```cpp
 auto p = std::make_unique<std::string>("hi"); // heap-allocate a string("hi"); p owns it
-std::cout << p->size();       // -> 2      `->` reaches members through a pointer (Java's `.`)
+std::cout << p->size();       // -> 2      `->` reaches members through a pointer
 std::string* raw = p.get();   // borrow the raw address; ownership does NOT change
-if (p) { /* runs */ }         // a unique_ptr converts to true when non-null (Java: p != null)
+if (p) { /* runs */ }         // a unique_ptr converts to true when non-null
 p.reset();                    // free the string NOW; p becomes null
 // (p == nullptr) -> true        nullptr is C++'s typed null literal
 ```
 
-There is a second form for arrays: `std::unique_ptr<int[]>` (note the `[]`). It frees
-with the array flavor of delete, gives you plain indexing `a[i]`, and
-`std::make_unique<int[]>(n)` **zero-initializes** — every element starts at 0, exactly
-like Java's `new int[n]`:
+There is a second form for arrays: `std::unique_ptr<int[]>` (note the `[]`). It calls
+`delete[]` — the correct array flavor from section 2, chosen for you — gives you plain
+indexing, and `std::make_unique<int[]>(n)` **zero-initializes**: every element starts
+at 0 (verified):
 
 ```cpp
 auto a = std::make_unique<int[]>(5);
@@ -169,30 +241,34 @@ auto a = std::make_unique<int[]>(5);
 a[0] = 7;                                // index it like a plain array
 ```
 
-The crucial rule: **a `unique_ptr` cannot be copied**, because a copy would mean two
-sole owners. The copy operation is deleted, so this is a *compile* error, not a runtime
-surprise:
+The crucial rule: **a `unique_ptr` cannot be copied**. A copy would mean two sole owners
+— which is the double-free disaster waiting for two closing braces. So the copy operation
+is deleted, and this is a *compile* error, not a runtime surprise:
 
 ```cpp
 auto p = std::make_unique<int>(1);
 auto q = p;   // error: call to implicitly-deleted copy constructor of 'unique_ptr<int>'
 ```
 
-And it costs nothing: `sizeof(std::unique_ptr<int>) == sizeof(int*)` (both 8 bytes on
-this Mac). It's the same plain address a raw pointer holds, plus a destructor. C++ calls
-this a *zero-cost abstraction*: the safety is free at runtime.
+Stop and admire that: the disaster from section 3 is now a red squiggle. The program
+that double-frees does not compile.
 
-What if two places genuinely must share an object, Java-style? That exists —
-`std::shared_ptr`, which keeps a count of how many pointers share the object and frees
-it when the count hits zero — but it's the exception, not the default. See the pointer
-taxonomy in `../LEARNING_POINTS.md` §4.
+And it costs nothing: `sizeof(std::unique_ptr<int>) == sizeof(int*)` — both 8 bytes on
+this Mac (verified). Same address a raw pointer holds, plus a destructor. C++ calls this
+a *zero-cost abstraction*: the safety is free at runtime, which is why it's acceptable in
+a control loop.
 
-### 5. `std::move`: handing over the keys
+(What if two places genuinely must share one object? That exists — `std::shared_ptr`
+keeps a count of owners and frees the object when the count hits zero — but it's the
+exception in well-designed code, not the default.)
 
-If copying is banned, how does a `unique_ptr` ever leave the function that made it?
-By **moving**. `std::move(p)` is — despite the name — just a cast: it moves nothing
-itself, it only marks `p` as "you may steal from this". The actual transfer happens in
-the receiving `unique_ptr`, which takes the address and nulls out the source:
+### 7. `std::move`: handing over the keys
+
+If copying is banned, how does a `unique_ptr` ever leave the function that made it? By
+**moving**: transferring ownership instead of duplicating it. `std::move(p)` is —
+despite the name — just a marker: it moves nothing itself, it only flags `p` as "you may
+take from this". The receiving `unique_ptr` does the actual transfer: it takes the
+address and nulls out the source. Verified:
 
 ```cpp
 auto p = std::make_unique<int>(42);
@@ -201,73 +277,73 @@ auto q = std::move(p);   // ownership transferred to q
 // *q            -> 42
 ```
 
-Java has no syntax for "I'm giving this reference away" — every Java variable is an
-equally-powerful alias forever. In C++ the handoff is visible in the source, and the
-compiler *forces* the visibility. Passing a `unique_ptr` to a by-value parameter without
-`std::move` is the same deleted copy as before:
+Still exactly one owner — it's just a different variable now. And the handoff is visible
+in the source: you cannot transfer ownership *silently*, because passing a `unique_ptr`
+where a copy would be needed is that same deleted-copy compile error unless you write
+`std::move`:
 
 ```cpp
-void sink(std::unique_ptr<int> owned);
+void sink(std::unique_ptr<int> owned);   // by-value parameter: this function CONSUMES its argument
 sink(p);              // error: call to implicitly-deleted copy constructor
 sink(std::move(p));   // OK — and everyone reading this line can SEE the handoff
 ```
 
 Three gotchas, each one sentence you can act on:
 
-- **After `sink(std::move(p))`, `p` is null.** `*p` or `p->anything` still compiles but
-  crashes with a **segmentation fault** — the operating system killing your process for
-  touching an invalid address. (Verified: the process dies instantly — no exception, no
-  stack trace.) The type system made the transfer visible; not using `p` afterwards is
-  on you.
+- **After `sink(std::move(p))`, `p` is null.** `*p` still compiles but the process dies
+  with a **segmentation fault** — the operating system killing it for touching an invalid
+  address. (Verified: exit code 139, no exception, no message.) The compiler made the
+  transfer visible; not touching `p` afterwards is on you.
 - **Never write `return std::move(local);`** — returning a local `unique_ptr` already
-  moves it, and the explicit `std::move` defeats **copy elision** (the optimization
-  where the compiler constructs the return value directly in the caller's variable,
-  skipping even the move). Clang literally warns: *"moving a local object in a return
-  statement prevents copy elision"*. Plain `return p;` is correct.
-- **`std::move` doesn't move.** If nothing steals from the marked variable, nothing
+  moves it, and the explicit `std::move` defeats **copy elision** (the optimization where
+  the compiler builds the return value directly in the caller's variable, skipping even
+  the move). Verified — clang warns: *"moving a local object in a return statement
+  prevents copy elision"*. Plain `return p;` is correct.
+- **`std::move` doesn't move.** If nothing takes from the marked variable, nothing
   happens at all. It's a label, not an action.
 
-Deeper treatment of moves for all types (not just pointers): `../LEARNING_POINTS.md` §10.
+Moving is a much bigger idea than pointers — every container can be moved, and lesson 03
+is devoted to it. For now: `std::move` on a `unique_ptr` = ownership transfer.
 
-### 6. The rule of zero
+### 8. The rule of zero
 
 If a class hand-writes a destructor, it usually also needs hand-written copy and move
-rules — in C++ folklore, the "rule of three/five" (destructor + copy pair + move pair
+rules — in C++ folklore, the "rule of three/five" (destructor, copy pair, and move pair
 travel together). The modern escape hatch is the **rule of zero**: make every field a
-self-cleaning type (`std::vector`, `std::string`, `std::unique_ptr`) and write *none*
-of the five. The compiler-generated destructor destroys each field, each field frees its
-own resource, done. The `Buffer` drill below is a rule-of-zero class: it owns heap
-memory yet contains no cleanup code whatsoever.
+self-cleaning type (`std::vector`, `std::string`, `std::unique_ptr`) and write *none* of
+the five. The compiler-generated destructor destroys each field, each field frees its own
+resource, done. The `Buffer` drill below is a rule-of-zero class: it owns heap memory yet
+contains no cleanup code whatsoever.
 
-### 7. Syntax you'll need for the drills
+### 9. Syntax you'll need for the drills
 
 - **Member initializer list** — the `: field_(value), ...` between a constructor's
-  signature and its body. It *initializes* fields before the body runs (Java only has
-  assignments inside the body). It is the required way to set up `const` fields and
-  reference fields, and the idiomatic way for everything else:
+  signature and its body. It *initializes* fields before the body runs (assignment
+  inside the body would mean default-construct first, overwrite second). It is the
+  required way to set up `const` fields and reference fields, and the idiomatic way for
+  everything else:
 
   ```cpp
   explicit Buffer(std::size_t n) : size_(n), data_(std::make_unique<int[]>(n)) {}
   ```
 
 - **`explicit`** on a one-argument constructor forbids the compiler from silently using
-  it as a conversion: without it, `use(5)` would auto-manufacture a `Buffer(5)`; with
-  it, that line is an error ("no matching function") and you must write `use(Buffer(5))`.
+  it as a conversion: without it, `use(5)` would auto-manufacture a `Buffer(5)`; with it,
+  that line is an error ("no matching function") and you must write `use(Buffer(5))`.
   Habit: mark every single-argument constructor `explicit`.
 - **`const` after a method** — `std::size_t size() const` — promises the method won't
-  mutate the object. Calling a non-`const` method on a `const` object/reference is a
-  compile error ("function is not marked const"), so mark every read-only method
-  `const` or callers taking `const Buffer&` can't use it. (`../LEARNING_POINTS.md` §5.)
+  mutate the object. Calling a non-`const` method on a `const` object or through a
+  `const` reference is a compile error ("method is not marked const"), so mark every
+  read-only method `const` or callers holding `const Buffer&` can't use it.
 - **`= delete`** removes a function at compile time. `ScopedLogger(const ScopedLogger&)
   = delete;` makes any attempted copy the error "call to deleted constructor" — exactly
   how `unique_ptr` bans copying.
 - **Reference member** — `std::vector<std::string>& log_;` stores an *alias* to the
-  caller's vector: borrowed, not owned, so the destructor has no duty to it. It must be
-  initialized in the member initializer list, and the borrowing object must not outlive
-  the thing it borrows.
+  caller's vector: borrowed, not owned, so the destructor has no cleanup duty to it. It
+  must be initialized in the member initializer list, and the borrowing object must not
+  outlive the thing it borrows.
 - **`std::size_t`** is the unsigned (never negative) integer type C++ uses for sizes and
-  indexing, where Java uses `int`. **`long long`** is a guaranteed-64-bit integer —
-  Java's `long`.
+  indexing. **`long long`** is the guaranteed-64-bit integer (lesson 01, step 11).
 
 ## Muscle memory
 
@@ -281,7 +357,7 @@ if (p) { }     p == nullptr;                  // null checks
 sink(std::move(p));                           // give ownership away; p is null after
 std::unique_ptr<T> make();                    // return type says: caller receives ownership
 void sink(std::unique_ptr<T> t);              // by-value param says: this function consumes it
-~ClassName() { /* release */ }                // destructor = deterministic finally
+~ClassName() { /* release */ }                // destructor = guaranteed scope-exit hook
 ClassName(const ClassName&) = delete;         // forbid copying at compile time
 explicit ClassName(std::size_t n) : field_(n) {}  // explicit ctor + initializer list
 ```
@@ -297,7 +373,7 @@ Task: constructor stores `n` and allocates `std::unique_ptr<int[]>`; implement
 
 ```cpp
 explicit Buffer(std::size_t n) : size_(n), data_(std::make_unique<int[]>(n)) {}
-// Buffer b(5);   b.sum() -> 0   (zero-initialized, like Java's new int[5])
+// Buffer b(5);   b.sum() -> 0   (make_unique<int[]> zero-initializes)
 // b.fill(3);     b.sum() -> 15
 // b dies at its closing brace -> array freed, no code written for it (rule of zero)
 ```
@@ -305,15 +381,15 @@ explicit Buffer(std::size_t n) : size_(n), data_(std::make_unique<int[]>(n)) {}
 Gotcha: `size()` and `sum()` must be marked `const` (they already are in the stub) —
 delete the `(void)` placeholder lines once you use the fields for real.
 
-**Where you'll see it:** the classic C++ interview "implement a String / dynamic array /
-Matrix class" is really a resource-ownership test — the follow-up is always "what
-happens when I copy it?" (with a `unique_ptr` member: it doesn't compile, which is often
-the answer they want, plus how you'd add a deliberate **deep copy** — a hand-written copy
+Where you'll see it: the classic C++ interview "implement a String / dynamic array /
+Matrix class" is really a resource-ownership test — the follow-up is always "what happens
+when I copy it?" (with a `unique_ptr` member: it doesn't compile, which is often the
+answer they want, plus how you'd add a deliberate **deep copy** — a hand-written copy
 constructor that allocates a fresh array and duplicates the elements, instead of the
-banned pointer copy). In robotics/ML work
-this class *is* the shape of an image frame, a point-cloud buffer, or a tensor
-input/output staging buffer — inference APIs hand you raw memory (often on the GPU) and
-production code wraps it in exactly this kind of owning class.
+banned pointer copy). In robotics/ML work this class *is* the shape of an image frame, a
+point-cloud buffer, or a tensor input/output staging buffer — inference APIs hand you raw
+memory (often on the GPU) and production code wraps it in exactly this kind of owning
+class.
 
 ### Drill 2 — `makeBuffer`: a factory that hands ownership out
 
@@ -327,12 +403,12 @@ std::unique_ptr<Buffer> makeBuffer(std::size_t n) {
 ```
 
 Gotcha: writing `return std::move(...)` on a local triggers the "prevents copy elision"
-warning from §5 — a plain `return` of a local `unique_ptr` moves automatically.
+warning from section 7 — a plain `return` of a local `unique_ptr` moves automatically.
 
-**Where you'll see it:** factory-pattern questions, and the standard screener "why
-return `unique_ptr` instead of a raw pointer?" (the signature documents that the caller
-now owns it, and the object can't leak even if the caller ignores the result). In real
-systems, driver and plugin factories ("give me a camera object for this config") return
+Where you'll see it: factory-pattern questions, and the standard screener "why return
+`unique_ptr` instead of a raw pointer?" (the signature documents that the caller now owns
+it, and the object can't leak even if the caller ignores the result). In real systems,
+driver and plugin factories ("give me a camera object for this config") return
 `unique_ptr`; inference runtimes' create-functions return heap objects that production
 code wraps in `unique_ptr` on the very next line.
 
@@ -350,14 +426,14 @@ long long total = moveBuffer(std::move(buf));  // handoff visible at the call si
 ```
 
 Gotcha: forgetting `std::move` at the call site is a compile error (deleted copy);
-touching `buf`'s contents after the move is a crash. Both from §5.
+touching `buf`'s contents after the move is a crash. Both from section 7.
 
-**Where you'll see it:** the bread-and-butter C++ interview trio — "what does
-`std::move` actually do?", "what state is a moved-from object in?", and "implement
-`unique_ptr`". In robotics this "sink function" signature is everywhere: ROS 2 (the
-standard robotics middleware) lets you `publish()` a `std::unique_ptr` message precisely
-so the framework can pass your buffer to subscribers without copying, and pipeline
-stages (capture → preprocess → inference) hand frames along the same way.
+Where you'll see it: the bread-and-butter C++ interview trio — "what does `std::move`
+actually do?", "what state is a moved-from object in?", and "implement `unique_ptr`". In
+robotics this "sink function" signature is everywhere: ROS 2 (the standard robotics
+middleware) lets you `publish()` a `std::unique_ptr` message precisely so the framework
+can pass your buffer to subscribers without copying, and pipeline stages (capture →
+preprocess → inference) hand frames along the same way.
 
 ### Drill 4 — `ScopedLogger`: the RAII scope guard
 
@@ -373,15 +449,15 @@ std::vector<std::string> log;
 // log -> ["enter", "work", "exit"]
 ```
 
-The nested case in `main()` checks reverse destruction order from §2: two nested loggers
-produce `enter, enter, exit, exit` — inner one exits first.
+The nested case in `main()` checks reverse destruction order from section 4: two nested
+loggers produce `enter, enter, exit, exit` — the inner one exits first.
 
-**Where you'll see it:** "What is RAII?" is arguably the single most common C++
-interview question, and "implement `lock_guard`" / "make this exception-safe without
-`finally`" are its hands-on forms — this drill is that exact exercise. In real code this
-pattern is `std::lock_guard` around shared state in every multithreaded control loop,
-scoped timers that log how long an inference call took, and safety guards like "stop the
-motors when this scope exits, even if an exception is flying".
+Where you'll see it: "What is RAII?" is arguably the single most common C++ interview
+question, and "implement `lock_guard`" / "make this cleanup exception-safe" are its
+hands-on forms — this drill is that exact exercise. In real code this pattern is
+`std::lock_guard` around shared state in every multithreaded control loop, scoped timers
+that log how long an inference call took, and safety guards like "stop the motors when
+this scope exits, even if an exception is flying".
 
 ## How to practice
 
@@ -398,3 +474,19 @@ clang++ -std=c++17 -Wall -o /tmp/raii starter.cpp && /tmp/raii
 ```
 
 Without `PRACTICE=1`, pytest checks the reference `solution.cpp` instead.
+
+## The road ahead
+
+RAII is the exact pattern you will use on the GPU. CUDA's memory API is section 2 all
+over again — `cudaMalloc` hands you a raw address on the device, `cudaFree` gives it
+back, and nothing reminds you to call it: the GPU has no garbage collector either, and a
+leaked device buffer is gone until the process dies. So real inference code wraps device
+memory in exactly what you built here — a `Buffer`-shaped RAII class (or a `unique_ptr`
+with a custom deleter that calls `cudaFree`), owning the allocation, freeing it at a
+brace you can point to. `ScopedLogger` scales up too: CUDA timing events and profiler
+ranges are scope guards in production engines. Master these four drills and you have
+already written the memory-management layer of an inference runtime — just with `int`
+instead of `float16` and one machine instead of a GPU.
+
+Next lesson: moving is bigger than pointers — move semantics for every type, and what
+"stealing the guts" of a vector actually means.
