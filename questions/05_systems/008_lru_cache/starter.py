@@ -2,7 +2,7 @@
 LRU Cache — YOUR ATTEMPT
 
 Write your solution here, then run the tests against it:
-    PRACTICE=1 uv run pytest questions/05_systems/002_lru_cache -v
+    PRACTICE=1 uv run pytest questions/05_systems/008_lru_cache -v
 
 Peek at solution.py only after you've tried.
 """

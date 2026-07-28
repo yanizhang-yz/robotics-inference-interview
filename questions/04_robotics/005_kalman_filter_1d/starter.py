@@ -2,7 +2,7 @@
 1-D Kalman Filter (Constant Velocity) — YOUR ATTEMPT
 
 Write your solution here, then run the tests against it:
-    PRACTICE=1 uv run pytest questions/04_robotics/004_kalman_filter_1d -v
+    PRACTICE=1 uv run pytest questions/04_robotics/005_kalman_filter_1d -v
 
 Peek at solution.py only after you've tried.
 """

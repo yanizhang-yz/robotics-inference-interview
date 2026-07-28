@@ -2,7 +2,7 @@
 Scaled Dot-Product Attention — YOUR ATTEMPT
 
 Write your solution here, then run the tests against it:
-    PRACTICE=1 uv run pytest questions/03_ml_inference/002_scaled_dot_product_attention -v
+    PRACTICE=1 uv run pytest questions/03_ml_inference/004_scaled_dot_product_attention -v
 
 Peek at solution.py only after you've tried.
 """
