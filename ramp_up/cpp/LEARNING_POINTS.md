@@ -1,307 +1,439 @@
-# A Java Developer's Map to C++
+# C++ Foundations for Inference and Robotics
 
-Dense reference card. Every section: the Java idiom you know, then what C++ actually does.
-C++17 assumed throughout (that's what the exercises compile with).
+This is a standalone introduction. It assumes you can program — variables, loops,
+functions, classes — but have never had to think about memory. That is the one new
+skill C++ demands. It is also the skill that unlocks GPUs.
+
+Every code snippet in this document was compiled and run with `clang++ -std=c++17`
+before it was written down. You can trust the behavior shown.
 
 ---
 
-## 1. Value semantics vs reference semantics — the #1 shift
+## 1. Why C++ — and why inference engineers can't skip it
 
-In Java, every non-primitive variable is a reference; assignment and parameter passing
-share the object. In C++, **objects are values by default**: assignment and parameter
-passing **copy the whole object** unless you explicitly ask for a reference or pointer.
+A robot arm must react in a few milliseconds, every time. An inference server must
+answer within its latency budget, every time. These are deadlines.
 
-```java
-// Java: one list, two names
-List<Integer> a = new ArrayList<>(List.of(1, 2));
-List<Integer> b = a;
-b.add(3);            // a also sees [1, 2, 3]
-void f(List<Integer> xs) { xs.add(9); }  // mutates caller's list
+Most popular languages use a garbage collector. A garbage collector is a background
+system that finds unused memory and reclaims it. It runs when *it* decides to. When
+it runs, your program can pause. A pause at the wrong moment blows the deadline.
+
+C++ has no garbage collector. Nothing runs behind your back. Every cost in a C++
+program is a line you wrote, paid at the moment that line executes. This is called
+**deterministic cost**, and it is why the fast layer of the ML world is C++:
+
+- PyTorch's core (ATen, the dispatcher, the CUDA kernels) is C++.
+- TensorRT, ONNX Runtime, and llama.cpp are C++.
+- vLLM's paged-attention kernels are C++/CUDA.
+- ROS, the standard robotics framework, is C++.
+- CUDA itself **is** C++ with GPU extensions.
+
+There is a second reason to learn it. C++ makes you deal with memory directly:
+where bytes live, when they are copied, when they are freed. That knowledge is not
+a hazing ritual. It is literally how computers work — and it is the entry
+requirement for CUDA, where managing memory *is* the job.
+
+So the pitch is simple. Learn C++ and you learn the machine. Learn the machine and
+GPUs stop being magic.
+
+## 2. The one mental model everything builds on
+
+Here is the model. Everything else in this document is a corollary of it.
+
+> **A variable is a box of bytes at a fixed address.**
+
+Not a label. Not a handle to an object living somewhere else. The variable *is* the
+bytes. `int x = 7;` reserves 4 bytes somewhere and writes the value 7 into them.
+Ask for the address with `&x` and you get a real number, like `0x16b4deaac`.
+
+**Assignment copies the bytes.** `int y = x;` makes a second, independent box and
+copies the 4 bytes into it. Change `y` and `x` does not move. For bigger objects
+the copy is bigger, but the rule is the same: assignment duplicates.
+
+Where do the boxes live? Two places.
+
+**The stack** is each function's scratch space. Entering a function claims a slab
+of it; local variables are boxes inside that slab. Returning releases the whole
+slab instantly — no cleanup pass, no bookkeeping. Stack allocation is nearly free.
+Its limit: the size must be known up front, and the space dies with the function.
+
+**The heap** is memory you request at runtime: "give me 4000 bytes." The allocator
+finds a free block and hands you its address. The block survives until someone
+returns it. That flexibility costs more, and the *return it* part is where all the
+famous C++ bugs live. Section 6 covers how modern C++ eliminated them.
+
+```text
+ stack (per function, auto-freed)     heap (requested, must be returned)
+ ┌─────────────────────────────┐      ┌──────────────────────────────┐
+ │ x: 7                        │      │                              │
+ │ v: [size=1000, ptr] ────────┼─────▶│ [1000 ints, 4000 bytes]      │
+ └─────────────────────────────┘      └──────────────────────────────┘
 ```
 
+That picture is real. A `std::vector<int>` with 1000 elements is a small box on
+the stack — 24 bytes on my machine, verified with `sizeof` — holding the size and
+a heap address. The 1000 ints live in the heap block it points to. The vector
+*manages* that block: it frees it automatically when the vector's own box dies.
+
+Hold onto this model. Copies, references, pointers, and ownership — the next four
+sections — are each just one question about boxes: *same box or new box, and whose
+job is it to free the heap ones?*
+
+## 3. Value semantics: copies are real copies
+
 ```cpp
-// C++: assignment CLONES
 std::vector<int> a = {1, 2};
-std::vector<int> b = a;   // deep copy — independent vector
-b.push_back(3);           // a is still {1, 2}
-
-void f(std::vector<int> xs);        // pass by value: caller gets a COPY, xs mutations invisible
-void f(std::vector<int>& xs);       // pass by reference: like Java — mutations visible
-void f(const std::vector<int>& xs); // read-only view, no copy — the DEFAULT for inputs
+std::vector<int> b = a;   // runs vector's copy code: new heap block, elements copied
+b.push_back(3);           // b is {1, 2, 3}
+                          // a is still {1, 2} — verified
 ```
 
-Rules of thumb:
-- Function inputs you only read: `const T&` (cheap, no copy, can't mutate).
-- Small trivially-copyable types (`int`, `double`, `char`, small structs): plain `T` by value.
-- Inputs you'd copy anyway (e.g. to sort your own version): take `T` by value and mutate the parameter.
-- Outputs: just `return` the object — copies are elided / moved (see §10), so this is cheap.
+**Mechanism.** `b = a` creates a fully independent vector. For plain types the
+compiler copies the bytes. For a vector, assignment runs its copy constructor,
+which allocates a fresh heap block and copies every element into it. Two boxes,
+two heap blocks, no sharing.
 
-`==` on containers/strings compares **contents** (like Java `.equals()`), not identity.
-There is no Java-style "reference equality" unless you compare pointers.
+**Why designed this way.** Objects that never share by accident are easy to reason
+about — no "I changed it over here and it broke over there." And when a copy is a
+line of code you wrote, its cost is visible. C++ refuses to hide costs.
 
-## 2. Stack vs heap, and no GC
+**Consequence.** Passing an argument by value is also a copy. For a 1 GB tensor
+that is catastrophic, so C++ gives you references (next section) to opt out.
 
-Java: primitives on the stack, every object on the heap, GC reclaims them eventually.
-C++: **you choose**, and destruction is deterministic.
+**In inference.** Accidental tensor copies are a top real-world performance bug.
+C++ makes every copy something you typed, so you can find them and delete them.
+
+## 4. References and `const`: another name for the same box
 
 ```cpp
-void demo() {
-    std::vector<int> v(1000);          // v itself on the stack; its 1000 ints on the heap,
-                                       // managed BY the vector
-    auto p = std::make_unique<Widget>(); // explicitly heap-allocated, owned by p
-}   // <- both destroyed exactly here, in reverse declaration order. No GC, no pause, no maybe.
+int x = 10;
+int& r = x;        // r IS x — same box, same address (verified: &r == &x)
+r = 42;            // x is now 42
+
+void resetAll(std::vector<int>& v);        // works on the caller's vector
+void report(const std::vector<int>& v);    // reads it, cannot change it, no copy
 ```
 
-- Prefer stack/member objects (`std::string name;`) over heap (`new`). Java had no such choice.
-- You should essentially never write `new`/`delete` by hand — containers and smart pointers own heap memory for you.
-- Destruction order is deterministic: end of scope, reverse order of construction. Java's
-  `finalize()` ("maybe, someday, on some thread") has no analogue because none is needed.
+**Mechanism.** A reference is a second name for an existing box. It is not a new
+box. Under the hood the compiler passes the address, but the language hides that:
+you use `r` exactly like `x`. A reference must be bound to a real box when created
+and can never be null or re-pointed. `const T&` adds a compile-time promise: reads
+only. Break the promise and the code does not compile — verified; `push_back` on a
+`const std::vector<int>` is rejected with an error.
 
-## 3. RAII — the replacement for try-with-resources / finally
+**Why designed this way.** You need a way to hand a function your actual object —
+either to let it modify it, or just to avoid copying something huge. References do
+both, with none of the dangers of raw addresses. `const` exists so the *compiler*
+enforces "this function only reads," instead of a comment hoping it is true.
 
-RAII = Resource Acquisition Is Initialization: a constructor acquires the resource, the
-**destructor** releases it, and the destructor runs deterministically at scope exit —
-including when an exception unwinds the stack.
+**The default habit.** Function inputs you only read: take `const T&`. Small cheap
+things (`int`, `double`): take by value. Mark every method that doesn't mutate its
+object as `const`. Interviewers look for exactly this.
 
-```java
-// Java
-try (var in = new FileInputStream(path)) {
-    use(in);
-}                       // close() called by try-with-resources
-```
+**In inference.** Every serious C++ API passes tensors and configs as `const T&`.
+A frame of camera data enters the pipeline once and is *referenced* thereafter.
+
+## 5. Pointers: a box holding an address
 
 ```cpp
-// C++
-{
-    std::ifstream in(path);   // ctor opens
-    use(in);
-}                             // dtor closes — ALWAYS, even on exception
+int x = 7;
+int* p = &x;   // p is its own box; its VALUE is x's address
+*p = 9;        // "go to the address in p, write 9" — x is now 9 (verified)
 ```
 
-Everything uses this one mechanism: files (`fstream`), locks (`std::lock_guard`),
-memory (`unique_ptr`, containers), timers, log scopes. Where Java needed a language
-feature (`finally`, try-with-resources, `Cleaner`), C++ needs only destructors.
-Exercise `02_ownership_and_raii` builds one from scratch.
+**Mechanism.** A pointer is an ordinary box, 8 bytes on modern machines, whose
+content is an address. `&x` produces an address; `*p` follows one. That is the
+entire feature. Unlike a reference, a pointer can be null (`nullptr`, pointing at
+nothing), can be re-pointed, and supports arithmetic: `p + 1` is the address 4
+bytes later, which is how arrays are walked.
 
-## 4. Raw pointers vs references vs smart pointers
+**Why do pointers exist when references are safer?** Because some things a
+reference cannot express:
 
-Java has exactly one kind of indirection (the nullable reference). C++ splits it into four,
-by **ownership** and **nullability**:
+- *Maybe-absent*: a pointer can be `nullptr`; a reference always refers.
+- *Re-pointable*: a pointer can walk down an array or a linked structure.
+- *Heap access*: the heap hands you addresses. Something must hold them.
+- *Hardware*: a device, a DMA buffer, a GPU allocation — all just addresses.
 
-| C++ type | Owns the object? | Nullable? | Java analogue | Use for |
-|---|---|---|---|---|
-| `T&` / `const T&` | no | never (must bind at init) | non-null reference param | function parameters, aliases |
-| `T*` raw pointer | **no** (modern rule) | yes | nullable reference | optional non-owning access |
-| `std::unique_ptr<T>` | yes, **sole** owner | yes | the *only* reference to an object | default for heap objects |
-| `std::shared_ptr<T>` | yes, ref-counted | yes | a Java reference (shared, auto-freed) | genuinely shared ownership (rarer than you think) |
+**The modern rule.** A raw pointer means *borrowing*: you may look, you never
+free. Owning heap memory through raw pointers is the disease; the next two
+sections are the cause and the cure.
+
+**In inference.** `tensor.data_ptr()` — the address of the first element — is how
+every kernel receives its data. CUDA APIs traffic almost entirely in pointers.
+
+## 6. `new`/`delete`, and why manual memory went wrong
 
 ```cpp
-auto u = std::make_unique<Robot>("arm");   // sole owner; freed when u dies
-auto s = std::make_shared<Robot>("arm");   // ref-counted; freed when LAST shared_ptr dies
-Robot* raw = u.get();                      // borrow: observe, never delete
-Robot& ref = *u;                           // borrow with guaranteed non-null
+int* buf = new int[1000];   // allocator reserves heap block, returns its address
+// ... use buf ...
+delete[] buf;               // returns the block; forget this and it leaks
 ```
 
-- `unique_ptr` copies are **forbidden** at compile time — transfer with `std::move` (§10).
-- `shared_ptr` behaves most like a Java reference, but don't default to it: the ref-count
-  costs atomics, and cycles leak (use `weak_ptr` to break them — Java's GC handled cycles for free; ref-counting doesn't).
-- A function taking `T*` or `T&` is *borrowing*; taking `unique_ptr<T>` by value is *consuming* (taking ownership).
+**Mechanism.** `new` asks the heap allocator for a block, runs constructors, and
+gives you the address. `delete` runs destructors and returns the block. The
+allocator does not watch you. It hands over the block and forgets you exist.
 
-## 5. const correctness — no Java equivalent
+**What goes wrong.** Three classic failures, all silent:
 
-Java `final` only stops rebinding the variable. C++ `const` makes the **object itself**
-read-only, and it's enforced transitively through the type system.
+- **Leak** — you never call `delete`. The block stays reserved forever. A robot
+  process leaking a few KB per frame dies hours into a run.
+- **Double free** — you `delete` the same block twice. The allocator's records
+  are corrupted; the crash comes later, somewhere unrelated.
+- **Use-after-free** — you keep using the address after `delete`. Reads return
+  garbage; writes scribble over whatever lives there now.
 
-```java
-final List<Integer> xs = ...;
-xs.add(1);   // fine — final didn't protect the contents
-```
+These stay hidden because early returns, exceptions, and refactors make "did every
+path free this?" impossible to eyeball. Decades of production crashes proved that
+humans cannot do this reliably by hand.
+
+**Why the language has it anyway.** Explicit allocation is the source of C++'s
+power — you decide exactly when the expensive operation happens. The fix, next,
+keeps the control and removes the human from the release step.
+
+## 7. RAII and smart pointers: the destructor is a hook that always runs
+
+Every C++ class may define a **destructor** — code that runs automatically at the
+exact moment an object's box dies: end of scope, in reverse creation order, and
+*also* mid-flight when an exception is unwinding the stack. All verified:
 
 ```cpp
-const std::vector<int> xs = {1, 2};
-xs.push_back(3);                      // COMPILE ERROR
+struct FileLike { ~FileLike() { std::printf("cleanup ran\n"); } };
 
-void print(const Robot& r) {
-    r.name();      // OK — only if name() is declared const
-    r.rename("x"); // COMPILE ERROR — non-const method on const ref
+void risky() {
+    FileLike f;
+    throw std::runtime_error("boom");
 }
-
-class Robot {
-    std::string name() const;   // "const method": promises not to mutate *this
-    void rename(std::string n); // non-const: may mutate
-};
+// output: "cleanup ran" — THEN the exception reaches the catch block
 ```
 
-Habit to build: mark every method that doesn't mutate as `const`, and every read-only
-parameter as `const T&`. Interviewers notice.
+**RAII** (Resource Acquisition Is Initialization) is the idiom built on that hook:
+a constructor acquires a resource, the destructor releases it. Wrap any resource —
+heap block, file, lock, GPU buffer — in an object, and cleanup becomes impossible
+to forget, on every path, exception or not. This is C++'s deepest idea.
 
-## 6. Headers, translation units, and the compile+link model
-
-Java: one `.java` → one `.class`, imports resolved by the JVM/classpath.
-C++: `.h`/`.hpp` **declarations** are textually `#include`d into each `.cpp`;
-each `.cpp` compiles independently to a `.o`; the **linker** stitches them together.
+The standard library ships RAII wrappers for heap memory, called smart pointers:
 
 ```cpp
-// robot.h — declarations (the "interface")
-#pragma once                 // don't include me twice into one file
+auto u = std::make_unique<Robot>("arm");  // heap Robot; u's destructor deletes it
+auto s = std::make_shared<Robot>("arm");  // ref-counted; freed when LAST owner dies
+
+auto w = u;               // COMPILE ERROR (verified): two sole owners is a lie
+auto v = std::move(u);    // ownership transferred; u is now null (verified)
+Robot* peek = v.get();    // borrow the raw address; never delete it
+```
+
+**Mechanism.** `unique_ptr` is a struct holding one raw pointer, whose destructor
+calls `delete`. That is all. It compiles to the same machine code as a careful
+hand-written raw pointer — you pay nothing for the safety. Copying it is banned at
+compile time because a copy would mean two "sole" owners and a double free.
+`shared_ptr` adds a shared counter: each copy increments, each destructor
+decrements, the one that hits zero frees.
+
+**Why designed this way.** The compiler already knows exactly where every scope
+ends. Placing the cleanup call is a bookkeeping job — so C++ gave the bookkeeping
+to the machine that never forgets, and left the *policy* (what is owned, and by
+whom) in your hands, in the type system, where reviewers can read it.
+
+**The modern rule.** You essentially never write `new`/`delete`. Containers own
+their elements; `unique_ptr` owns single heap objects; `shared_ptr` is for the
+rare case of genuinely shared lifetime. Lesson 02 builds an RAII type from
+scratch so the magic becomes mechanism.
+
+**In inference.** GPU memory, file handles, CUDA streams, mutexes — production
+inference code wraps every one in an RAII type. `torch::Tensor` is at heart a
+`shared_ptr` around a device buffer.
+
+## 8. The compile-link model: why headers exist
+
+C++ builds in two separate stages. Knowing them turns build errors from voodoo
+into diagnosis. All verified with the exact commands shown:
+
+```cpp
+// robot.h — DECLARATIONS: names and shapes, no bodies
+#pragma once                    // "include me at most once per file"
 int maxTorque(int jointId);
 
-// robot.cpp — definitions
+// robot.cpp — DEFINITIONS: the actual bodies
 #include "robot.h"
 int maxTorque(int jointId) { return jointId * 10; }
 
-// main.cpp
-#include "robot.h"           // compiler now knows the signature
+// main.cpp — a user
+#include "robot.h"
 int main() { return maxTorque(3); }
 ```
 
 ```sh
-c++ -std=c++17 -c robot.cpp -c main.cpp && c++ robot.o main.o -o app
+clang++ -std=c++17 -c robot.cpp   # stage 1: compile → robot.o
+clang++ -std=c++17 -c main.cpp    #                   → main.o
+clang++ robot.o main.o -o app     # stage 2: link the pieces → runnable app
 ```
 
-- "undefined symbol" at the end = **linker** error (declaration seen, definition never linked) — the error Java never showed you.
-- One Definition Rule: define a function in a header without `inline` and include it twice → linker error.
-- Templates (§9) must live entirely in headers — the compiler generates code per instantiation.
-- These exercises dodge all of this with single-file programs; real codebases don't.
+**Stage 1 — the compiler** processes one `.cpp` file at a time, in isolation.
+`#include` literally pastes the header's text in, so the compiler knows the
+*signature* of `maxTorque` and can type-check the call. It emits a `.o` file:
+machine code plus a note, "I call a symbol named `maxTorque(int)`."
 
-## 7. Container rosetta table
+**Stage 2 — the linker** takes all the `.o` files and matches notes to bodies.
+Compile `main.cpp` alone and link it without `robot.o`, and you get — verified:
 
-| Java | C++ | Notes |
+```text
+Undefined symbols for architecture arm64:
+  "maxTorque(int)", referenced from: _main in main.o
+```
+
+That is the most feared C++ error, and it means one precise thing: *the compiler
+saw a declaration, but no `.o` given to the linker contained the definition.*
+
+**Why designed this way.** Independent compilation means a thousand-file project
+recompiles only the files you touched, in parallel. Headers are the contract that
+makes isolation possible. The lessons in this track are single-file, so you dodge
+all of this — but every real codebase is built exactly this way.
+
+**In inference.** `#include <torch/torch.h>` then link `libtorch` — declarations
+from the header, definitions from the prebuilt library. Same two stages.
+
+## 9. The workhorse containers
+
+Four types cover most real code. Each is a stack box managing a heap block.
+
+| Container | What it is | Cost intuition |
 |---|---|---|
-| `ArrayList<T>` | `std::vector<T>` | THE default container. Contiguous, cache-friendly. `push_back`, `size`, `v[i]` (unchecked) / `v.at(i)` (throws) |
-| `String` | `std::string` | **Mutable** value type. `+=` appends in place. Compare with `==` (contents). `s.substr(i, len)` — note *length*, not end index |
-| `HashMap<K,V>` | `std::unordered_map<K,V>` | `m[k]` **inserts a default-constructed value if absent** (great for counters, surprising for lookups). Absence-safe lookups: `m.find(k)`, `m.count(k)`, `m.at(k)` (throws) |
-| `TreeMap<K,V>` | `std::map<K,V>` | Red-black tree, keys iterate sorted, O(log n) |
-| `HashSet<T>` | `std::unordered_set<T>` | `s.insert(x).second` is `true` if newly inserted — replaces Java's `add()` boolean |
-| `TreeSet<T>` | `std::set<T>` | sorted, O(log n) |
-| `ArrayDeque<T>` | `std::deque<T>` | also the backing store of `std::queue`/`std::stack` adaptors |
-| `PriorityQueue<T>` | `std::priority_queue<T>` | **max**-heap by default — Java's is a min-heap! Min-heap: `priority_queue<T, vector<T>, greater<T>>` |
-| `int[]` / fixed array | `std::array<T, N>` | size in the type, stack-allocated |
-| `Optional<T>` | `std::optional<T>` | value type, no allocation |
-| `long` | `long long` (or `int64_t`) | C++ `long` is 32-bit on Windows, 64-bit on Linux/Mac. Want Java's `long`? Say `long long` |
+| `std::vector<T>` | growable array, elements contiguous in one heap block | index `O(1)`; `push_back` amortized `O(1)`; contiguous = cache-friendly = **the default container** |
+| `std::string` | mutable text, same layout idea as vector | `+=` appends in place; `==` compares contents; `s.substr(i, len)` — second arg is a *length* |
+| `std::unordered_map<K,V>` | hash table | average `O(1)` insert/lookup; no ordering |
+| `std::map<K,V>` | balanced tree | `O(log n)`; iterates in sorted key order (verified) |
 
-Algorithms live in `<algorithm>`, not on the containers:
-`std::sort(v.begin(), v.end())`, `std::reverse(...)`, `std::find(...)`,
-`std::max_element(...)` — Collections/Arrays utilities, generalized via iterators.
-
-## 8. Iterators vs `Iterator`
-
-Java's `Iterator` is an object with `hasNext()/next()`. A C++ iterator is a
-**generalized pointer**: `*it` dereferences, `++it` advances, and a range is a *pair*
-of iterators `[begin, end)` where `end` points one past the last element.
+Behaviors worth committing to memory now — each one verified:
 
 ```cpp
-std::vector<int> v = {3, 1, 4};
-for (auto it = v.begin(); it != v.end(); ++it) { use(*it); }
-auto hit = std::find(v.begin(), v.end(), 4);
-if (hit != v.end()) { ... }          // "not found" == end(), not null
+std::vector<int> v = {1, 2, 3};
+v[99];          // unchecked: undefined behavior, may "work", may corrupt
+v.at(99);       // checked: throws std::out_of_range — use while learning
 
-// The idiom you'll actually write 95% of the time — range-based for:
-for (int x : v)              { ... }   // copies each element (fine for ints)
-for (const auto& s : names)  { ... }   // read-only, no copies — the default for objects
-for (auto& s : names)        { s += "!"; }  // mutate in place
+std::unordered_map<std::string, int> counts;
+++counts["hits"];        // operator[] INSERTS a zero if absent, then increments —
+                         // perfect for counters, a surprise in lookups
+counts.at("missing");    // throws if absent; counts.find(k) returns end() if absent
 
-// Maps yield pairs; C++17 structured bindings replace Map.Entry:
-for (const auto& [key, value] : myMap) { ... }   // vs entry.getKey()/getValue()
+for (const auto& [key, value] : counts) { ... }   // structured bindings: unpack pairs
 ```
 
-**Iterator invalidation** (no Java analogue — Java throws `ConcurrentModificationException`;
-C++ gives you undefined behavior, §11): growing a `vector` may reallocate and dangle every
-iterator/reference/pointer into it. Don't hold iterators across `push_back`/`erase`.
+One trap with a name: **iterator invalidation**. Growing a vector may move its
+heap block to a bigger home. Every pointer, reference, or iterator into the old
+block now dangles. Rule: do not hold positions into a vector across `push_back`.
 
-## 9. Templates vs generics — no type erasure
+Also in the toolbox when you need them: `std::set`/`std::unordered_set` (keys
+only), `std::deque` (fast at both ends), `std::priority_queue` (a heap —
+**max**-first by default), `std::array<T, N>` (fixed size, lives on the stack),
+`std::optional<T>` (a maybe-value without the heap). Algorithms are free
+functions: `std::sort(v.begin(), v.end())`, `std::find`, `std::max_element`.
 
-Java generics erase to `Object` + casts; one `ArrayList` bytecode serves all `T`, so
-primitives need boxing. C++ templates **generate separate code per type at compile time**.
+**In inference.** A tensor is conceptually a `vector<float>` plus shape metadata.
+Contiguous memory is *the* reason: GPUs and CPU caches both devour sequential
+bytes. Lesson 05 measures exactly how much that matters.
 
-```java
-List<Integer> xs;         // erased: really List<Object>; int is boxed
-```
+## 10. Templates: compile-time code generation
 
 ```cpp
 template <typename T>
 T maxOf(const T& a, const T& b) { return b < a ? a : b; }
 
-maxOf(3, 5);          // compiler STAMPS OUT maxOf<int> — real ints, no boxing
-maxOf(std::string("a"), std::string("b"));  // and a separate maxOf<std::string>
+maxOf(3, 5);                    // compiler generates maxOf<int> — real ints
+maxOf(std::string("ant"),
+      std::string("bee"));      // and a SEPARATE maxOf<std::string>  (verified)
 ```
 
-Consequences:
-- `vector<int>` stores raw ints contiguously — this is why C++ wins at numeric/robotics workloads.
-- No `T extends Comparable<T>` bounds (pre-C++20): constraints are structural. If `T` lacks
-  `operator<`, you get an error at the *usage inside the template* — hence C++'s famously long error messages.
-- Template definitions must be visible at instantiation → they live in headers (§6).
+**Mechanism.** A template is a recipe, not code. At each use, the compiler stamps
+out a fresh copy specialized for the concrete type, then optimizes that copy as if
+you had written it by hand. `std::vector<int>` and `std::vector<float>` are two
+different generated classes, each storing raw elements contiguously — no wrappers,
+no indirection.
 
-## 10. Move semantics and `std::move` — practical version
+**Why designed this way.** One implementation, zero runtime cost per type. The
+price: templates must live in headers (the compiler needs the recipe visible at
+the point of use), and a type mismatch produces errors deep inside the template —
+the origin of C++'s legendarily long error messages. Read the *first* error.
 
-Copying a big vector is expensive, so C++ lets an object's guts be **stolen** when the
-source won't be used again. Java never needed this (copying a reference is free).
+**In inference.** One kernel template serves `float`, `half`, and `int8` at full
+speed — this is how every quantization-aware library avoids writing each kernel
+three times. Eigen and CUTLASS are templates all the way down.
 
-```cpp
-std::vector<int> big = makeBig();
-std::vector<int> a = big;             // COPY: both alive, expensive
-std::vector<int> b = std::move(big);  // MOVE: b steals the heap array; big is now empty-ish
+## 11. Move semantics in three sentences
+
+Copying a million-element vector duplicates a million elements, but *moving* it
+just hands the heap-block address to the new owner and leaves the source empty —
+verified: after `std::vector<int> b = std::move(a);`, `b.data()` is the exact
+address `a.data()` used to be, and `a` is empty. `std::move(x)` moves nothing by
+itself; it is a cast that marks `x` as safe to pillage, which is also the only way
+to transfer a `unique_ptr`, since copying one is banned. Two rules until lesson
+03 makes this rigorous: after moving from a variable, only assign to it or let it
+die; and never write `return std::move(local);` — plain `return local;` already
+moves or better.
+
+## 12. The zero-overhead principle: the philosophy under all of it
+
+One sentence explains every design choice above:
+
+> **You don't pay for what you don't use, and what you do use could not be
+> hand-coded faster.**
+
+Watch it operate. References compile to plain addresses. `unique_ptr` compiles to
+a raw pointer whose `delete` the compiler places for you. Templates compile to
+exactly the specialized code you would have written per type. Destructor calls
+are inserted at compile time, not discovered by a runtime. `const` vanishes
+entirely after compilation — it exists only to catch your mistakes early.
+
+Safety in C++ is bought with compile-time proof, not runtime supervision. That is
+the whole trade: more thinking up front, deterministic microseconds forever after.
+For deadline code — a control loop, a token-generation step — it is the only
+trade that works.
+
+## 13. The road to CUDA
+
+Here is the payoff. CUDA is not a new language. **CUDA is C++** plus a way to
+launch a function across thousands of GPU cores at once.
+
+Everything in this document transfers directly:
+
+- `cudaMalloc` / `cudaFree` are `new` / `delete` for GPU memory — same contract,
+  same leak-and-double-free failure modes, same RAII cure. Production code wraps
+  device buffers in `unique_ptr`-style guards exactly as in section 7.
+- `cudaMemcpy` is a byte copy between CPU and GPU boxes — and it crosses the PCIe
+  bus, so the "find and delete needless copies" instinct from section 3 becomes
+  worth *milliseconds* there, not microseconds.
+- A kernel receives raw device pointers and computes addresses with the pointer
+  arithmetic from section 5.
+- Memory layout decides everything: GPUs reach peak speed when adjacent threads
+  read adjacent addresses — the contiguous-`vector` intuition, multiplied by ten
+  thousand cores.
+
+Learn the material in this track and CUDA becomes a dialect, not a mountain.
+
+## 14. How to use this track
+
+Six lessons, each a directory beside this file. Do them **in order** — each
+builds on the previous:
+
+1. `01_stl_containers` — vectors, strings, maps in muscle memory
+2. `02_ownership_and_raii` — build an RAII resource type from scratch
+3. `03_move_semantics_rule_of_five` — moves, made rigorous
+4. `04_virtual_functions_and_vtables` — what polymorphism costs and how it works
+5. `05_memory_layout_and_cache` — measure why contiguous memory wins
+6. `06_threads_atomics_queues` — concurrency for real-time pipelines
+
+Per lesson: read its `README.md`, then implement `starter.cpp` yourself and run
+the tests against *your* code:
+
+```sh
+PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers -v
 ```
 
-What you actually need to know:
-- `std::move` moves nothing — it's a *cast* meaning "I'm done with this; you may pillage it."
-- After moving from a variable, treat it as unusable (assign or destroy only).
-  Exception: a moved-from `unique_ptr` is *guaranteed* null.
-- `return localVector;` is already optimal — the compiler elides or moves. **Never** write `return std::move(local);`.
-- The place you *must* write it: transferring a `unique_ptr` (copy is deleted):
+Without `PRACTICE=1`, pytest checks the reference `solution.cpp` instead — useful
+for seeing the target behavior before you start, and for study afterward.
 
-```cpp
-std::unique_ptr<Buffer> p = makeBuffer(64);
-consume(std::move(p));   // ownership handed off; p is now nullptr
-```
+While learning, compile with warnings and sanitizers on:
+`-Wall -Wextra -fsanitize=address,undefined`. The sanitizers turn silent memory
+mistakes into loud, pinpointed reports — a safety net while the instincts form.
 
-## 11. Undefined behavior — the concept Java never taught you
-
-Java errors are *defined*: out-of-bounds throws, null access throws, races have JMM semantics.
-In C++, breaking certain rules gives **undefined behavior**: the standard permits *anything* —
-crash, garbage, silently "working" today and failing in the demo.
-
-Classic UB you'll meet:
-- `v[i]` out of bounds (use `v.at(i)` to throw instead while learning)
-- dereferencing null/dangling pointers; using an iterator after invalidation (§8)
-- signed integer overflow (`INT_MAX + 1` is UB, not wraparound!)
-- reading an uninitialized local: `int x; use(x);` — locals are NOT zeroed like Java fields
-- use-after-free, double-free (largely prevented by smart pointers/containers)
-
-Defenses: compile with `-Wall -Wextra`, test with sanitizers
-(`-fsanitize=address,undefined`), and let RAII types own everything. Key mindset shift:
-**a C++ program that runs green may still be wrong** — Java taught you the runtime would
-catch you; here nothing promises to.
-
-## 12. `auto` — type inference at the declaration
-
-Like Java's `var`, plus deduction subtleties Java doesn't have:
-
-```cpp
-auto n = v.size();                  // std::size_t (unsigned!) — beware `n - 1` when n == 0
-auto it = m.find(k);                // spares you std::unordered_map<...>::iterator
-auto s = getName();                 // a COPY (auto never deduces a reference)
-auto& r = getName();                // a reference — you must write the &
-const auto& [k, v] = *m.begin();    // structured bindings, const reference
-```
-
-Use `auto` where the type is obvious or hideous (iterators); write the type where it
-carries information. And remember: `auto` alone copies — `auto&` / `const auto&` to alias.
-
----
-
-## Cheat sheet: "In Java I would... → in C++ I should..."
-
-| In Java you'd... | In C++ you should... |
-|---|---|
-| pass an object to a method (shared by default) | pass `const T&` (read) or `T&` (mutate) — plain `T` copies |
-| `new Foo()` and let GC clean up | stack object, or `std::make_unique<Foo>()` |
-| try-with-resources / `finally` | RAII — a scope `{}` and a destructor |
-| `map.getOrDefault(k, 0) + 1` then `put` | `++m[k]` (operator[] auto-inserts zero) |
-| `set.add(x)` returning boolean | `s.insert(x).second` |
-| `Collections.sort(list)` | `std::sort(v.begin(), v.end())` |
-| `for (Map.Entry<K,V> e : m.entrySet())` | `for (const auto& [k, v] : m)` |
-| `a.equals(b)` on collections/strings | `a == b` (deep by default) |
-| `long` for 64-bit math | `long long` (plain `long` is platform-dependent) |
-| hand the only reference to someone | `std::move` a `unique_ptr` into them |
-| trust the runtime to throw on mistakes | assume nothing: UB is silent — sanitize, `-Wall`, RAII |
+Start with lesson 01. The machine is simpler than it looks from the outside.
