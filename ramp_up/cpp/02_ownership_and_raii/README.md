@@ -60,21 +60,64 @@ it can't hold data that must outlive the function.
 ### 2. The heap: memory that outlives the function
 
 For that, C++ gives you the **heap**: a big pool of memory that any function can allocate
-from, where blocks live until some line of code explicitly frees them. The raw tools are
-`new` (allocate a block, get back its address) and `delete` (free it):
+from, where blocks live until some line of code explicitly frees them.
+
+**Where the heap lives.** Every running program (a *process*) gets its own private
+address space from the operating system. Inside it, different regions have different
+jobs:
+
+```
++---------------------------+
+|  your compiled code       |   fixed at load time
++---------------------------+
+|  heap                     |   grows downward as you allocate
+|    ...                    |
+|    (free space)           |
+|    ...                    |
+|  stack                    |   grows upward as functions call functions
++---------------------------+
+```
+
+The stack and the heap are both just memory — same RAM, same addresses. What differs is
+**who manages them**. The stack is managed by function calls themselves: enter a
+function, its frame appears; return, it vanishes. The heap is managed by the
+**allocator** — a bookkeeping library (the machinery behind `new`) that owns the heap
+region and runs a ledger over it, like a hotel front desk: which rooms are occupied,
+which are free.
+
+**How you put data on the heap.** You ask the allocator with `new`:
 
 ```cpp
 int* p = new int(42);   // heap-allocate an int, initialized to 42
 ```
 
-`p` is a **pointer**: a variable whose 8-byte box holds a memory *address* — the number
-of the slot where the int lives. The int is on the heap; only the address is in the
-function's frame. `*p` reads the value at that address ("dereferencing"); when the
-function returns, the pointer's box dies, but the heap int lives on.
+`new` finds a free chunk, marks it *occupied* in the ledger, and hands back its
+**address** — the room number. `p` is a **pointer**: a variable whose own 8-byte box
+holds that address. Note what lives where: the int is on the heap; the pointer holding
+its address is an ordinary stack variable. `*p` reads the value at the address
+("dereferencing"). When the function returns, the pointer's box dies with the frame —
+but the heap int lives on, because stack cleanup cleans *the box*, never the block the
+box points at.
+
+**A pointer does not mean "heap".** A pointer is just an address box; it can hold the
+address of anything, including a stack variable (verified):
 
 ```cpp
-*p;             // -> 42            follow the address, read the int
-delete p;       // free the block; the heap gets the memory back
+int x = 42;
+int* p = &x;    // & means "address of" — p points at a STACK box. No heap involved.
+*p;             // -> 42
+```
+
+Only `new` allocates on the heap. And here's the part you've been living with unaware:
+**you used the heap through all of lesson 01.** A `std::vector`'s elements live in a
+heap block — that is how it can grow — and `std::string`'s characters do too. You never
+wrote `delete` because the containers freed their blocks themselves. How they pull that
+off is exactly where this lesson is headed.
+
+**How you give memory back.** Hand the address to `delete` — check out of the room:
+
+```cpp
+delete p;       // ledger marks the block free; the allocator can reuse it
 ```
 
 `new` also has an array form, and it must be paired with the array form of delete:
@@ -86,7 +129,11 @@ delete[] a;               // array new -> array delete. Mismatching is undefined
 ```
 
 That `delete` line is the whole problem. Nothing reminds you to write it. Nothing stops
-you writing it twice. The compiler accepts every wrong variant silently.
+you writing it twice. The compiler accepts every wrong variant silently. And one detail
+deserves emphasis, because everything in the next section turns on it: **`delete` needs
+the address as its argument.** The room can only be checked out by presenting the room
+number. Lose every copy of the address, and the block is occupied forever — no code can
+ever free what it cannot name.
 
 ### 3. The two classic disasters
 
@@ -104,8 +151,37 @@ for (int i = 0; i < 250; ++i) {
 // runs "fine". No error, no warning. The memory is simply gone until the process exits.
 ```
 
-A leak never announces itself. The process just grows — for a robot that runs for days,
-that's a slow-motion crash.
+Walk one lap of the loop in slow motion, watching the two pieces separately — the 8-byte
+pointer box on the stack, and the 4 MB block on the heap:
+
+1. Iteration 0: `new` marks a 4 MB block occupied and returns its address — call it
+   `A0`. The box `block` now holds `A0`. The inner loop fills the block.
+2. The iteration ends. The *box* `block` dies with its scope — but destroying a pointer
+   destroys the address *copy*, never the block. The 4 MB at `A0` still sits in the
+   ledger as occupied.
+3. Iteration 1: a fresh `block` box; `new` hands out a *different* 4 MB block at `A1`.
+   And now the trap has closed: **no variable anywhere holds `A0` anymore.** `delete[]`
+   needs the address as its argument — a room can only be checked out with its room
+   number, and the program just lost the only copy. The `A0` block is unreachable *and*
+   unfreeable: leaked.
+4. Repeat 250 times: 250 blocks × 4 MB = roughly one gigabyte requested and never
+   returned. The ~800 MB peak measured for this program is that pile, as the operating
+   system accounts it — while the program's *useful* data at any moment was a single
+   4 MB block.
+
+Why does it "run fine"? Because the allocator's ledger only records *occupied or free*.
+Nobody audits whether you still hold the address; no collector exists to trace what's
+reachable. That is the C++ deal from lesson 01 — no garbage collector, so no surprise
+pauses — and this is the bill for it.
+
+One honest question remains: the comment says the memory is gone *"until the process
+exits"* — so does the heap get cleaned up at the end? **Yes.** When a process exits, the
+operating system reclaims its entire address space — heap, stack, leaks and all. Leaks
+never survive the program. They matter for one reason: **the programs that matter don't
+exit.** A robot's perception daemon runs for days. Leak this loop's 4 MB per camera
+frame at 30 fps and you consume ~120 MB every second — on a 16 GB machine, the process
+is dead in about two minutes. A leak never announces itself; the process just grows —
+a slow-motion crash.
 
 **Disaster 2: the double free.** Two places both free the same block. The allocator's
 bookkeeping is corrupted, and it kills the process. Verified — this program prints its
