@@ -345,17 +345,58 @@ for (const auto& [key, value] : m) use(key, value);
 // over a std::map this visits keys in ascending order (step 8)
 ```
 
-Two iterator extras the drills use:
+Two iterator extras the drills use.
 
-- **Reverse iterators**: `rbegin()`/`rend()` span the container backwards, so this loop
-  visits the last element first, with no index arithmetic:
-  `for (auto it = words.rbegin(); it != words.rend(); ++it) use(*it);`
-  (`*it` reads the element at the iterator's position; `++it` advances.)
-- **Iterator invalidation:** growing a vector may move its entire block to a new address
-  (contiguity must be preserved, so growth sometimes relocates). Any saved iterator still
-  points at the *old* address — using it is undefined behavior. Rule: don't hold an
-  iterator across a mutation, and never `push_back` onto the vector you are currently
-  looping over.
+**Reverse iterators.** `rbegin()`/`rend()` span the container backwards, so the loop
+visits the last element first, with no index arithmetic. `*it` reads the element at the
+iterator's position; `++it` advances (toward the front, for a reverse iterator):
+
+```cpp
+std::vector<std::string> words = {"fast", "move", "robots"};
+std::string out;
+for (auto it = words.rbegin(); it != words.rend(); ++it) {
+    if (!out.empty()) out += ' ';
+    out += *it;
+}
+// out == "robots move fast"
+```
+
+**Iterator invalidation.** Growing a vector may move its entire block to a new address:
+the elements must stay contiguous, and when the current block has no room to grow, the
+vector allocates a bigger block elsewhere and copies everything over. You can watch it
+happen — `data()` returns the block's address:
+
+```cpp
+std::vector<int> v = {1, 2, 3};
+const int* before = v.data();          // remember where the block lives
+for (int i = 0; i < 1000; ++i) v.push_back(i);
+before == v.data()                     // -> false on this run: the block MOVED
+```
+
+Any iterator (or pointer, or reference) you saved before the growth still points at the
+*old* address — freed memory. Using it is undefined behavior: it may appear to work, may
+read garbage, may crash — and which one you get can change between runs. That is why
+this innocent-looking loop is broken:
+
+```cpp
+for (int x : v) {          // range-for holds an iterator into v...
+    v.push_back(x * 2);    // ...and push_back may relocate the block mid-loop. UB.
+}
+```
+
+The safe version of "append while reading" loops by **index over the original size** —
+indexes name positions, not addresses, so they survive relocation:
+
+```cpp
+std::size_t original = v.size();       // freeze the size BEFORE appending
+for (std::size_t i = 0; i < original; ++i) {
+    v.push_back(v[i] * 2);             // safe: v[i] re-finds the element every time
+}
+```
+
+Rule: don't hold an iterator across a mutation, and never `push_back` onto the vector
+you are currently range-looping over. The drill `appendDoubled` below makes you write
+the safe version.
 
 ### 11. Numbers: `long long`, and the unsigned `size()` trap
 
@@ -519,6 +560,31 @@ grid-search family), and cycle detection. In robotics it's the visited set of yo
 path planner and dedup of track/point IDs across sensor frames. The 64-bit accumulator is
 a favorite C++ interview trap: reviewers check the accumulator type before they check
 your loop.
+
+### `appendDoubled`
+
+Append a doubled copy of each *original* element onto the same vector, in place:
+`{1, 2, 3}` becomes `{1, 2, 3, 2, 4, 6}`.
+
+```cpp
+const std::size_t original = v.size();   // freeze the size BEFORE appending
+for (std::size_t i = 0; i < original; ++i)
+    v.push_back(v[i] * 2);
+```
+
+The obvious version — a range-for over `v` that push_backs into `v` — is the iterator
+invalidation trap from step 10: growth can relocate the block mid-loop, and the loop's
+hidden iterator keeps reading the old, freed address. Undefined behavior, and the
+cruelest kind: it often *passes* on small inputs (no relocation needed yet) and corrupts
+on big ones. The tests force a relocation with a 1000-element vector to catch exactly
+that. Two facts make the index version safe: an index names a *position* rather than an
+address, and freezing `original` up front means you never chase the growing end.
+
+Where you'll see it: this trap is a standard C++ screening question ("what's wrong with
+this loop?"), and the modify-while-iterating mistake appears in every language — deleting
+from a list you're looping over is its sibling. In real code it's the frame queue you're
+draining while a callback appends to it — which is why real pipelines hand that job to a
+proper queue (lesson 06).
 
 ## How to practice
 

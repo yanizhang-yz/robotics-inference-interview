@@ -61,6 +61,17 @@ long long sumOfUnique(const std::vector<int>& values) {
     return 0;
 }
 
+// appendDoubled({1,2,3}) makes the SAME vector {1,2,3,2,4,6}.
+// THE TRAP: `for (int x : v) v.push_back(x * 2);` is undefined behavior —
+//           push_back may relocate the block while the range-for still holds
+//           an iterator into the OLD one.
+// Idiom: freeze the size first (`const std::size_t original = v.size();`),
+//        then loop by index up to `original` — indexes survive relocation.
+void appendDoubled(std::vector<int>& v) {
+    // TODO: implement
+    (void)v;
+}
+
 int main() {
     // reverseWords
     assert(reverseWords("robots move fast") == "fast move robots");
@@ -115,6 +126,23 @@ int main() {
     assert(sumOfUnique({}) == 0);
     // Two distinct 2-billion-ish values: overflows int, fits long long.
     assert(sumOfUnique({2000000000, 1500000000, 2000000000}) == 3500000000LL);
+
+    // appendDoubled
+    {
+        std::vector<int> v = {1, 2, 3};
+        appendDoubled(v);
+        assert((v == std::vector<int>{1, 2, 3, 2, 4, 6}));
+        std::vector<int> empty;
+        appendDoubled(empty);
+        assert(empty.empty());
+        // Force relocation: many elements, no reserve — the safe index
+        // pattern must survive the block moving mid-append.
+        std::vector<int> big;
+        for (int i = 0; i < 1000; ++i) big.push_back(i);
+        appendDoubled(big);
+        assert(big.size() == 2000);
+        assert(big[1000] == 0 && big[1001] == 2 && big[1999] == 999 * 2);
+    }
 
     std::cout << "ALL TESTS PASSED" << std::endl;
     return 0;
