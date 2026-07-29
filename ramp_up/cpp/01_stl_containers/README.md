@@ -205,7 +205,7 @@ Note the last two lines above: algorithms like `std::sort`, `std::reverse`, `std
 are standalone functions from the `<algorithm>` header, not methods on the container. You
 hand them a range — the pair `v.begin(), v.end()` spans the whole vector. (Those two
 values are **iterators**: position markers into a container. `begin()` marks the first
-element; `end()` marks one-past-the-last. They come back in step 10.)
+element; `end()` marks one-past-the-last. They come back in step 11.)
 
 Why it's designed this way: contiguous memory is the fastest layout a CPU can traverse —
 while you process element `i`, the hardware is already prefetching `i+1` because it's
@@ -234,7 +234,59 @@ Building a string with `+=` in a loop is idiomatic and fast — append writes in
 existing box. The one trap worth memorizing: `substr(i, n)` takes a *length* as its
 second argument. `s.substr(2, 3)` means "3 characters starting at index 2".
 
-### 7. `std::unordered_map` — the hash table
+### 7. `std::istringstream` — reading tokens out of a string
+
+A constant chore in real code: you hold one string containing several values — a log
+line, a command, a sentence — and you need the pieces. C++ has no built-in `split()`
+function. Its tool for the job is a **stream**.
+
+A stream is an object you read from one piece at a time, front to back. Keyboard input
+is a stream; a file is a stream. `std::istringstream` wraps a plain string so the same
+reading machinery works on it. That reuse is the design idea: C++ defines *one* reading
+interface, and any source of characters can plug into it.
+
+Reading from a stream uses `>>`, the **extraction operator**:
+
+```cpp
+#include <sstream>
+
+std::istringstream stream("  robots   move fast  ");
+std::string word;
+std::vector<std::string> words;
+while (stream >> word) words.push_back(word);   // {"robots", "move", "fast"}
+```
+
+`while (stream >> word)` packs three tricks into one expression. Unpack them once and
+every stream loop you will ever read becomes obvious:
+
+1. **`stream >> word` is a read.** It skips any whitespace, then copies the next run of
+   non-whitespace characters into `word`. One call, one token.
+2. **The expression returns the stream itself.** That is why reads chain:
+   `stream >> a >> b` reads two tokens, left to right.
+3. **A stream used as a condition answers "did the last read succeed?"** It stays true
+   as long as reads keep producing tokens, and turns false on the first read that finds
+   nothing left.
+
+So the loop means: *try to pull a token; if one arrived, run the body; when the pull
+finds only trailing whitespace, the condition turns false and the loop ends.* Step by
+step on the string above:
+
+```cpp
+stream >> word   // 1st: true,  word == "robots"
+stream >> word   // 2nd: true,  word == "move"
+stream >> word   // 3rd: true,  word == "fast"
+stream >> word   // 4th: FALSE — only trailing spaces remain; the loop exits
+```
+
+The read attempt *is* the end-of-input test — there is no separate "any words left?"
+check. That is what makes the idiom worth memorizing: tokenizing needs no counters, no
+index bookkeeping, no special cases for repeated or leading whitespace.
+
+`>>` also parses numbers: reading into an `int` or `double` converts the token to a
+number and fails (condition turns false) if the text is not numeric — one mechanism for
+both splitting and parsing.
+
+### 8. `std::unordered_map` — the hash table
 
 A map stores key → value pairs: `unordered_map<std::string, int>` maps strings to ints.
 Under the hood it is a **hash table**: an array of slots, where a hash function converts
@@ -281,7 +333,7 @@ Why it's designed this way: O(1) lookup is bought with hashing, and hashing dest
 order. C++ gives you the fast unordered version as one container and the sorted version
 as a separate one, so you only ever pay for the property you actually need.
 
-### 8. `std::map` — the sorted tree
+### 9. `std::map` — the sorted tree
 
 Same interface, different machine. `std::map` stores its keys in a **self-balancing
 binary search tree**, which keeps them permanently sorted. Every operation costs O(log n)
@@ -299,7 +351,7 @@ Naming trap: the *sorted* container got the short name `std::map`. If you type
 not need. Default to `unordered_map`; reach for `map` only when you need sorted keys —
 as the `groupByLength` drill does.
 
-### 9. `std::unordered_set` — membership only
+### 10. `std::unordered_set` — membership only
 
 A set stores keys with no values: "have I seen this before?" as a data structure. It's
 the same hash table as `unordered_map`, minus the values.
@@ -317,7 +369,7 @@ seen.insert(42).second;          // -> false   already there
 That one expression — `if (seen.insert(x).second)` — is test-and-insert in a single
 hash lookup, and it's the whole trick behind the `sumOfUnique` drill.
 
-### 10. Loops: range-based `for`, `auto`, structured bindings
+### 11. Loops: range-based `for`, `auto`, structured bindings
 
 The range-based `for` visits every element of a container without index bookkeeping. The
 one decision you must make is how the loop variable binds — and it's the same
@@ -342,7 +394,7 @@ pair into named variables right in the loop header:
 
 ```cpp
 for (const auto& [key, value] : m) use(key, value);
-// over a std::map this visits keys in ascending order (step 8)
+// over a std::map this visits keys in ascending order (step 9)
 ```
 
 Two iterator extras the drills use.
@@ -398,7 +450,7 @@ Rule: don't hold an iterator across a mutation, and never `push_back` onto the v
 you are currently range-looping over. The drill `appendDoubled` below makes you write
 the safe version.
 
-### 11. Numbers: `long long`, and the unsigned `size()` trap
+### 12. Numbers: `long long`, and the unsigned `size()` trap
 
 C++ integer sizes vary by platform; `int` is 4 bytes here, and its maximum value is
 2,147,483,647 — about 2.1 billion. The guaranteed-64-bit integer is **`long long`** (a
@@ -439,44 +491,14 @@ All five live in `starter.cpp`; `main()` asserts every edge case listed here.
 
 Split a sentence on any whitespace, rejoin the words in reverse order, single-spaced.
 
-The idiom: wrap the string in a `std::istringstream` (an in-memory input stream — a
-reader that walks through a string as if it were input) and pull words with `>>`, which
-skips runs of whitespace for free; then walk the collected vector backwards with reverse
-iterators.
+Pure practice of step 7 (the stream tokenizer) plus step 11's reverse iterators:
+collect the words with `while (stream >> word)`, then walk the vector backwards with
+`rbegin()`/`rend()`, appending into the result string.
 
 ```cpp
-std::istringstream stream("  robots   move fast  ");
-std::string word;
-std::vector<std::string> words;
-while (stream >> word) words.push_back(word);   // {"robots", "move", "fast"}
-// rbegin()/rend() walk + `result += ' '; result += *it;`  -> "fast move robots"
+// tokenize (step 7) -> {"robots", "move", "fast"}
+// reverse walk (step 11) + `result += ' '; result += *it;` -> "fast move robots"
 ```
-
-`while (stream >> word)` packs three tricks into one expression. Unpack them once and
-every stream loop you will ever read becomes obvious:
-
-1. **`stream >> word` is a read.** `>>` (the **extraction operator**) skips any
-   whitespace, then copies the next run of non-whitespace characters into `word`.
-   One call, one token.
-2. **The expression returns the stream itself.** That is why reads chain:
-   `stream >> a >> b` reads two tokens, left to right.
-3. **A stream used as a condition answers "did the last read succeed?"** It stays
-   true as long as reads keep producing tokens, and turns false on the first read
-   that finds nothing left.
-
-So the loop means: *try to pull a token; if one arrived, run the body; when the pull
-finds only trailing whitespace, the condition turns false and the loop ends.* Step by
-step on the string above:
-
-```cpp
-stream >> word   // 1st: true,  word == "robots"
-stream >> word   // 2nd: true,  word == "move"
-stream >> word   // 3rd: true,  word == "fast"
-stream >> word   // 4th: FALSE — only trailing spaces remain; the loop exits
-```
-
-The read attempt *is* the end-of-input test — there is no separate "any words left?"
-check, which is exactly what makes the idiom worth memorizing.
 
 Watch the separators: append `' '` *before* each word except the first (`if
 (!result.empty())`), so you never end with a trailing space.
@@ -497,7 +519,7 @@ for (char c : text) ++freq[c];
 // charFrequencies("abbccc") -> {'a':1, 'b':2, 'c':3}
 ```
 
-The whole drill is step 7's auto-insert working *for* you: first touch of `freq[c]`
+The whole drill is step 8's auto-insert working *for* you: first touch of `freq[c]`
 inserts 0, then `++` bumps it. Note `for (char c : text)` — a string is a container of
 `char`, copied per element (cheap).
 
@@ -547,10 +569,10 @@ for (const auto& w : words)
 //   -> {1:{"c"}, 2:{"go"}, 3:{"cpp"}, 4:{"rust","java"}}   (keys visit 1,2,3,4)
 ```
 
-Three lesson pieces in one line: `const auto&` loop variable (no string copies, step 10),
-`operator[]` creating the empty vector on first touch (step 7), and `std::map` giving you
-sorted keys with zero extra work (step 8). The `static_cast<int>` converts `w.size()`
-(unsigned `std::size_t`, step 11) to the map's `int` key explicitly — C++'s spelling of
+Three lesson pieces in one line: `const auto&` loop variable (no string copies, step 11),
+`operator[]` creating the empty vector on first touch (step 8), and `std::map` giving you
+sorted keys with zero extra work (step 9). The `static_cast<int>` converts `w.size()`
+(unsigned `std::size_t`, step 12) to the map's `int` key explicitly — C++'s spelling of
 an intentional conversion. The code compiles without it, but stricter builds
 (`-Wconversion`) flag the silent 64-bit-unsigned-to-int narrowing; writing the cast says
 "I meant that".
@@ -575,10 +597,10 @@ for (int v : values)
 // sumOfUnique({2000000000, 1500000000, 2000000000}) -> 3500000000
 ```
 
-`insert(v).second` is the drill: test-and-insert in a single call (step 9), no separate
+`insert(v).second` is the drill: test-and-insert in a single call (step 10), no separate
 membership check. The second example is why the accumulator is `long long`: 3,500,000,000
 doesn't fit in an `int` (max ~2.1 billion), and signed overflow is undefined behavior
-(step 11).
+(step 12).
 
 Where you'll see it: the seen-set idiom is "Contains Duplicate", "Intersection of Two
 Arrays", the visited set inside every BFS/DFS ("Number of Islands" and its whole
@@ -599,7 +621,7 @@ for (std::size_t i = 0; i < original; ++i)
 ```
 
 The obvious version — a range-for over `v` that push_backs into `v` — is the iterator
-invalidation trap from step 10: growth can relocate the block mid-loop, and the loop's
+invalidation trap from step 11: growth can relocate the block mid-loop, and the loop's
 hidden iterator keeps reading the old, freed address. Undefined behavior, and the
 cruelest kind: it often *passes* on small inputs (no relocation needed yet) and corrupts
 on big ones. The tests force a relocation with a 1000-element vector to catch exactly
