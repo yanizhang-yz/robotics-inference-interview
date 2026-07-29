@@ -313,6 +313,23 @@ std::unordered_map<char, int> freq;
 for (char c : text) ++freq[c];   // count every character in one stroke
 ```
 
+A word about `++`, since this is its first appearance. `++x` and `x++` both add 1 to
+`x`. They differ only in what the *expression itself* evaluates to (verified):
+
+```cpp
+int i = 5;
+int a = ++i;   // PRE-increment:  bump first, THEN produce the value -> a == 6, i == 6
+int j = 5;
+int b = j++;   // POST-increment: produce the OLD value, then bump  -> b == 5, j == 6
+```
+
+Post-increment must keep a copy of the old value just to hand it back — work that is
+wasted when nobody uses the expression's value, as in the counting loop above. On an
+`int` the compiler optimizes the difference away; on an iterator, the copy is a real
+object. So the C++ habit is simple: **write `++x` unless you specifically need the old
+value.** Standalone statements `++i;` and `i++;` behave identically — the habit costs
+nothing and reads as fluency.
+
 Gotcha: never use `m[k]` to *test* membership — `if (m[k] == 0)` just inserted `k`. The
 read-only lookups are:
 
