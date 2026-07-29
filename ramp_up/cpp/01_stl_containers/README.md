@@ -452,6 +452,32 @@ while (stream >> word) words.push_back(word);   // {"robots", "move", "fast"}
 // rbegin()/rend() walk + `result += ' '; result += *it;`  -> "fast move robots"
 ```
 
+`while (stream >> word)` packs three tricks into one expression. Unpack them once and
+every stream loop you will ever read becomes obvious:
+
+1. **`stream >> word` is a read.** `>>` (the **extraction operator**) skips any
+   whitespace, then copies the next run of non-whitespace characters into `word`.
+   One call, one token.
+2. **The expression returns the stream itself.** That is why reads chain:
+   `stream >> a >> b` reads two tokens, left to right.
+3. **A stream used as a condition answers "did the last read succeed?"** It stays
+   true as long as reads keep producing tokens, and turns false on the first read
+   that finds nothing left.
+
+So the loop means: *try to pull a token; if one arrived, run the body; when the pull
+finds only trailing whitespace, the condition turns false and the loop ends.* Step by
+step on the string above:
+
+```cpp
+stream >> word   // 1st: true,  word == "robots"
+stream >> word   // 2nd: true,  word == "move"
+stream >> word   // 3rd: true,  word == "fast"
+stream >> word   // 4th: FALSE — only trailing spaces remain; the loop exits
+```
+
+The read attempt *is* the end-of-input test — there is no separate "any words left?"
+check, which is exactly what makes the idiom worth memorizing.
+
 Watch the separators: append `' '` *before* each word except the first (`if
 (!result.empty())`), so you never end with a trailing space.
 
