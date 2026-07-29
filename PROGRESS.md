@@ -12,6 +12,7 @@ Track which questions you've attempted, your notes, and what to study next.
 ## Language ramp-up (do before the questions)
 
 ### Python
+- [ ] Read `ramp_up/python/ECOSYSTEM.md`
 - [ ] Read `ramp_up/python/LEARNING_POINTS.md`
 - [ ] 01 Collections & slicing
 - [ ] 02 Comprehensions & generators

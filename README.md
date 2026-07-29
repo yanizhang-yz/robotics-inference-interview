@@ -64,6 +64,8 @@ ramp_up/                 # Language fluency drills (Python, C++, Rust, TypeScrip
 ## Language ramp-up
 
 New to Python, or writing it slower than you think? Start with
+[`ramp_up/python/ECOSYSTEM.md`](ramp_up/python/ECOSYSTEM.md) — what Python, uv, packages,
+and the CPU actually are and why each layer exists — then
 [`ramp_up/python/LEARNING_POINTS.md`](ramp_up/python/LEARNING_POINTS.md) — a dense map of
 the language's mental model and its classic traps — then work through the drill sets in order:
 
