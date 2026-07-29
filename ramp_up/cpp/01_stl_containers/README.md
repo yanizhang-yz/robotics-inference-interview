@@ -467,6 +467,34 @@ vector tries to loop ~18 quintillion times. Compare with `<` against `size()`, o
 range-based `for`, and take size-like parameters as `std::size_t` (as `topKSmallest`'s
 `k` does).
 
+When you must cross between integer types *on purpose*, C++ wants you to say so in the
+source. **`static_cast<Target>(value)`** is the explicit conversion — target type in the
+angle brackets, value in parentheses:
+
+```cpp
+std::map<int, std::vector<std::string>> groups;
+groups[static_cast<int>(w.size())].push_back(w);   // size_t -> int, deliberately
+```
+
+The conversion would happen *implicitly* if you omitted the cast — this compiles either
+way. But squeezing a 64-bit unsigned into a 32-bit signed int is a **narrowing**
+conversion (it mangles values above ~2.1 billion), and with warnings raised
+(`-Wconversion`) the implicit version gets flagged (verified):
+
+```
+warning: implicit conversion loses integer precision: 'unsigned long' to 'int'
+```
+
+The `static_cast` version stays quiet under the same flags because you have signed for
+the conversion: "I know the range, this is intentional." Why C++ is designed this way:
+silent number conversions are a historic bug source (the wraparound above is the same
+family), so lossy conversions get a loud, searchable spelling. "Static" means the
+conversion is decided entirely at compile time — no runtime cost. Prefer it over the
+blunter C-style `(int)x`, which can silently perform far more dangerous conversions;
+named casts are the idiom interviewers expect. (Cleanest of all is often avoiding the
+mismatch: key the map by `std::size_t` and no cast is needed — a design point worth
+saying out loud in an interview.)
+
 ## Muscle memory
 
 Type these without thinking; every drill below is assembled from them.
