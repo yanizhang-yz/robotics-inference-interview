@@ -340,6 +340,26 @@ not formally guaranteed, but applied by every mainstream compiler (verified: 0 c
 0 moves on clang), and even where it can't be, a returned local is *moved*, never
 copied — the language rules say a `return`ed local is treated as an rvalue first.
 
+"Constructed directly in the caller's variable" sounds like compiler folklore, so
+watch it happen — print the object's own address on both sides of the return:
+
+```cpp
+std::vector<int> make() {
+    std::vector<int> v = {1, 2, 3};
+    std::printf("inside:  %p\n", static_cast<void*>(&v));
+    return v;                          // plain return — elision-eligible
+}
+auto a = make();
+std::printf("caller:  %p\n", static_cast<void*>(&a));
+// inside:  0x16b742bc0
+// caller:  0x16b742bc0    <- the SAME address (verified). There was only ever ONE
+//                            object: the function was filling in the caller's
+//                            variable from its first line.
+```
+
+Swap the return for `return std::move(v);` and the two lines print *different*
+addresses (verified) — now two objects exist, and a real move runs between them.
+
 Which is why `return std::move(local);` is an anti-pattern with a name —
 **pessimizing move**: wrapping the local in `std::move` changes the returned
 expression's type in a way that *disqualifies* it from elision, so you pay a move
