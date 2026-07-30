@@ -1,7 +1,7 @@
 # 04 — Dicts, Sets, and Counters
 
 After this lesson you will be able to group, count, rank, invert, merge, and
-deduplicate data in Python without writing a single explicit `HashMap`-style
+deduplicate data in Python without writing a single hand-rolled bookkeeping
 loop — and you will know which of these moves interviewers watch for. This is
 the highest-payoff file in the ramp-up: roughly half of all "parse this stream
 of events" interview questions are some combination of the ten drills below.
@@ -10,90 +10,56 @@ Deep dives on surrounding language rules (truthiness, `is` vs `==`, shallow
 copy) live in [`../LEARNING_POINTS.md`](../LEARNING_POINTS.md); this lesson
 stands alone for everything dict/set-shaped.
 
-## The Java you know
+## The problem this lesson solves
 
-This is the code you would write today. Every block of it collapses to one
-line of Python by the end of this lesson.
-
-```java
-// Group words by first letter
-Map<Character, List<String>> groups = new HashMap<>();
-for (String w : words) {
-    groups.computeIfAbsent(w.charAt(0), k -> new ArrayList<>()).add(w);
-}
-
-// Count occurrences
-Map<String, Integer> counts = new HashMap<>();
-for (String item : items) {
-    counts.merge(item, 1, Integer::sum);   // or getOrDefault(item, 0) + put
-}
-
-// Top-k most frequent: heap over the entry set, then poll() k times
-PriorityQueue<Map.Entry<String, Integer>> heap =
-    new PriorityQueue<>(Map.Entry.comparingByValue(Comparator.reverseOrder()));
-heap.addAll(counts.entrySet());
-
-// First duplicate
-Set<Integer> seen = new HashSet<>();
-for (int x : nums) {
-    if (!seen.add(x)) return x;
-}
-
-// Deduplicate but keep encounter order
-List<String> uniq = new ArrayList<>(new LinkedHashSet<>(items));
-```
+Grouping, counting, top-k ranking, duplicate detection, ordered dedup — each
+*can* be written as a hash-map loop with explicit check-then-insert
+bookkeeping, an extra heap for the ranking, and a defensive copy before any
+set algebra. Every one of those loops collapses to one line of Python by the
+end of this lesson, because the standard library ships the bookkeeping
+prebuilt: `defaultdict` for grouping, `Counter` for counting and ranking,
+set operators for the algebra, and dict ordering guarantees for the dedup.
 
 ## The lesson
 
-### 1. `dict` is `HashMap` with the ceremony deleted
+### 1. `dict`: a hash map with the ceremony deleted
 
-A Python `dict` is a hash table, the same machinery as `HashMap`: keys go
+A Python `dict` is a hash table, the classic hash-map machinery: keys go
 through a **hash function** (a function turning any value into an integer) to
 pick a bucket, so lookup, insert, and delete are O(1) on average. When two
 keys land in the same bucket — a **hash collision** — Python probes for the
 next free slot; you never handle this yourself, it only means "O(1)" is
 *amortized* (fast on average, occasionally slower when the table resizes).
 
-The ceremony differences from `HashMap`:
-
-```java
-Map<String, Integer> d = new HashMap<>();
-d.put("a", 1);
-d.get("z");                      // null  — silent, breeds NPEs later
-d.getOrDefault("z", 0);          // 0
-d.containsKey("a");              // true
-for (Map.Entry<String, Integer> e : d.entrySet()) {
-    use(e.getKey(), e.getValue());
-}
-```
+The everyday operations, with zero ceremony — no constructors, no method
+names to remember for get/put/contains:
 
 ```python
 d = {"a": 1}                     # literal syntax; no types, no new
-d["b"] = 2                       # put
+d["b"] = 2                       # insert or overwrite
 d["z"]                           # -> KeyError: 'z'   (raises, never null!)
 d.get("z")                       # -> None            (the "safe" get)
-d.get("z", 0)                    # -> 0               (getOrDefault)
-"a" in d                         # -> True            (containsKey)
+d.get("z", 0)                    # -> 0               (get with a fallback)
+"a" in d                         # -> True            (membership test)
 1 in d                           # -> False           (`in` checks KEYS only)
-for k, v in d.items():           # entrySet() loop; k, v = unpacking
+for k, v in d.items():           # entry loop; k, v = unpacking
     use(k, v)
 ```
 
 Three things to internalize:
 
-- **`d[key]` on a missing key raises `KeyError`** — an exception, not `null`.
-  This is the opposite failure mode from Java: loud and immediate instead of
-  a `NullPointerException` three calls later. When "missing" is a normal case,
-  use `d.get(key, default)`.
+- **`d[key]` on a missing key raises `KeyError`** — an exception, not a
+  silent null: loud and immediate instead of a null-reference crash three
+  calls later. When "missing" is a normal case, use `d.get(key, default)`.
 - **`for k, v in d.items()`** iterates entries directly. The `k, v =` part is
   **unpacking**: Python splits a pair into two variables in one step — no
-  `e.getKey()` / `e.getValue()`.
+  entry object, no accessor calls.
 - **`None` is Python's `null`**, but `d.get(k)` returning `None` never
   explodes by itself — test it with `if x is None:` and move on.
 
 **Insertion order is guaranteed.** Since Python 3.7, every `dict` remembers
-the order keys were *first* inserted and iterates in that order — every Python
-dict behaves like a `LinkedHashMap`, for free:
+the order keys were *first* inserted and iterates in that order — every
+Python dict is an insertion-ordered map, for free:
 
 ```python
 d = {}
@@ -101,16 +67,17 @@ d["zebra"] = 1; d["apple"] = 2; d["mango"] = 3
 list(d)                          # -> ['zebra', 'apple', 'mango']  (always)
 ```
 
-Your `HashMap` instinct says "iteration order is unpredictable" — retire it.
-This guarantee is what makes the ordered-dedup trick in drill 9 work.
+Hash maps in most languages make no such promise ("iteration order is
+unpredictable") — retire that instinct here. This guarantee is what makes
+the ordered-dedup trick in drill 9 work.
 
-### 2. Missing keys: the three-tier replacement for `computeIfAbsent`
+### 2. Missing keys: the three-tier insert-if-absent ladder
 
-The number-one "Java accent" interviewers notice is manual
+The number-one unidiomatic accent interviewers notice is manual
 check-then-insert:
 
 ```python
-# Java accent — works, but reads as translated Java:
+# works, but reads as translated from another language:
 if key not in groups:
     groups[key] = []
 groups[key].append(value)
@@ -119,9 +86,9 @@ groups[key].append(value)
 The idiomatic ladder, weakest to strongest:
 
 ```python
-d.get(key, 0)                        # read with a fallback (getOrDefault)
+d.get(key, 0)                        # read with a fallback, no insert
 d.setdefault(key, []).append(v)      # insert-if-absent AND return the value
-groups = defaultdict(list)           # the real computeIfAbsent
+groups = defaultdict(list)           # auto-creates every missing entry
 groups[key].append(v)                # missing key -> a fresh [] appears
 ```
 
@@ -150,14 +117,8 @@ behavior comes back at the boundary. The tests in this drill check
 `collections.Counter` is a subclass of `dict` (so everything above applies)
 specialized for counting. Feed it any **iterable** — anything a `for` loop
 can walk: a list, a string, a generator (a lazily-produced stream of values;
-lesson 02) — and it does the entire count-or-increment loop for you:
-
-```java
-Map<Character, Integer> counts = new HashMap<>();
-for (char c : s.toCharArray()) {
-    counts.merge(c, 1, Integer::sum);
-}
-```
+lesson 02) — and the entire read-count-increment-store loop you'd otherwise
+write by hand happens in the constructor:
 
 ```python
 from collections import Counter
@@ -167,12 +128,12 @@ c["z"]                           # -> 0   (missing key = 0, NOT KeyError)
 c.most_common(2)                 # -> [('i', 4), ('s', 4)]
 ```
 
-- **Missing keys read as `0`** — no `getOrDefault(c, 0)` anywhere.
+- **Missing keys read as `0`** — no fallback-read bookkeeping anywhere.
 - **`most_common(k)`** returns `(item, count)` pairs sorted by count,
   descending; ties keep first-insertion order (that dict guarantee again), so
   `Counter(["y","x","y","x"]).most_common()` is `[('y', 2), ('x', 2)]`. No
   argument = everything, sorted. This one method replaces the whole
-  count-map-plus-`PriorityQueue`-plus-comparator dance.
+  count-map-plus-heap-plus-comparator dance.
 - **Counters do arithmetic**: `Counter("aabbb") - Counter("ab")` is
   `Counter({'b': 2, 'a': 1})`.
 
@@ -187,9 +148,9 @@ c.most_common(2)                 # -> [('i', 4), ('s', 4)]
   Counter({"x": -2})` has no `"x"` at all, while `update()` keeps `x: 0`. For
   general number-merging, use `update()`.
 
-### 4. `set`: HashSet with operators
+### 4. `set`: the membership hash table, with operators
 
-A Python `set` is a hash table storing only keys — exactly `HashSet`.
+A Python `set` is a hash table storing only keys — no values attached.
 Membership (`x in s`) is O(1); the same test on a *list* scans every element
 (O(n)) — measured here, ~10,000x slower at 100k elements. Saying "I'll build
 a set for O(1) membership" out loud is an interview checkbox.
@@ -199,14 +160,15 @@ s = {3, 1, 2}                    # literal
 s = set()                        # EMPTY set — see gotcha below
 s.add(4); s.discard(99)          # discard never throws; remove() does
 2 in s                           # -> True
-{1, 2, 3} & {2, 3, 4}            # -> {2, 3}      intersection (retainAll)
-{1, 2, 3} | {3, 4}               # -> {1, 2, 3, 4} union (addAll)
-{1, 2, 3} - {2}                  # -> {1, 3}      difference (removeAll)
+{1, 2, 3} & {2, 3, 4}            # -> {2, 3}      intersection
+{1, 2, 3} | {3, 4}               # -> {1, 2, 3, 4} union
+{1, 2, 3} - {2}                  # -> {1, 3}      difference
 {1, 2, 3}.isdisjoint([3])        # -> False       ("do we overlap?")
 ```
 
-Unlike Java's `retainAll`/`removeAll`, the operators build a **new** set and
-mutate nothing — no defensive copying before you dare call them.
+The operators build a **new** set and mutate nothing (in many languages the
+set-algebra methods mutate the receiver instead) — so there is no defensive
+copying before you dare call them.
 
 **Gotchas, spelled out:**
 
@@ -220,21 +182,15 @@ mutate nothing — no defensive copying before you dare call them.
   `int`, `str`, and tuples of hashables are hashable; `list`, `dict`, and
   `set` are not. `{[1, 2]: "x"}` raises `TypeError: unhashable type: 'list'`.
   The fix is always the same: **use a tuple** — `{(1, 2): "cell"}` works, and
-  `(row, col)` tuple keys replace Java's nested maps or hand-rolled key
-  classes with `equals`/`hashCode` overrides.
+  `(row, col)` tuple keys replace nested maps and hand-rolled composite-key
+  classes.
 
-### 5. Dict comprehensions: the `entrySet()` loop in one expression
+### 5. Dict comprehensions: reshape a map in one expression
 
 A **comprehension** is Python's inline build-a-collection expression (lesson
 02 covers them fully); the dict flavor is `{key_expr: value_expr for ... in
-...}`. The Java loop that copies/transforms one map into another becomes:
-
-```java
-Map<Integer, String> inv = new HashMap<>();
-for (Map.Entry<String, Integer> e : d.entrySet()) {
-    inv.put(e.getValue(), e.getKey());
-}
-```
+...}`. The loop that copies or transforms one map into another, entry by
+entry, becomes a single expression:
 
 ```python
 {v: k for k, v in d.items()}         # invert:  {"a": 1} -> {1: 'a'}
@@ -242,11 +198,11 @@ for (Map.Entry<String, Integer> e : d.entrySet()) {
 {k: v for k, v in d.items() if v > 0}  # filter entries
 ```
 
-### 6. Mutating while iterating: Python's `ConcurrentModificationException`
+### 6. Mutating while iterating is an error
 
-Java throws `ConcurrentModificationException` if you modify a collection
-while iterating it — the iterator is *invalidated* (its bookkeeping no longer
-matches the collection). Python has the identical rule with a different name:
+Modifying a collection while iterating over it *invalidates* the iterator —
+its internal bookkeeping no longer matches the collection. Nearly every
+language forbids it one way or another; Python refuses loudly:
 
 ```python
 d = {"a": 1, "b": 2}
@@ -255,8 +211,8 @@ for k in d:
                                  #    during iteration
 ```
 
-The fix is the same trick as Java's iterator-free workaround — iterate over a
-**snapshot** of the keys, then mutate the real dict freely:
+The fix: iterate over a **snapshot** of the keys, then mutate the real dict
+freely:
 
 ```python
 for k in list(d):                # list(d) copies the keys up front
@@ -265,10 +221,10 @@ for k in list(d):                # list(d) copies the keys up front
 ```
 
 Related: `d.keys()`, `d.values()`, `d.items()` return **views** — live
-windows onto the dict, not copies (like Java's `keySet()`). They even support
-set operators: `d1.keys() & d2.keys()` gives the shared keys directly.
+windows onto the dict, not copies. They even support set operators:
+`d1.keys() & d2.keys()` gives the shared keys directly.
 
-### 7. Sorting a dict (there is no TreeMap reflex needed)
+### 7. Sorting a dict (no sorted-map type needed)
 
 Dicts don't sort themselves; you sort the *entries* and rebuild if needed:
 
@@ -278,10 +234,10 @@ sorted(d.items(), key=lambda kv: kv[1], reverse=True)
 # -> [('a', 3), ('c', 2), ('b', 1)]      by value, descending
 ```
 
-`key=` takes a function computing the sort key — Java's
-`Comparator.comparing(...)`. The `lambda kv: kv[1]` is Python's
-anonymous-function syntax: `lambda <args>: <return expression>`, the same
-idea as Java's `kv -> kv[1]` (lesson 05 covers `lambda` in full). Here each
+`key=` takes a function computing the sort key — called once per element,
+and elements are ordered by their keys. The `lambda kv: kv[1]` is Python's
+anonymous-function syntax: `lambda <args>: <return expression>` (lesson 05
+covers `lambda` in full). Here each
 `kv` is one `(key, value)` pair from `d.items()`, and `kv[1]` indexes into
 that pair to pull out the value, so we sort by value. For "sorted by count"
 you rarely need any of this: `Counter.most_common()` already did it.
@@ -340,7 +296,7 @@ Where you'll see it: the opening move of every frequency question — **Valid
 Anagram**, **Majority Element**, **Ransom Note** all start with "count one
 side". In ML pipelines: class-label histograms for dataset balance checks,
 token frequency for vocabulary building. Writing the manual loop instead of
-`Counter` reads like writing your own `ArrayList`.
+`Counter` reads like reimplementing the standard library.
 
 ### `top_k_frequent`
 
@@ -412,9 +368,9 @@ return current
 # get_nested({"a": {}}, ["a", "b"], default=-1)        -> -1
 ```
 
-The two guards replace Java's null-check pyramid or `Optional.map` chain:
-`isinstance(current, dict)` (Python's `instanceof`) stops you indexing into
-`5`, and `key not in current` stops the `KeyError`.
+The two guards replace the null-check pyramid you would otherwise write, one
+level per key: `isinstance(current, dict)` (Python's runtime type test)
+stops you indexing into `5`, and `key not in current` stops the `KeyError`.
 
 Where you'll see it: less LeetCode, more real onsites — "parse this JSON
 config" tasks. In robotics you walk nested config trees daily: JSON/YAML
@@ -451,8 +407,8 @@ return not set(a).isdisjoint(b)
 ```
 
 `isdisjoint` accepts any iterable (no need to set-ify `b`), short-circuits on
-the first hit, and mutates nothing — versus Java's copy-then-`retainAll`
-dance, which destroys the copy just to ask a question. `bool(set(a) &
+the first hit, and mutates nothing — versus a copy-then-intersect-in-place
+dance that destroys the copy just to ask a question. `bool(set(a) &
 set(b))` also works but builds the whole intersection first.
 
 Where you'll see it: **Intersection of Two Arrays** and any "do these
@@ -472,8 +428,8 @@ return list(dict.fromkeys(items))
 `dict.fromkeys(items)` builds `{3: None, 1: None, 2: None}` — later
 duplicates hit an existing key and change nothing, and insertion order is
 guaranteed, so the keys are your deduped sequence. `list(set(items))` is the
-tempting wrong answer: it dedups but scrambles order. No `LinkedHashSet`
-import — every dict already *is* one.
+tempting wrong answer: it dedups but scrambles order. No insertion-ordered
+set type needed — every dict already *is* one.
 
 Where you'll see it: as a subroutine ("dedupe the event stream, keep first
 occurrence") and as a Python-fluency probe — interviewers ask "how do you
