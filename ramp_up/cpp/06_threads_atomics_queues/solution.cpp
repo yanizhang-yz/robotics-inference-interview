@@ -16,14 +16,14 @@
 #include <utility>
 #include <vector>
 
-// racy_increment_demo() -> the final value of an UNSYNCHRONIZED counter that two
+// racy_increment_demo() -> the final value of an UNLOCKED counter that two
 // threads each ++ 100000 times. Correct answer: 200000. Actual answer: wrong and
 // DIFFERENT almost every run (one run gave 143412) because ++ is three steps
 // (read, add, write back) and the threads overwrite each other's writes.
 // main() prints this value but never asserts on it: a data race is undefined
 // behavior — there is no result you may rely on, not even a reliably wrong one.
-// JAVA: the same bug: a plain int field, two threads running count++.
-// C++:  same shape — the point of the demo is to SEE the lost updates.
+// PYTHON: counter += 1 unlocked — same bug; the GIL usually hid it (README §2).
+// C++:  no GIL, so the point of the demo is to SEE the lost updates.
 int racy_increment_demo() {
     int counter = 0;  // shared by both threads, protected by nothing
     auto work = [&counter] {
@@ -39,10 +39,10 @@ int racy_increment_demo() {
 }
 
 // safe_count_mutex(4, 25000) -> exactly 100000, every run.
-// JAVA: synchronized (lock) { count++; }
+// PYTHON: with self.lock: counter += 1 — your ring buffer's pattern.
 // C++:  std::lock_guard locks the mutex in its constructor and unlocks in its
 //       destructor (RAII, lesson 02) — the guard's closing brace is the end of
-//       the synchronized block, and the unlock runs even if the body throws.
+//       the with-block, and the unlock runs even if the body throws.
 int safe_count_mutex(int threads, int iters) {
     int counter = 0;
     std::mutex m;
@@ -62,7 +62,8 @@ int safe_count_mutex(int threads, int iters) {
 }
 
 // safe_count_atomic(4, 25000) -> exactly 100000, every run — no mutex involved.
-// JAVA: AtomicInteger count; count.incrementAndGet();
+// PYTHON: no everyday equivalent — under the GIL a bare counter was mostly-safe
+//         by luck, so Python never grew one. C++ names the hardware directly.
 // C++:  ++ on std::atomic<int> compiles to one indivisible hardware instruction;
 //       no thread can slip in between the read and the write.
 int safe_count_atomic(int threads, int iters) {
@@ -78,22 +79,23 @@ int safe_count_atomic(int threads, int iters) {
     for (auto& th : pool) {
         th.join();
     }
-    return counter.load();  // .load() = AtomicInteger.get(): an explicit atomic read
+    return counter.load();  // .load(): an explicit atomic read of the final value
 }
 
-// A bounded, blocking, thread-safe FIFO queue — Java's ArrayBlockingQueue<T>.
+// A bounded, blocking, thread-safe FIFO queue — Python's queue.Queue(maxsize=...).
 // push() blocks while the queue is full; pop() blocks while it is empty.
 // This is the camera->inference handoff: the camera thread push()es frames, the
 // inference thread pop()s them, and when inference falls behind, the full queue
 // puts the camera thread to sleep (backpressure) instead of letting frames pile
 // up in memory without bound.
-// JAVA: ArrayBlockingQueue — put() blocks when full, take() blocks when empty.
+// PYTHON: queue.Queue — put() blocks when full, get() blocks when empty; CPython
+//         builds it from this exact design (one Lock, not_empty/not_full Conditions).
 template <typename T>
 class BoundedQueue {
 public:
     explicit BoundedQueue(std::size_t capacity) : capacity_(capacity) {}
 
-    // Blocks while the queue is full. JAVA: ArrayBlockingQueue.put(value).
+    // Blocks while the queue is full. PYTHON: queue.Queue.put(value).
     void push(T value) {
         std::unique_lock<std::mutex> lock(mutex_);  // unique_lock, not lock_guard: wait() needs it
         not_full_.wait(lock, [this] { return items_.size() < capacity_; });
@@ -101,7 +103,7 @@ public:
         not_empty_.notify_one();  // if a pop() is sleeping, wake it: there's an item now
     }
 
-    // Blocks while the queue is empty. JAVA: ArrayBlockingQueue.take().
+    // Blocks while the queue is empty. PYTHON: queue.Queue.get().
     T pop() {
         std::unique_lock<std::mutex> lock(mutex_);
         not_empty_.wait(lock, [this] { return !items_.empty(); });
@@ -121,7 +123,7 @@ private:
     mutable std::mutex mutex_;           // mutable: even const size() must lock it
     std::condition_variable not_full_;   // push() sleeps here when the queue is full
     std::condition_variable not_empty_;  // pop() sleeps here when the queue is empty
-    std::deque<T> items_;                // plain FIFO storage — Java's ArrayDeque
+    std::deque<T> items_;                // plain FIFO storage — collections.deque
 };
 
 int main() {

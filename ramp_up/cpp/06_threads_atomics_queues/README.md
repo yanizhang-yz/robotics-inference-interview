@@ -10,42 +10,78 @@ between them keeping the robot honest when the model can't keep up. Every term i
 defined at first use; every snippet's behavior was verified with
 `clang++ -std=c++17 -pthread` on this Mac.
 
-## The Java you know
+## The toolbox you already own
 
-Eight years of Java means you already know every *concept* in this lesson — you have
-`java.util.concurrent` scars. Here is the whole lesson in the Java you speak:
+You have already written concurrent code — and not toy code. In
+[`questions/05_systems/001_thread_safe_ring_buffer`](../../../questions/05_systems/001_thread_safe_ring_buffer/)
+you built a fixed-capacity buffer that multiple threads could push to and pop from,
+and you made it safe the standard Python way: one `threading.Lock`, acquired by every
+public method with `with self._lock:`. This lesson is that same toolbox with the
+training wheels off. Here is the whole lesson in the Python you speak:
 
-```java
-// Launching and waiting:
-Thread t = new Thread(() -> System.out.println("hi"));   // Runnable in, nothing runs yet
-t.start();                        // NOW it runs
-t.join();                         // wait for it (throws InterruptedException — must handle)
+```python
+import threading, queue
 
-// The shared-counter bug and fix 1 — mutual exclusion:
-int count = 0;                    // two threads doing count++ WILL lose increments
-synchronized (lock) { count++; }  // only one thread inside at a time
+# Launching and waiting:
+t = threading.Thread(target=work)   # a thread object; nothing runs yet
+t.start()                           # NOW it runs
+t.join()                            # wait for it to finish
 
-// Fix 2 — an atomic:
-AtomicInteger atomic = new AtomicInteger();
-atomic.incrementAndGet();         // indivisible at the hardware level, no lock
+# The shared-counter bug, and fix 1 — your ring buffer's lock:
+counter += 1                        # unlocked shared state: a bug (yes, even in Python)
+with lock:                          # threading.Lock: one thread inside at a time
+    counter += 1                    # safe
 
-// Sleeping until there's work — and the famous while-loop rule:
-synchronized (lock) {
-    while (queue.isEmpty()) {     // while, NOT if — wakeups can be spurious
-        lock.wait();              // releases the lock while sleeping
-    }
-    // ... consume ...
-}
-// producer side:  synchronized (lock) { queue.add(x); lock.notify(); }
+# Sleeping until there's work — with the famous while-loop rule:
+with cond:                          # threading.Condition
+    while not items:                # while, NOT if — wakeups can be spurious
+        cond.wait()                 # releases the lock while sleeping
+    consume(items.popleft())
 
-// And the class that packages all of the above:
-BlockingQueue<Frame> q = new ArrayBlockingQueue<>(4);
-q.put(frame);                     // blocks while the queue is FULL
-Frame f = q.take();               // blocks while the queue is EMPTY
+# And the class that packages all of the above:
+q = queue.Queue(maxsize=4)          # bounded, blocking FIFO
+q.put(frame)                        # blocks while the queue is FULL
+frame = q.get()                     # blocks while the queue is EMPTY
 ```
 
-Every one of those has a direct C++ counterpart — and the last one, Java hands you
-finished. Here you will build it yourself, which is exactly what interviewers ask.
+Every line above has a direct C++ counterpart, most of them one-to-one — and the last
+one, Python hands you finished. Here you will build it yourself from a mutex and two
+condition variables, which is exactly what interviewers ask. It is also exactly how
+CPython builds it: open `queue.py` in the standard library and you will find a
+`collections.deque`, one `Lock`, and two `Condition`s named `not_empty` and
+`not_full`. By the end of this lesson you will have written that file in C++.
+
+And remember the ring-buffer question's follow-up #1 — "make `pop` *block* until an
+item arrives"? That follow-up is this lesson's centerpiece.
+
+## What C++ takes away: the GIL
+
+One thing before the syntax, because it changes how careful you must be.
+
+CPython has a **Global Interpreter Lock** (the GIL): one interpreter-wide lock that a
+thread must hold to execute Python bytecode. Only one thread runs Python at a time.
+Your Python threads *interleaved* — the interpreter let each run for a slice
+(`sys.getswitchinterval()` says 5 ms by default) and then offered the lock to another —
+but two of them never truly executed on two cores at the same instant. That is why
+Python threads never sped up your compute, and why NumPy drops to C (and the GIL is
+released) for the heavy loops.
+
+The GIL also quietly *masked* bugs. `counter += 1` is several bytecodes — read, add,
+write — and a thread can lose the interpreter between them, so the unlocked version
+really is broken; the ring-buffer README's follow-up #3 said it straight. But the
+switch points are a few bytecodes wide and a few milliseconds apart, so racy Python
+usually gets lucky. Measured on this Mac: two Python threads each doing
+`counter += 1` 100,000 times with no lock returned exactly 200000, three runs out of
+three. Broken code, perfect score. The GIL never made your code thread-safe; it made
+your bugs shy.
+
+C++ has no GIL. Threads genuinely execute at the same instant on different cores.
+That is the reward — the camera thread and the inference thread really do run in
+parallel, which is the entire reason an inference engineer writes C++ — and it has a
+price: the same increment experiment in C++ returned 111271, 110246, then 104515.
+The bug your Python papered over corrupts data here, visibly, almost every run.
+True parallelism is the reward; discipline is the price. This lesson is the
+discipline.
 
 ## The lesson
 
@@ -53,12 +89,23 @@ finished. Here you will build it yourself, which is exactly what interviewers as
 
 A **thread** is an independent line of execution inside your process: it gets its own
 call stack, but shares the same memory as every other thread — that sharing is where
-all the trouble in this lesson comes from. Three differences from Java's `Thread`:
+all the trouble in this lesson comes from. Launch-and-wait is nearly a
+transliteration of the Python you know:
 
-- There is **no `start()`**. Constructing a `std::thread` launches it immediately.
-- There is no `Runnable` interface — you pass any callable, in practice a lambda.
-- `join()` blocks until the thread finishes, like Java's, minus the checked
-  `InterruptedException` ceremony.
+```python
+t = threading.Thread(target=work)     # Python: construct...
+t.start()                             # ...then start
+t.join()                              # wait for it
+```
+
+```cpp
+std::thread t(work);                  // C++: constructing IS starting
+t.join();                             // wait for it
+```
+
+Two differences worth naming. There is **no `start()`** — constructing a
+`std::thread` launches it immediately. And where Python's `target=` takes any
+callable, C++ takes any callable too — in practice a lambda:
 
 ```cpp
 #include <thread>
@@ -72,14 +119,15 @@ t.join();   // wait here until the new thread finishes
 // logic on scheduling order.
 ```
 
-Data goes into the thread by lambda capture (lesson: capture by value for a copy;
-capture by reference **only** when you are certain the thread joins before the
-variable dies — the thread outliving a stack variable it references is a dangling
+Data goes into the thread by lambda capture (lesson 01's rules: capture by value for
+a copy; capture by reference **only** when you are certain the thread joins before
+the variable dies — a thread outliving a stack variable it references is a dangling
 reference, lesson 02's crash).
 
-Now the rule Java never had. In Java, forgetting `join()` is fine — the program just
-runs on. In C++, letting a `std::thread` object die while its thread is still
-"joinable" (running or finished-but-never-joined) **terminates your whole program**:
+Now the rule Python never had. In Python, forgetting `join()` is forgiven — the
+program runs on, and the interpreter even waits for non-daemon threads at exit. In
+C++, letting a `std::thread` object die while its thread is still "joinable"
+(running, or finished but never joined) **terminates your whole program**:
 
 ```cpp
 {
@@ -90,9 +138,9 @@ runs on. In C++, letting a `std::thread` object die while its thread is still
 ```
 
 So the discipline is mechanical: **every thread you create, you join** — including on
-early-return paths. (There is a fire-and-forget escape hatch, `t.detach()`, which
-disowns the thread; in robotics code treat it as a bug — a detached thread can touch
-freed memory during shutdown.)
+early-return paths. (There is a fire-and-forget escape hatch, `t.detach()` — the
+distant cousin of Python's daemon threads. In robotics code treat it as a bug: a
+detached thread can touch freed memory during shutdown.)
 
 Launching N threads uses a familiar friend: `std::thread` cannot be copied (two
 owners of one OS thread — same logic as `unique_ptr` in lesson 02) but can be moved,
@@ -108,19 +156,21 @@ for (auto& th : pool) {
 }
 ```
 
-### 2. The data race — why `counter++` lies to you
+### 2. The data race — the bug the GIL was hiding
 
-**Shared state** is any memory two or more threads can touch. A **data race** is two
-threads touching the same memory at the same time, at least one of them writing,
-with nothing coordinating them. In C++ a data race is **undefined behavior** —
-lesson 02's term: the standard permits *anything*, from wrong numbers to crashes.
-(Java is gentler here: its memory model makes racy programs weird but defined. C++
-does not soften it.)
+Names first. **Shared state** is any memory two or more threads can touch. A **data
+race** is two threads touching the same memory at the same time, at least one of them
+writing, with nothing coordinating them. In C++ a data race is **undefined
+behavior** — lesson 02's term: the standard permits *anything*, from wrong numbers to
+crashes. (CPython is gentler: the GIL is held for the duration of each bytecode, so
+memory itself never tears — races there garble your logic at the seams *between*
+bytecodes. C++ softens nothing.)
 
-Why is one-line `++counter` a race at all? Because it is not one step. The CPU can
-only do arithmetic in a **register** — a private scratch cell inside the processor —
-so every `++` is three steps: **read** the value from memory into a register, **add**
-one, **write** it back. Two threads can interleave those steps:
+Why is one-line `++counter` a race at all? For exactly the reason `counter += 1` was
+several bytecodes: it is not one step. The CPU can only do arithmetic in a
+**register** — a private scratch cell inside the processor — so every `++` is three
+steps: **read** the value from memory into a register, **add** one, **write** it
+back. Two threads can interleave those steps:
 
 ```text
 counter is 5
@@ -149,22 +199,43 @@ std::cout << counter << "\n";
 // which is why "it worked when I tested it" means nothing for threaded code.
 ```
 
+Hold the two experiments side by side: Python, 200000 three times out of three; C++,
+a different wrong number nearly every run. Same bug in both programs — only C++ shows
+it to you, because only C++ actually ran the threads at the same time.
+
 This is the `racy_increment_demo` drill. Note what our test does with it: it
 **prints** the value and asserts nothing — undefined behavior has no result you may
 rely on, not even a reliably wrong one.
 
-### 3. Fix 1 — `std::mutex` + `std::lock_guard` (this is `synchronized`)
+### 3. Fix 1 — `std::mutex` + `std::lock_guard` (this is `with lock:`)
 
 A **mutex** ("mutual exclusion") is a lock that only one thread can hold at a time;
-any other thread that asks for it is put to sleep until the holder releases it. The
-code that runs while holding the mutex is called a **critical section** — a stretch
-only one thread can be inside at once. Java's `synchronized (lock) { ... }` is
-exactly this machine with the braces built in.
+any other thread that asks for it is put to sleep until the holder releases it. You
+know it as `threading.Lock` — your ring buffer had exactly one, covering every
+method. The code that runs while holding the mutex is called a **critical section** —
+a stretch only one thread can be inside at once.
 
-C++ gets the braces from RAII (lesson 02): `std::lock_guard` locks the mutex in its
-constructor and unlocks in its destructor, so the guard's enclosing scope *is* the
-synchronized block — and the unlock runs even if the body throws an exception,
-exactly like leaving a `synchronized` block via `throw`:
+In Python you learned never to call `lock.acquire()` and `lock.release()` by hand —
+you write `with lock:` so the release happens automatically, even when the body
+raises. C++ has no `with` statement, and needs none, because lesson 02 already built
+the machine: RAII. A destructor is an `__exit__` the language runs for every object
+at every scope exit. `std::lock_guard` locks the mutex in its constructor and unlocks
+in its destructor — **the guard's enclosing scope IS the with-block**:
+
+```python
+with lock:                  # acquire
+    counter += 1            # critical section
+# release — even on exception
+```
+
+```cpp
+{
+    std::lock_guard<std::mutex> lock(m);   // constructor acquires
+    ++counter;                             // critical section
+}                                          // destructor releases — even on exception
+```
+
+Applied to the racy counter:
 
 ```cpp
 int counter = 0;
@@ -180,18 +251,26 @@ t1.join(); t2.join();
 // counter -> 200000. Verified: exact, every run (three for three).
 ```
 
-Never call `m.lock()` and `m.unlock()` by hand: one early `return` or exception
-between them and the mutex stays locked forever, and every thread that later wants
-it sleeps for good. RAII exists so that bug cannot be written.
+Never call `m.lock()` and `m.unlock()` by hand — the same advice as
+acquire/release, with sharper teeth: one early `return` or exception between them and
+the mutex stays locked forever, and every thread that later wants it sleeps for good.
+RAII exists so that bug cannot be written.
 
 While we are here, the other famous way to sleep forever: a **deadlock** is two
-threads each holding a mutex the other one is waiting for — neither can ever
-proceed. You cannot deadlock with the single mutex above; the classic recipe needs
-two mutexes taken in opposite orders by two threads. The interview answer: always
-acquire multiple mutexes in one agreed global order (or use `std::scoped_lock`,
-which locks a set of mutexes deadlock-free for you).
+threads each holding a mutex the other one is waiting for — neither can ever proceed.
+(Python with two `Lock`s deadlocks identically; the GIL does not save you, because
+the threads are asleep in the locks, not fighting over the interpreter.) You cannot
+deadlock with the single mutex above; the classic recipe needs two mutexes taken in
+opposite orders by two threads. The interview answer: always acquire multiple mutexes
+in one agreed global order (or use `std::scoped_lock`, which locks a set of mutexes
+deadlock-free for you).
 
-### 4. Fix 2 — `std::atomic<int>` (this is `AtomicInteger`)
+### 4. Fix 2 — `std::atomic<int>`: the tool Python never grew
+
+Here the Python map runs out. Python has no everyday atomic-counter type — under the
+GIL a simple counter was mostly-safe by accident, so the language never needed one;
+Pythonistas just reach for a `Lock`. C++ threads truly run in parallel, so C++ names
+the hardware directly.
 
 An operation is **atomic** if it happens as one indivisible step — no thread can
 observe it half-done or wedge between its halves. Modern CPUs have instructions that
@@ -208,51 +287,53 @@ auto work = [&] {
 std::thread t1(work), t2(work);
 t1.join(); t2.join();
 // counter.load() -> 200000. Verified: exact, every run.
-// .load() is AtomicInteger.get(); .store(x) is .set(x).
+// .load() reads the value atomically; .store(x) writes it atomically.
 ```
 
-So when do you use which? The same rule you learned for `AtomicInteger` vs
-`synchronized`:
+So when do you use which?
 
 - **Atomic**: ONE variable, updated independently. Frame counters, dropped-frame
   counters, and the classic shutdown flag — `std::atomic<bool> running{true};` that
   a control loop checks and a signal handler flips.
-- **Mutex**: an invariant spanning **more than one variable** — the queue below must
-  change its storage and let waiters know *together*; a transfer must debit one
-  account AND credit another. Making each variable individually atomic does not make
-  their *combination* consistent: another thread can see account A debited before B
-  is credited. Multi-variable invariant ⇒ one mutex around the whole update.
+- **Mutex**: an invariant spanning **more than one variable**. Your ring buffer is
+  the perfect example: slots, `head`, and `size` had to change *together*, which is
+  precisely why its one `Lock` wrapped each whole method instead of each field.
+  Making each variable individually atomic does not make their *combination*
+  consistent: another thread could see `size` incremented before the slot is
+  written. Multi-variable invariant ⇒ one mutex around the whole update.
 
-### 5. `condition_variable` — sleeping until there's work
+### 5. `condition_variable` — `threading.Condition`, same rules
 
 Now aim at the queue. A consumer thread finds the queue empty — what does it do? The
 naive answer is a **busy-wait**: loop, checking over and over. That burns an entire
 CPU core doing nothing, which on a robot is stolen from the model you are trying to
-run. The right answer is Java's `wait()`/`notify()`, and C++'s version is
-`std::condition_variable`: a *waiting room attached to a mutex*. A thread that finds
-nothing to do goes to sleep in the waiting room — **releasing the mutex while it
-sleeps** — and a thread that changes the state rings the bell to wake it.
+run. The right answer you have already met in Python: `threading.Condition`, and
+C++'s `std::condition_variable` is the same machine — a *waiting room attached to a
+mutex*. A thread that finds nothing to do goes to sleep in the waiting room —
+**releasing the mutex while it sleeps** — and a thread that changes the state rings
+the bell to wake it.
 
 Two mechanics to nail down:
 
-- **`unique_lock`, not `lock_guard`.** `wait()` must unlock the mutex while
-  sleeping (otherwise no producer could ever get in to add work) and re-lock it
-  before the sleeper wakes up. `std::lock_guard` cannot unlock mid-scope; its
-  flexible sibling `std::unique_lock` can — that is the entire reason `wait()`
-  demands one.
+- **`unique_lock`, not `lock_guard`.** `wait()` must unlock the mutex while sleeping
+  (otherwise no producer could ever get in to add work) and re-lock it before the
+  sleeper wakes up — Python's `cond.wait()` does exactly the same dance under its
+  `with cond:` block. `std::lock_guard` cannot unlock mid-scope; its flexible
+  sibling `std::unique_lock` can — that is the entire reason `wait()` demands one.
 - **The while-loop rule survives, verbatim.** A **spurious wakeup** is a thread
   waking with *nobody having notified it* — the operating system is explicitly
-  allowed to do this. It is why Java taught you "always call `wait()` in a `while`
-  loop, never an `if`". C++ folds that loop into an overload:
-  `cv.wait(lock, predicate)` — a **predicate** is just a function returning bool,
-  "is there work for me?" — behaves exactly like
-  `while (!predicate()) cv.wait(lock);`. Always use the predicate form: it
+  allowed to do this. It is why the Python docs make you write
+  `while not predicate: cond.wait()` instead of an `if`. C++ folds that loop into an
+  overload: `cv.wait(lock, predicate)` — a **predicate** is just a function
+  returning bool, "is there work for me?" — behaves exactly like
+  `while (!predicate()) cv.wait(lock);`. Python grew the identical shortcut,
+  `cond.wait_for(predicate)`. In both languages: always use the predicate form; it
   re-checks the condition on every wakeup, spurious or real.
 
 ```cpp
 std::mutex m;
 std::condition_variable cv;
-std::deque<int> box;                      // std::deque: a FIFO — Java's ArrayDeque
+std::deque<int> box;                      // std::deque: a FIFO — collections.deque
 
 std::thread consumer([&] {
     std::unique_lock<std::mutex> lock(m);
@@ -265,15 +346,17 @@ std::this_thread::sleep_for(std::chrono::milliseconds(50));  // consumer sleeps 
     std::lock_guard<std::mutex> lock(m);
     box.push_back(42);                    // change the state under the mutex...
 }
-cv.notify_one();                          // ...then ring the bell (Java: notify())
+cv.notify_one();                          // ...then ring the bell (Python: cond.notify())
 consumer.join();
-// Output: got 42        (verified; notify_all() = Java's notifyAll())
+// Output: got 42        (verified; notify_all() = Python's cond.notify_all())
 ```
 
-### 6. Assemble it: `BoundedQueue<T>` — your own `ArrayBlockingQueue`
+### 6. Assemble it: `BoundedQueue<T>` — your own `queue.Queue(maxsize=)`
 
-A **bounded queue** is a FIFO with a maximum size fixed at construction. The bound
-is not a nicety — it is the safety mechanism. Run the numbers for a real robot: one
+A **bounded queue** is a FIFO with a maximum size fixed at construction — the
+interface of `queue.Queue(maxsize=4)`: `put` blocks while full, `get` blocks while
+empty. The bound is not a nicety — it is the safety mechanism, and you already
+derived why in the ring-buffer question. Run the numbers for a real robot: one
 1280×720 RGB frame is 1280·720·3 ≈ 2.6 MB. Camera produces at 30 fps; suppose the
 model only manages 20 fps. An *unbounded* queue then grows by 10 frames — ~26 MB —
 every second, about 1.5 GB per minute, until the process dies. Worse than the memory
@@ -281,8 +364,9 @@ is the **latency**: the frame at the head of that swelling queue is seconds old,
 the robot plans against the past. A bounded queue caps both at once: when it fills,
 `push()` puts the *producer* to sleep until the consumer catches up. That
 slower-stage-slows-the-faster-stage effect is called **backpressure**. (The other
-industrial option is dropping the oldest frame instead of blocking — see the drill's
-"Where you'll see it".)
+industrial option is dropping the oldest frame instead of blocking — that is
+literally your ring buffer's `push_overwrite`; see the drill's "Where you'll see
+it".)
 
 Design, from the rules you now own:
 
@@ -292,8 +376,10 @@ Design, from the rules you now own:
   `push`ers wait) and `not_empty_` (where empty-queue `pop`pers wait). One shared
   condition variable *can* work, but then a push might wake another pusher —
   a thread that still cannot proceed. Two waiting rooms wake exactly the threads
-  that can make progress. Java's `ArrayBlockingQueue` uses the same pair internally
-  (`notFull`/`notEmpty`).
+  that can make progress. This is not our invention: CPython's `queue.Queue` is
+  built from precisely this pair — one `Lock`, `not_empty`, `not_full` (plus a third
+  condition for `Queue.join()`'s task tracking), storage in a `collections.deque`.
+  You are re-implementing `queue.py`, minus the interpreter.
 
 Here is `push()`, line by line — building `pop()` as its mirror image is your drill:
 
@@ -310,7 +396,7 @@ void push(T value) {
 2. Sleep until there is room. The predicate re-checks after every wakeup (§5), and
    the mutex is released while sleeping, so consumers can get in and make room.
 3. There is room and we hold the lock: append. `std::move` because a frame is big —
-   hand it over, don't copy it (lesson 02).
+   hand it over, don't copy it (lesson 03).
 4. If a consumer is asleep in `not_empty_`, there is now an item for it: ring that
    bell. (Notify the *other* side's waiting room — pushes wake poppers.)
 
@@ -326,12 +412,12 @@ rest.
 
 Rosetta stone for what you just built:
 
-| Your `BoundedQueue<T>` | Java `ArrayBlockingQueue<T>` |
+| Your `BoundedQueue<T>` | Python `queue.Queue` |
 |---|---|
-| `BoundedQueue<int> q(4);` | `new ArrayBlockingQueue<>(4)` |
+| `BoundedQueue<int> q(4);` | `queue.Queue(maxsize=4)` |
 | `q.push(x)` — blocks when full | `q.put(x)` |
-| `q.pop()` — blocks when empty | `q.take()` |
-| `q.size()` | `q.size()` |
+| `q.pop()` — blocks when empty | `q.get()` |
+| `q.size()` | `q.qsize()` |
 
 ### 7. The floor below this one (recognize the words, don't go there yet)
 
@@ -342,23 +428,25 @@ it lies **lock-free programming**: building structures like this queue with no m
 at all, using atomics with *relaxed* memory orders (`std::memory_order` is the knob)
 and compare-and-swap loops — where hazards like the **ABA problem** live (a value
 changes from A to B and back to A, so a compare-and-swap concludes "nothing
-happened" and corrupts the structure). Senior interview loops name-drop these to
-gauge depth; at this stage the winning answer is knowing the words, saying "I'd
-reach for a proven lock-free queue library before writing one", and being solid on
-everything above this paragraph. The undefined-behavior background is in
-[`../LEARNING_POINTS.md`](../LEARNING_POINTS.md) §11.
+happened" and corrupts the structure). You have brushed against this floor once
+already: the ring-buffer question's follow-up #2 — "single-producer/single-consumer
+without a lock" — lives here, and the questions track has it waiting as
+`questions/05_systems/005_lock_free_spsc_queue_cpp`. Senior interview loops
+name-drop these to gauge depth; at this stage the winning answer is knowing the
+words, saying "I'd reach for a proven lock-free queue library before writing one",
+and being solid on everything above this paragraph.
 
 ## Muscle memory
 
 Type these until they require no thought:
 
 ```cpp
-std::thread t([&] { work(); });   t.join();        // launch with a lambda; ALWAYS join
+std::thread t([&] { work(); });   t.join();        // Thread(target=work).start() + .join()
 std::vector<std::thread> pool;                     // N threads: emplace_back, then
 for (auto& th : pool) th.join();                   //   join every one
 std::mutex m;
-{ std::lock_guard<std::mutex> lock(m); /* ... */ } // synchronized block, C++ spelling
-std::atomic<int> n{0};   ++n;   n.load();          // AtomicInteger
+{ std::lock_guard<std::mutex> lock(m); /* ... */ } // `with lock:` — the braces ARE the block
+std::atomic<int> n{0};   ++n;   n.load();          // no Python analog; hardware-indivisible
 std::atomic<bool> running{true};                   // the shutdown flag idiom
 std::unique_lock<std::mutex> lock(m);              // wait() needs unique_lock...
 cv.wait(lock, [&] { return ready; });              // ...and ALWAYS the predicate form
@@ -384,9 +472,11 @@ racy_increment_demo()   // one run gave 104776; another 103268; correct would be
 
 Where you'll see it: "what is a data race?" / "spot the bug in this code" is the
 standard concurrency opener, and the three-step story of `++` (read, modify, write)
-is the expected answer. In robotics code the racy `int` is usually the latest pose,
-a frames-processed counter, or an e-stop flag shared between a sensor callback
-thread and the control loop — the bug arrives exactly this innocently.
+is the expected answer — plus one sentence you can now say from experience: "Python's
+GIL usually hides this exact bug; C++ exposes it." In robotics code the racy `int`
+is usually the latest pose, a frames-processed counter, or an e-stop flag shared
+between a sensor callback thread and the control loop — the bug arrives exactly this
+innocently.
 
 ### `safe_count_mutex(threads, iters)`
 
@@ -399,10 +489,11 @@ safe_count_mutex(1, 1000)    // -> 1000: one thread must work too
 ```
 
 Where you'll see it: "make this code thread-safe" is the follow-up to the opener,
-and saying "RAII guard, not manual lock/unlock — it releases on exceptions" is what
-separates C++ answers from C answers. Real version: any robot state touched by more
-than one thread — the current joint targets, the latest camera intrinsics, a shared
-map — sits behind exactly this mutex-plus-guard pattern.
+and saying "RAII guard, not manual lock/unlock — it releases on exceptions, like a
+`with` block" is what separates C++ answers from C answers. Real version: any robot
+state touched by more than one thread — the current joint targets, the latest camera
+intrinsics, a shared map — sits behind exactly this mutex-plus-guard pattern, the
+same shape as your ring buffer's `with self._lock:`.
 
 ### `safe_count_atomic(threads, iters)`
 
@@ -455,9 +546,10 @@ condition variables?", "what if the producer is faster — and that's the word
 pushes frames at 30 fps, the inference thread pops at whatever the model manages,
 and the bound decides your latency and memory. ROS 2 exposes the same idea as
 subscription queue depth in its QoS settings; production perception stacks often
-choose the drop-oldest variant (a robot wants the *newest* frame, stale ones are
-worthless) — once your blocking version works, `try_push` that evicts the front is a
-ten-line remix worth attempting.
+choose the drop-oldest variant instead (a robot wants the *newest* frame, stale ones
+are worthless) — which is your Python ring buffer's `push_overwrite` policy. Once
+your blocking version works, a `try_push` that evicts the front is a ten-line remix
+worth attempting.
 
 ## How to practice
 
@@ -481,3 +573,31 @@ with POSIX threads support. Linux `g++` requires it for `std::thread`; Apple cla
 accepts it harmlessly (verified warning-free here), and the pytest harness passes it
 for you. Run the solution binary a few times in a row and watch the racy count
 change while every assert stays green — that contrast is the whole lesson.
+
+## The road ahead
+
+Everything in this lesson is CPU-side plumbing for the GPU work it feeds — and the
+concepts transfer almost one-to-one.
+
+- **A CUDA stream is a producer/consumer queue.** A *stream* is a queue of GPU work:
+  the CPU pushes kernel launches and memory copies onto it, and the GPU consumes
+  them in order. You are the producer, the GPU is the consumer, and
+  `cudaStreamSynchronize()` is `join()` — wait here until the worker finishes.
+  Launching a kernel is like constructing a `std::thread`: it starts *now*, and the
+  bugs come from forgetting who is still running.
+- **The camera→inference pipeline you built is the real architecture.** Production
+  inference is a chain of stages — capture → preprocess → infer → postprocess — each
+  a thread (or pool), connected by exactly the bounded queues of §6, with
+  backpressure deciding end-to-end latency. The GPU adds one more overlap trick:
+  while frame N computes, frame N+1's bytes upload on a second stream (double
+  buffering) — the same "keep both sides busy, bound the backlog" instinct.
+- **Atomics scale to thousands of threads.** CUDA's `atomicAdd()` is §4's hardware
+  indivisible read-modify-write with 10,000 threads hammering the counter instead of
+  two — histograms and reductions live on it, and "when do atomics serialize your
+  kernel" is a GPU interview classic.
+- **Where the track picks this up:** the questions track continues this exact lesson
+  as `questions/05_systems/003_bounded_blocking_queue_cpp` (this drill grown into a
+  full interview question), `005_lock_free_spsc_queue_cpp` (§7's floor below), and
+  `006_thread_pool_inference_server_cpp` — this queue plus a pool of workers, which
+  is a miniature inference server. The queue you built today is the load-bearing
+  wall of all three.
