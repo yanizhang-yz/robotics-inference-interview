@@ -1,25 +1,20 @@
-# Java Developer's Map to Rust
+# A Working Programmer's Map to Rust
 
-Dense reference card. Every section: the Java thing you know, then what Rust does instead.
-Read top to bottom once, then use as a lookup table.
+Dense reference card. Every section: a concept you already use, then what Rust does
+with it. Read top to bottom once, then use as a lookup table.
 
 ---
 
 ## 1. Ownership replaces the garbage collector (THE core mental shift)
 
-In Java, every object lives on the heap, any number of references can point at it, and
-the GC figures out when it dies. In Rust there is **no GC**. Instead:
+In a garbage-collected language, every object lives on the heap, any number of
+references can point at it, and the GC figures out when it dies — assigning a
+collection to a second variable just makes another alias to the same object. In Rust
+there is **no GC**. Instead:
 
 1. **Every value has exactly one owner** (a variable).
 2. **Assignment and passing-by-value MOVE ownership** — the old variable is dead afterward.
 3. When the owner goes out of scope, the value is freed. Deterministically. That's it.
-
-```java
-// Java: both refs point to the same list, GC cleans up eventually
-List<Integer> a = new ArrayList<>(List.of(1, 2, 3));
-List<Integer> b = a;              // a and b alias the same object
-System.out.println(a.size());     // fine
-```
 
 ```rust
 // Rust: assignment MOVES. `a` is dead after the move.
@@ -31,12 +26,12 @@ println!("{}", b.len());          // fine; Vec freed when b goes out of scope
 
 When you don't want to give a value away, you **borrow** it:
 
-| You want | Rust | Java mental model |
+| You want | Rust | Mental model |
 |---|---|---|
-| Read-only access, keep ownership | `&T` (shared borrow) | Passing an object you promise not to mutate |
-| Mutable access, keep ownership | `&mut T` (exclusive borrow) | Passing an object to be mutated — but only ONE such reference may exist at a time |
-| Give it away | `T` (move) | No Java equivalent — closest is "I null out my field after handing it off" |
-| Actually share ownership | `Rc<T>` / `Arc<T>` | The closest thing to a normal Java reference (ref-counted) |
+| Read-only access, keep ownership | `&T` (shared borrow) | Lending an object with a promise it won't be mutated |
+| Mutable access, keep ownership | `&mut T` (exclusive borrow) | Lending an object to be mutated — but only ONE such reference may exist at a time |
+| Give it away | `T` (move) | Handing the value off for good — the old name stops working |
+| Actually share ownership | `Rc<T>` / `Arc<T>` | The closest thing to an ordinary GC-language reference (ref-counted) |
 
 ```rust
 fn total(v: &Vec<i32>) -> i32 { v.iter().sum() }      // borrows, caller keeps v
@@ -57,25 +52,19 @@ consume(v);               // gone. `v` unusable from here on.
 time they're inferred. When you see `fn longest<'a>(x: &'a str, y: &'a str) -> &'a str`,
 read it as: "the returned reference lives no longer than the shorter-lived input."
 It's the compiler making you prove you're not returning a dangling pointer — the bug
-class Java's GC made impossible, solved at compile time instead of runtime.
+class garbage collection made impossible, solved at compile time instead of runtime.
 
 **Cheap escape hatch while learning:** `.clone()` makes a deep copy and sidesteps the
 move. Slower, but correct. Clone first, optimize later.
 
 ---
 
-## 2. No null — `Option<T>` (Optional done right)
+## 2. No null — `Option<T>` (absence lives in the type)
 
-Java has `null` everywhere plus `Optional<T>` bolted on the side, and nothing stops a
-method from returning `null` anyway. Rust has **no null**. Absence is always explicit
-in the type, and the compiler forces you to handle it.
-
-```java
-// Java
-Optional<User> u = repo.findUser(id);
-String name = u.map(User::getName).orElse("anonymous");
-// ...but repo could still return null and NPE you at runtime.
-```
+Most languages have `null` everywhere, sometimes with an optional-wrapper type bolted
+on the side — and nothing stops a function from returning `null` anyway and crashing
+you at runtime. Rust has **no null**. Absence is always explicit in the type, and the
+compiler forces you to handle it.
 
 ```rust
 // Rust — Option is not optional. If it can be absent, the type says so.
@@ -96,35 +85,27 @@ if let Some(user) = repo.find_user(id) {
 
 Rosetta:
 
-| Java `Optional` | Rust `Option` |
+| Concept | Rust `Option` |
 |---|---|
-| `Optional.of(x)` / `Optional.empty()` | `Some(x)` / `None` |
-| `opt.map(f)` | `opt.map(f)` |
-| `opt.flatMap(f)` | `opt.and_then(f)` |
-| `opt.orElse(d)` | `opt.unwrap_or(d)` |
-| `opt.orElseGet(sup)` | `opt.unwrap_or_else(f)` |
-| `opt.get()` (throws) | `opt.unwrap()` (panics) — same code smell |
-| `opt.isPresent()` | `opt.is_some()` — usually a smell, pattern match instead |
-| `opt.orElseThrow(...)` | `opt.ok_or(err)?` (converts to `Result`, see below) |
+| Value present / absent | `Some(x)` / `None` |
+| Transform if present | `opt.map(f)` |
+| Chain another optional-returning step | `opt.and_then(f)` |
+| Fall back to a default value | `opt.unwrap_or(d)` |
+| Fall back to a lazily computed default | `opt.unwrap_or_else(f)` |
+| Extract, crashing if absent | `opt.unwrap()` (panics) — a known code smell |
+| Test for presence | `opt.is_some()` — usually a smell, pattern match instead |
+| Turn absence into an error | `opt.ok_or(err)?` (converts to `Result`, see below) |
 
-There is no NullPointerException in safe Rust. The whole bug class is gone.
+There is no null-pointer crash in safe Rust. The whole bug class is gone.
 
 ---
 
-## 3. No exceptions — `Result<T, E>` and `?` (checked exceptions, fixed)
+## 3. No exceptions — `Result<T, E>` and `?`
 
 Rust has no `throw`/`try`/`catch`. Fallible functions return
-`Result<T, E>` — an enum that is either `Ok(value)` or `Err(error)`. Think **checked
-exceptions where the "throws clause" is the return type**, and the compiler warns if
-you ignore it.
-
-```java
-// Java
-String read(Path p) throws IOException {
-    return Files.readString(p);
-}
-// caller: try/catch or re-declare `throws`
-```
+`Result<T, E>` — an enum that is either `Ok(value)` or `Err(error)`. The error
+contract lives **in the return type**: a function that can fail says so in its
+signature, and the compiler warns if you ignore the result.
 
 ```rust
 // Rust
@@ -136,7 +117,7 @@ fn read(p: &str) -> Result<String, io::Error> {
 }
 
 // The `?` operator = "unwrap Ok, or early-return the Err to my caller".
-// It is Rust's `throws` re-propagation, but visible at every call site:
+// It is error re-propagation, but visible at every call site:
 fn read_config() -> Result<Config, io::Error> {
     let text = fs::read_to_string("config.toml")?;   // <- on Err, return it
     let cleaned = text.trim().to_string();
@@ -150,32 +131,23 @@ match read_config() {
 }
 ```
 
-Key differences from checked exceptions:
+Key properties:
 - No unchecked escape route — a function that can fail *says so in its type*, always.
 - `?` makes propagation one character instead of try/catch boilerplate, so people
-  actually do it instead of swallowing.
-- `panic!` exists (≈ `Error`/`RuntimeException` for unrecoverable bugs: index out of
-  bounds, broken invariants). You don't catch panics in normal code.
-- In application code, `Box<dyn Error>` or the `anyhow` crate ≈ `throws Exception`;
-  the `thiserror` crate ≈ writing a proper exception hierarchy.
+  actually do it instead of swallowing errors.
+- `panic!` exists for unrecoverable bugs (index out of bounds, broken invariants).
+  You don't catch panics in normal code.
+- In application code, `Box<dyn Error>` or the `anyhow` crate is the catch-all
+  error type; the `thiserror` crate is how you build a proper structured error
+  hierarchy.
 
 ---
 
-## 4. Traits vs interfaces (+ `derive` vs Lombok)
+## 4. Traits: interfaces with upgrades (+ `#[derive]`)
 
-Traits are interfaces with two upgrades: you can implement them for types you don't
-own (no wrapper/adapter classes), and there is no inheritance — composition only.
-
-```java
-// Java
-interface Greet {
-    String greet();
-    default String loud() { return greet().toUpperCase(); }
-}
-class Robot implements Greet {
-    public String greet() { return "beep"; }
-}
-```
+Traits are interfaces — named bundles of methods a type promises to provide — with two
+upgrades: you can implement them for types you don't own (no wrapper/adapter classes),
+and there is no inheritance — composition only.
 
 ```rust
 // Rust
@@ -190,7 +162,7 @@ impl Greet for Robot {                       // impl block lives OUTSIDE the typ
     fn greet(&self) -> String { "beep".to_string() }
 }
 
-// You can impl your trait for someone else's type — impossible in Java:
+// You can impl your trait for someone else's type — no wrapper class needed:
 impl Greet for i32 {
     fn greet(&self) -> String { format!("I am {self}") }
 }
@@ -199,45 +171,28 @@ impl Greet for i32 {
 Two ways to "accept an interface":
 
 ```rust
-fn hello(g: &impl Greet) { ... }      // generics/monomorphized — like Java generics but zero-cost, resolved at compile time
-fn hello_dyn(g: &dyn Greet) { ... }   // dynamic dispatch — this is what a Java interface reference actually does (vtable)
+fn hello(g: &impl Greet) { ... }      // generics/monomorphized — resolved at compile time, zero-cost
+fn hello_dyn(g: &dyn Greet) { ... }   // dynamic dispatch — a vtable lookup at runtime, like interface references in managed languages
 ```
 
-**`#[derive]` is Lombok built into the language** — no annotation processor, no magic:
-
-```java
-// Java + Lombok
-@Data @EqualsAndHashCode @ToString
-class Point { int x; int y; }
-```
+**`#[derive]` generates the boilerplate methods** — built into the language, no
+annotation processor, no magic:
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Point { x: i32, y: i32 }
-// Debug ≈ toString, Clone ≈ clone(), PartialEq/Eq ≈ equals(), Hash ≈ hashCode()
-// Also: Default ≈ no-arg constructor, PartialOrd/Ord ≈ Comparable
+// Debug = printable representation, Clone = explicit deep copy,
+// PartialEq/Eq = value equality, Hash = usable as a hash-map key
+// Also: Default = zero-arg construction, PartialOrd/Ord = orderable
 ```
 
 ---
 
-## 5. Enums with data + pattern matching vs sealed classes/switch
+## 5. Enums with data + pattern matching
 
-Rust enums are Java 17+ sealed interfaces + records, but native and ergonomic.
-Each variant can carry its own data.
-
-```java
-// Java (modern): sealed hierarchy + pattern switch
-sealed interface Shape permits Circle, Rect {}
-record Circle(double r) implements Shape {}
-record Rect(double w, double h) implements Shape {}
-
-double area(Shape s) {
-    return switch (s) {
-        case Circle c -> Math.PI * c.r() * c.r();
-        case Rect r -> r.w() * r.h();
-    };
-}
-```
+A Rust enum is a closed set of variants where **each variant can carry its own data** —
+the "sealed hierarchy of record types" pattern from other languages, but native and
+ergonomic.
 
 ```rust
 // Rust: one enum, variants carry data
@@ -254,7 +209,7 @@ fn area(s: &Shape) -> f64 {
 }
 ```
 
-`match` is exhaustive like a sealed-switch — add a variant and every `match` that
+`match` is exhaustive — add a variant and every `match` that
 doesn't handle it **fails to compile**. `Option` and `Result` are just enums:
 `enum Option<T> { Some(T), None }`. That's why pattern matching is everywhere.
 Patterns also destructure, match ranges, bind with guards:
@@ -270,12 +225,12 @@ match speed {
 
 ---
 
-## 6. `String` vs `&str` (Java has one string type; Rust has two)
+## 6. `String` vs `&str` (one concept, two types)
 
 | | `String` | `&str` |
 |---|---|---|
 | What it is | Owned, growable, heap buffer | Borrowed view into string data ("string slice") |
-| Java analogy | `StringBuilder` you own | `String` passed to a method — read-only, not yours |
+| Mental model | A mutable string buffer you own | A read-only window lent to you — not yours |
 | Use it | struct fields, return values you build | function parameters (almost always) |
 
 ```rust
@@ -291,31 +246,31 @@ shout(literal);
 
 Rule of thumb: **take `&str`, store/return `String`.** If the compiler complains,
 `.to_string()` converts `&str -> String` and `&` (or `.as_str()`) goes the other way.
-Concatenation: `format!("{a}{b}")` is your `String.format`/`+`.
+Concatenation: `format!("{a}{b}")` is the general-purpose string builder.
 
 ---
 
 ## 7. Collections rosetta: `Vec` / `HashMap`
 
-| Java | Rust | Notes |
+| Concept | Rust | Notes |
 |---|---|---|
-| `new ArrayList<>()` | `Vec::new()` or `vec![]` | `vec![1, 2, 3]` literal macro |
-| `list.add(x)` | `v.push(x)` | |
-| `list.get(i)` (throws OOB) | `v[i]` (panics) / `v.get(i)` (returns `Option`) | `.get` is the safe one |
-| `list.size()` | `v.len()` | |
-| `list.isEmpty()` | `v.is_empty()` | |
-| `for (var x : list)` | `for x in &v` | `&v` borrows; bare `v` MOVES the vec into the loop |
-| `new HashMap<>()` | `HashMap::new()` | `use std::collections::HashMap;` |
-| `map.put(k, v)` | `m.insert(k, v)` | returns `Option<V>` (old value) |
-| `map.get(k)` (nullable!) | `m.get(&k)` returns `Option<&V>` | no null surprise |
-| `map.getOrDefault(k, d)` | `m.get(&k).copied().unwrap_or(d)` | |
-| `map.computeIfAbsent(k, f)` | `m.entry(k).or_insert_with(f)` | the entry API — learn it, it's great |
-| `map.containsKey(k)` | `m.contains_key(&k)` | |
-| `new HashSet<>()` | `HashSet::new()` | same story |
-| `Collections.sort(list)` | `v.sort()` | in place; `sort_by_key(|x| ...)` ≈ `Comparator.comparing` |
+| Growable list, empty | `Vec::new()` or `vec![]` | `vec![1, 2, 3]` literal macro |
+| Append | `v.push(x)` | |
+| Index | `v[i]` (panics) / `v.get(i)` (returns `Option`) | `.get` is the safe one |
+| Length | `v.len()` | |
+| Emptiness | `v.is_empty()` | |
+| For-each loop | `for x in &v` | `&v` borrows; bare `v` MOVES the vec into the loop |
+| Hash map, empty | `HashMap::new()` | `use std::collections::HashMap;` |
+| Insert | `m.insert(k, v)` | returns `Option<V>` (old value) |
+| Lookup | `m.get(&k)` returns `Option<&V>` | no null surprise |
+| Lookup with default | `m.get(&k).copied().unwrap_or(d)` | |
+| Insert-if-absent | `m.entry(k).or_insert_with(f)` | the entry API — learn it, it's great |
+| Key membership | `m.contains_key(&k)` | |
+| Hash set | `HashSet::new()` | same story |
+| Sort | `v.sort()` | in place; `sort_by_key(|x| ...)` for custom orderings |
 
 ```rust
-// Word count — the entry API replaces computeIfAbsent/merge:
+// Word count — the entry API is the insert-if-absent idiom:
 let mut counts: HashMap<&str, i32> = HashMap::new();
 for w in text.split_whitespace() {
     *counts.entry(w).or_insert(0) += 1;
@@ -324,15 +279,11 @@ for w in text.split_whitespace() {
 
 ---
 
-## 8. Immutable by default: `let` vs `let mut` (vs `final`)
+## 8. Immutable by default: `let` vs `let mut`
 
-Java: everything is mutable unless you write `final` (and `final` only locks the
-reference, not the object). Rust inverts it — and locks the data too:
-
-```java
-final List<Integer> xs = new ArrayList<>();
-xs.add(1);                   // fine! final didn't protect the contents
-```
+In most languages everything is mutable unless you add a constant keyword — and that
+keyword usually locks only the *binding*, not the object behind it, so a "final" list
+still accepts appends. Rust inverts the default — and locks the data too:
 
 ```rust
 let v = vec![1, 2, 3];
@@ -341,27 +292,19 @@ let mut w = vec![1, 2, 3];
 w.push(4);                   // ok — mutation is opt-in and visible at the declaration
 ```
 
-`let` ≈ `final` that actually works. You'll also see **shadowing** — re-declaring a
-name is idiomatic, not a bug: `let x = "5"; let x: i32 = x.parse().unwrap();`
-(`const` exists too, for compile-time constants ≈ `static final`.)
+`let` is an immutable binding that actually protects the contents. You'll also see
+**shadowing** — re-declaring a name is idiomatic, not a bug:
+`let x = "5"; let x: i32 = x.parse().unwrap();`
+(`const` exists too, for compile-time constants.)
 
 ---
 
-## 9. Iterators and combinators (your Streams knowledge transfers)
+## 9. Iterators and combinators (lazy pipelines, zero-cost)
 
-This is the most direct port of a Java skill you have. Same shape, three differences:
-Rust iterators are also lazy but **zero-cost** (compile to the same code as a hand-written
-loop), there's no `.stream()` prefix noise, and closures capture by borrow/move per the
-ownership rules.
-
-```java
-// Java
-List<String> names = users.stream()
-    .filter(u -> u.age() >= 18)
-    .map(User::name)
-    .sorted()
-    .collect(Collectors.toList());
-```
+If you have used lazy filter/map/collect pipelines anywhere, this transfers directly.
+Same shape, three notes: Rust iterators are lazy but **zero-cost** (they compile to the
+same code as a hand-written loop), the pipeline starts straight from `.iter()` with no
+wrapper step, and closures capture by borrow/move per the ownership rules.
 
 ```rust
 // Rust
@@ -372,86 +315,86 @@ let mut names: Vec<String> = users.iter()
 names.sort();
 ```
 
-| Java Streams | Rust Iterators |
+| Concept | Rust Iterators |
 |---|---|
-| `.stream()` | `.iter()` (borrow) / `.into_iter()` (move) / `.iter_mut()` (mutate) |
-| `.map(f)` / `.filter(p)` | `.map(f)` / `.filter(p)` |
-| `.collect(toList())` | `.collect::<Vec<_>>()` — also collects into `HashMap`, `String`, `Result`! |
-| `.reduce(id, op)` | `.fold(init, op)` |
-| `.mapToInt(...).sum()` | `.sum::<i32>()` |
-| `.anyMatch(p)` / `.allMatch(p)` | `.any(p)` / `.all(p)` |
-| `.findFirst()` | `.find(p)` → `Option` |
-| `.limit(n)` / `.skip(n)` | `.take(n)` / `.skip(n)` |
-| `.sorted()` | no lazy sort — `.collect()` then `.sort()` |
-| `.flatMap(f)` | `.flat_map(f)` |
-| `IntStream.range(0, n)` | `0..n` (ranges are iterators) |
-| `.count()` | `.count()` |
-| zip two streams (awkward) | `a.iter().zip(b.iter())` |
-| index + element (awkward) | `.enumerate()` |
+| Start a pipeline | `.iter()` (borrow) / `.into_iter()` (move) / `.iter_mut()` (mutate) |
+| Transform / filter | `.map(f)` / `.filter(p)` |
+| Materialize into a collection | `.collect::<Vec<_>>()` — also collects into `HashMap`, `String`, `Result`! |
+| Fold to a single value | `.fold(init, op)` |
+| Sum | `.sum::<i32>()` |
+| Any / all match | `.any(p)` / `.all(p)` |
+| First match | `.find(p)` → `Option` |
+| Take / skip a prefix | `.take(n)` / `.skip(n)` |
+| Sort | no lazy sort — `.collect()` then `.sort()` |
+| Flatten nested | `.flat_map(f)` |
+| Numeric range | `0..n` (ranges are iterators) |
+| Count | `.count()` |
+| Lockstep over two sequences | `a.iter().zip(b.iter())` |
+| Index + element | `.enumerate()` |
 
-Closures: `|x| x + 1` ≈ `x -> x + 1`. Multi-line: `|x| { ...; result }`.
+Closures: `|x| x + 1` is the anonymous-function syntax. Multi-line: `|x| { ...; result }`.
 
 ---
 
-## 10. Cargo vs Maven/Gradle
+## 10. Cargo: one build tool for everything
 
 One tool, no plugins needed, no XML, lockfile by default.
 
-| Maven/Gradle | Cargo |
+| Task | Cargo |
 |---|---|
-| `pom.xml` / `build.gradle` | `Cargo.toml` (TOML, ~10 lines) |
-| Maven Central | crates.io |
-| `mvn compile` | `cargo build` (`--release` for optimized) |
-| `mvn test` (Surefire) | `cargo test` — test framework is built in, `#[test]` fn anywhere |
-| `mvn exec:java` | `cargo run` |
-| Checkstyle/SpotBugs | `cargo clippy` (linter, genuinely good — run it always) |
-| google-java-format | `cargo fmt` (one canonical style, zero config, no debates) |
-| `mvn dependency:tree` | `cargo tree` |
-| Javadoc | `cargo doc --open` (`///` doc comments, examples in docs are compiled+run as tests) |
-| `~/.m2` | `~/.cargo` |
-| archetype | `cargo new my_project` |
+| Build manifest | `Cargo.toml` (TOML, ~10 lines) |
+| Package registry | crates.io |
+| Compile | `cargo build` (`--release` for optimized) |
+| Run tests | `cargo test` — test framework is built in, `#[test]` fn anywhere |
+| Run the app | `cargo run` |
+| Lint | `cargo clippy` (genuinely good — run it always) |
+| Format | `cargo fmt` (one canonical style, zero config, no debates) |
+| Dependency tree | `cargo tree` |
+| Generate docs | `cargo doc --open` (`///` doc comments, examples in docs are compiled+run as tests) |
+| Local cache | `~/.cargo` |
+| New project scaffold | `cargo new my_project` |
 
 Adding a dependency: `cargo add serde` or one line in `Cargo.toml`:
-`serde = "1"`. `Cargo.lock` ≈ a lockfile Maven never gave you.
+`serde = "1"`. `Cargo.lock` pins exact dependency versions by default.
 
 ---
 
 ## 11. Fearless concurrency (one paragraph)
 
-Everything you learned to fear about Java concurrency — data races, forgotten
-`synchronized`, escaped references to shared mutable state — is a **compile error** in
+Everything you learned to fear about shared-memory concurrency — data races, forgotten
+locks, escaped references to shared mutable state — is a **compile error** in
 Rust. The same ownership rules apply across threads: to move data into a thread it must
 be `Send`, to share a reference between threads it must be `Sync`, and these are traits
 the compiler checks automatically (auto-derived for types made of safe parts). Shared
-mutable state must be explicitly wrapped — `Arc<Mutex<T>>` (≈ a thread-safe reference +
+mutable state must be explicitly wrapped — `Arc<Mutex<T>>` (a thread-safe reference +
 lock fused together) — and the API makes it impossible to touch the data without holding
 the lock, and impossible to forget to release it (unlock happens when the guard goes out
-of scope). There is no `volatile`-vs-`synchronized`-vs-`Atomic` guessing game: if it
-compiles, there is no data race. Channels (`std::sync::mpsc`) cover the
-producer/consumer patterns you'd build with `BlockingQueue`.
+of scope). There is no guessing game over which synchronization keyword protects what:
+if it compiles, there is no data race. Channels (`std::sync::mpsc`) cover the
+producer/consumer patterns you would otherwise build on a blocking queue.
 
 ---
 
 ## Quick-glance rosetta
 
-| Java | Rust |
+| Concept | Rust |
 |---|---|
-| `class` (data) | `struct` |
-| `interface` | `trait` |
-| `sealed interface` + records | `enum` with data variants |
-| `implements` | `impl Trait for Type` |
-| Lombok / records | `#[derive(...)]` |
-| `Optional<T>` / `null` | `Option<T>` (no null exists) |
-| `throws E` / try-catch | `Result<T, E>` / `match` / `?` |
-| `final` local | `let` (default) |
-| mutable local | `let mut` |
-| GC | ownership + drop at end of scope |
-| pass reference | `&T` / `&mut T` borrow |
-| `toString()` | `Debug`/`Display` traits, `format!` |
-| Streams | iterator combinators (lazy, zero-cost) |
-| Maven/Gradle | Cargo |
-| `synchronized` | `Mutex<T>` (compiler-enforced) |
-| JavaDoc | `///` + `cargo doc` |
+| Data-carrying type | `struct` |
+| Interface / contract | `trait` |
+| Closed set of typed variants | `enum` with data variants |
+| Implementing a contract | `impl Trait for Type` |
+| Boilerplate method generation | `#[derive(...)]` |
+| Absence of a value | `Option<T>` (no null exists) |
+| Fallible operations | `Result<T, E>` / `match` / `?` |
+| Immutable binding | `let` (the default) |
+| Mutable binding | `let mut` |
+| Memory reclamation | ownership + drop at end of scope |
+| Lending access to a value | `&T` / `&mut T` borrow |
+| Printable representation | `Debug`/`Display` traits, `format!` |
+| Lazy collection pipelines | iterator combinators (zero-cost) |
+| Build + dependency tool | Cargo |
+| Lock-protected shared state | `Mutex<T>` (compiler-enforced) |
+| Doc comments | `///` + `cargo doc` |
 
 ---
 
