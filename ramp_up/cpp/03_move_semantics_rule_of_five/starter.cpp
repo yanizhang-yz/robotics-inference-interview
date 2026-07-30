@@ -77,10 +77,11 @@ private:
 };
 
 // make_frame(8, 2) -> an 8x2 zero-filled frame, returned BY VALUE.
-// JAVA: returning an object hands back a reference — cheap by definition.
-// C++:  return the freshly constructed FrameBuffer directly; C++17 guarantees
-//       copy elision (built in the caller's variable, zero copies, zero
-//       moves). Do NOT write `return std::move(...)` — that disables it.
+// PYTHON: `return frame` hands back a reference — free by definition.
+// C++:  return the freshly constructed FrameBuffer directly and it is free
+//       here too — C++17 guarantees copy elision (built in the caller's
+//       variable, zero copies, zero moves). Do NOT write
+//       `return std::move(...)` — that disables it.
 FrameBuffer make_frame(int width, int height) {
     // TODO: implement
     return FrameBuffer(0, 0);

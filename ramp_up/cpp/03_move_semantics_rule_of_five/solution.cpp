@@ -95,7 +95,7 @@ private:
 };
 
 // make_frame(8, 2) -> an 8x2 zero-filled frame, returned BY VALUE.
-// JAVA: returning an object hands back a reference — cheap by definition.
+// PYTHON: `return frame` hands back a reference — free by definition.
 // C++:  returning by value looks like it should copy the whole frame, but
 //       C++17 GUARANTEES copy elision for a freshly constructed return value:
 //       the frame is built directly in the caller's variable. Zero copies,

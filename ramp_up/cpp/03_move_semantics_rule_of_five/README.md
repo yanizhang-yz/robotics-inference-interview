@@ -24,14 +24,22 @@ And each frame has to *travel*: capture hands it to preprocessing, preprocessing
 it to the model, the model's output gets published. Every one of those handoffs is an
 assignment, a function argument, or a return value.
 
-Now recall the ground rule from lesson 01: in C++ a variable *is* its object — a box
-of bytes, not a reference to one — and assignment copies the whole box. Hold that rule
-against the pipeline and an uncomfortable question appears: does every handoff
-duplicate two megabytes?
+In Python, none of this would cost a thought. `frame2 = frame` copies nothing — it
+binds a second name to the same object, and passing `frame` into a function or
+returning it is the same non-event. Handing data around is free in Python *because
+assignment never copies*; a copy only happens when you explicitly ask for one
+(`list(a)`, `copy.deepcopy(a)`).
+
+C++ starts from the opposite default — the ground rule from lesson 01: a variable *is*
+its object, a box of bytes, not a name for one, and assignment copies the whole box.
+Hold that rule against the pipeline and an uncomfortable question appears: does every
+handoff duplicate two megabytes?
 
 By default: yes. This lesson first measures that cost, then teaches the machinery C++
-provides to hand a buffer over *without* duplicating it — move semantics. The drill's
-counters will let you prove, line by line, which handoffs copy and which cost nothing.
+grew that Python never needed: a way to hand a value over *without* copying it — move
+semantics. The goal, in one sentence: **a handoff as cheap as Python's assignment, but
+with a single owner.** The drill's counters will let you prove, line by line, which
+handoffs copy and which cost nothing.
 
 ## The lesson
 
@@ -47,21 +55,27 @@ b[0] = 42;
 // a.data() != b.data()            <- verified: two DIFFERENT heap buffers
 ```
 
-Two things in that snippet deserve names.
+Two things in that snippet deserve names — and the first is a name you already know
+from Python.
 
 First, this is a **deep copy**: `b` gets its own freshly allocated heap buffer, and
 every element is duplicated into it. Afterwards `a` and `b` share nothing — that is
-what the two different `data()` addresses prove. (The alternative — copying just the
-pointer, so both objects aim at one buffer — is called a **shallow copy**, and in a
-language with destructors it is a bug factory: two owners, one buffer, two frees.
-That is lesson 02's double-free.)
+what the two different `data()` addresses prove. You met the shallow-vs-deep split in
+Python (`list(xs)` copies one level, `copy.deepcopy` copies everything — Gotcha 9 in
+[`../../python/LEARNING_POINTS.md`](../../python/LEARNING_POINTS.md)). In C++ the
+stakes are higher: a **shallow copy** — duplicating just the pointer, so both objects
+aim at one buffer — is, in a language with destructors, a bug factory: two owners,
+one buffer, two frees. That is lesson 02's double-free.
 
-Second, the mechanism. When `std::vector<int> b = a;` builds a *new* object as a
-duplicate of an existing one, the compiler calls `vector`'s **copy constructor** —
-a function `vector` provides for exactly this job. When you assign into a vector that
-*already exists* (`b = a;` on some later line), the compiler calls the **copy
-assignment operator** instead: same duplication, but it must also release whatever
-`b` was holding before. Two different functions. You will write both in the drill.
+Second, the mechanism. Python runs no hidden code on `b = a` — assignment is a name
+binding, and copying is a function you call. In C++, assignment *is* copying, so the
+copying code has to live somewhere — and it lives in two special functions of the
+class. When `std::vector<int> b = a;` builds a *new* object as a duplicate of an
+existing one, the compiler calls `vector`'s **copy constructor**. When you assign
+into a vector that *already exists* (`b = a;` on some later line), it calls the
+**copy assignment operator** instead: same duplication, but it must also release
+whatever `b` was holding before. Two different functions. You will write both in the
+drill.
 
 Now put a stopwatch on it. Copying one 2 MB camera frame:
 
@@ -77,19 +91,22 @@ duplicated four times before the model has done a single multiply. Latency budge
 exactly here, which is why interviewers for robotics and inference roles keep poking
 at this topic.
 
-**Why does C++ make copying the default, instead of sharing?** Predictability. If
-`b = a` silently made both names refer to one object, then `b[0] = 42` would change
-`a` too — spooky action at a distance, where mutating one variable corrupts another
-that never appears on the line you wrote. C++ chooses the opposite trade: what a
-variable holds is *its own*, always, and sharing is something you must ask for
-explicitly (a pointer, a reference). Explicit over implicit. The price of that
-predictability is that duplication — the expensive thing — is what you get when you
-write nothing special. The rest of this lesson is about paying that price only when
-you mean to.
+**Why does C++ make copying the default, instead of sharing?** Predictability. Python
+chose the sharing default, and you have paid its price: mutate a list through one
+name and every alias sees the change — the `[[0] * 3] * 3` grid trap, where writing
+to "one row" changes all three. If C++'s `b = a` silently made both names refer to
+one object, `b[0] = 42` would change `a` too — the same spooky action at a distance,
+except now in a language where that shared buffer must also be freed by exactly one
+of them. C++ picks the opposite trade: what a variable holds is *its own*, always,
+and sharing is something you must ask for explicitly (a pointer, a reference).
+Explicit over implicit. The price of that predictability is that duplication — the
+expensive thing — is what you get when you write nothing special. The rest of this
+lesson is about paying that price only when you mean to.
 
 ### 2. Temporaries: values with no name
 
-One definition before the main trick. Run this line in your head:
+We know what a handoff costs. Before we can make it cheap, we need one piece of
+vocabulary. Run this line in your head:
 
 ```cpp
 std::string s = "hi";
@@ -97,7 +114,9 @@ std::string shout = s + "!!";   // s + "!!" builds a brand-new string... where?
 ```
 
 `s + "!!"` has to produce a `std::string`, and that string is not stored in any
-variable — it exists only inside the expression. Such a value is called a
+variable — it exists only inside the expression. (Python builds the same nameless
+intermediate when you concatenate strings; you never think about it because the
+garbage collector quietly sweeps it up.) In C++ such a value is called a
 **temporary**: an object the compiler creates to hold an intermediate result and
 destroys at the end of the statement, at the semicolon. It has no name. You cannot
 mention it on the next line. It is *already dying*.
@@ -116,10 +135,11 @@ Keep the distinction warm. The entire trick of this lesson rests on it.
 
 ### 3. The insight: stealing from the dying is safe
 
-Look inside a `std::vector`. Whatever its element count, the vector object itself is
-just three machine words — a pointer to its heap buffer, a size, and a capacity
-(verified: `sizeof(std::vector<int>)` is 24 bytes on a 64-bit machine). The million
-elements live out in the heap buffer; the vector is a small handle that owns it.
+Why do temporaries matter? Because of what is inside a vector. Whatever its element
+count, the vector object itself is just three machine words — a pointer to its heap
+buffer, a size, and a capacity (verified: `sizeof(std::vector<int>)` is 24 bytes on
+a 64-bit machine). The million elements live out in the heap buffer; the vector is a
+small handle that owns it.
 
 That layout gives the two operations wildly different prices:
 
@@ -165,6 +185,19 @@ met this exact sentence in lesson 02 with `unique_ptr`; it is true for every typ
 And if nothing ends up stealing from the labeled object, nothing happens at all
 (verified: `std::move(a);` as a bare statement leaves `a` untouched).
 
+The closest Python gesture is rebinding, then dropping the old name:
+
+```python
+b = a      # one object, two names — no copy (Python's default)
+del a      # ...now one name again: a clean handoff, nothing duplicated
+```
+
+`std::move` is that handoff as one expression — with two C++ twists. First, the
+promise is enforced only by convention: nothing stops you touching `a` afterwards,
+so the `del` happens in your head (and in code review). Second, C++ *cannot*
+actually delete the name: `a` exists until its closing brace, and its destructor
+will run there no matter what. Which is exactly why the next two paragraphs exist.
+
 **The stealing is done by the move constructor.** Alongside the copy constructor from
 step 1, `vector` provides a **move constructor** — a constructor overload taking
 `vector<int>&&`. The `&&` type is an **rvalue reference**: a reference that only
@@ -173,13 +206,15 @@ Ordinary overload resolution then does the routing: pass an lvalue, the copy
 constructor runs; pass an rvalue, the move constructor runs. Same call syntax at
 every site, radically different cost.
 
-**What is left behind?** A moved-from standard-library object is **valid but
-unspecified**: a real, un-corrupted object — safe to destroy, safe to assign a new
-value into — but you must not assume anything about its contents. In practice a
-moved-from `vector` or `string` is empty, and `vector`'s *move constructor*
-guarantees the source ends up empty (verified above). For classes *you* write, you
-decide the moved-from state: in the drill, a moved-from `FrameBuffer` is defined to
-be a valid 0×0 frame with no pixels, and the asserts check it.
+**What is left behind?** Since the source object lives on and will still be
+destroyed, a move must leave it in a state that is safe to destroy. A moved-from
+standard-library object is **valid but unspecified**: a real, un-corrupted object —
+safe to destroy, safe to assign a new value into — but you must not assume anything
+about its contents. In practice a moved-from `vector` or `string` is empty, and
+`vector`'s *move constructor* guarantees the source ends up empty (verified above).
+For classes *you* write, you decide the moved-from state: in the drill, a moved-from
+`FrameBuffer` is defined to be a valid 0×0 frame with no pixels, and the asserts
+check it.
 
 One calibration note so you don't over-apply the trick: moving only pays when the
 object owns heap memory that can be handed over. `std::move` on an `int`, a `double`,
@@ -266,12 +301,18 @@ mid-relocation. Measured with counters, relocating 2 elements while pushing a 3r
 Forget one keyword, and every reallocation of every `vector<FrameBuffer>` in the
 program degrades to deep copies. Silently.
 
-**The Rule of Zero.** The modern punchline, previewed in lesson 02: since generated
-members do the right thing when every field is self-cleaning, *hold resources through
+**The Rule of Zero.** The modern punchline, previewed in lesson 02 — and it should
+feel familiar, because it is where Python classes live by default. Across the whole
+Python drill set you wrote a dozen classes and never once wrote `__del__` or a copy
+hook: fields clean up after themselves, and sensible behavior comes generated for
+free (the same energy as `@dataclass` writing your `__init__` and `__eq__` in Python
+set 06). Rule of Zero is C++ arriving at the same place: since the generated members
+do the right thing when every field is self-cleaning, *hold resources through
 `vector` / `string` / `unique_ptr` members and write none of the five.* Rule-of-Zero
-classes make up ~95% of real code; hand-written Rule-of-Five classes are reserved for
-the low-level 5% that wrap a raw resource (or need observable copy/move behavior —
-which is precisely why the drill's instrumented `FrameBuffer` writes them out).
+classes make up ~95% of real code; hand-written Rule-of-Five classes are reserved
+for the low-level 5% that wrap a raw resource (or need observable copy/move
+behavior — which is precisely why the drill's instrumented `FrameBuffer` writes them
+out).
 
 ### 6. Returning by value is free — don't "help"
 
@@ -279,7 +320,9 @@ One habit from steps 1–5 would be exactly wrong, so it gets its own step. If c
 is expensive and `std::move` prevents copies, surely returning a big object should be
 `return std::move(result);`?
 
-No — and it is the opposite of harmless. Returning by value is already free:
+No — and it is the opposite of harmless. In Python, `return result` is free by
+definition: it hands back a reference. In C++, returning by value *looks* like it
+should copy a whole frame — and is free anyway:
 
 ```cpp
 FrameBuffer make_frame(int width, int height) {
