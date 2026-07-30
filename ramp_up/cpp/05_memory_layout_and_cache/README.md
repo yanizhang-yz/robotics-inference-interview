@@ -10,6 +10,13 @@ array-of-structs and struct-of-arrays like an inference engineer, and stop
 space say it outright: **"cache locality often matters more than Big-O."** By the end
 you will have the numbers to defend that sentence, measured on your own machine.
 
+You also arrive with evidence of your own. In the NumPy lesson
+([`ramp_up/python/08`](../../python/08_numpy_essentials/)) you measured a pure-Python
+loop running well over 100x slower than the NumPy one-liner, and the fix was always
+"vectorize". This lesson is where that advice stops being a magic word: to vectorize
+is to *hand the loop to compiled code that walks one contiguous block of memory*.
+What makes the contiguous block special is exactly what the next sections build.
+
 Every number quoted below was measured on one machine (an Apple M4 Pro laptop,
 `clang++ -std=c++17 -O2`). Your constants will differ; the *shapes* — 6x, 19x,
 400x — are what transfer.
@@ -182,6 +189,18 @@ the list was built in one go, so its nodes came out of the allocator nearly
 adjacent. In a long-running program that inserts and erases, the nodes scatter,
 and the walk drifts toward the 460x chase of section 4.
 
+You have been running both of these layouts for years without the names. A NumPy
+`ndarray` is the `vector` side — python drill 08 defined it as "a single fixed-size
+block of raw memory," which is precisely `std::vector`'s layout: one contiguous C
+buffer of machine values. A Python `list` is the other side: under the hood it is an
+array of pointers, each element a separate heap-allocated Python object — even
+`[1, 2, 3]` stores three pointers to three `int` objects placed wherever the
+allocator liked, so walking a list is pointer-chasing by construction. The NumPy
+lesson measured the pure-Python loop at well over 100x slower than the vectorized
+one; much of that is interpreter overhead, but a solid chunk is the measurement you
+just made — a pointer hop per element versus a contiguous stream. "Vectorize" was
+cache advice all along: hand the loop to code that walks contiguous memory.
+
 *Why does the language even offer `std::list`?* Because its structural promises
 are real: inserting in the middle is O(1) *once you are standing there*, and
 nodes never move, so pointers to elements stay valid. The catch the textbook
@@ -224,6 +243,12 @@ gets used, and the prefetcher streams lines ahead of the loop. The second hops
 time it wraps around to that line's neighbors, the line has long been evicted —
 so the 64 MB gets re-fetched over and over. Mystery solved: the 6x was never in
 the arithmetic; it was in the *order of addresses*.
+
+Row-major is also NumPy's default — the flag is literally called "C order".
+`np.zeros((rows, cols))` is one flat buffer with element `(r, c)` at
+`r * cols + c`; `arr[r, c]` does this same index arithmetic for you. You have been
+writing row-major code since python drill 08 — C++ just stops hiding the
+multiplication.
 
 The rule costs nothing to apply: **make the last index the innermost loop**. For
 images (row-major) that means `y` outer, `x` inner — burn
@@ -290,6 +315,16 @@ Why care about 8 bytes? Multiply by a million detections per minute of video, an
 remember the currency of section 3: smaller structs mean more elements per cache
 line, which means fewer DRAM trips for the same loop.
 
+NumPy users have already met `sizeof` under another name: **itemsize**.
+`np.dtype(np.float32).itemsize` is 4 — that is `sizeof(float)` — and a *structured*
+dtype replays this entire section. Verified with this repo's NumPy (2.4.6):
+`np.dtype([('ready','u1'), ('timestamp','f8'), ('flags','u1'), ('id','i4')])` has
+itemsize 14, because NumPy packs tightly by default — but pass `align=True` and it
+pads to 24, exactly `sizeof(BadOrder)`, by exactly these alignment rules. Put the
+fields largest-first and the aligned itemsize is 16, exactly `sizeof(GoodOrder)`. A
+C++ struct is an aligned dtype you cannot switch off — which is why the packing job
+falls to you.
+
 *Where you'll meet it:* message structs on the wire to a robot arm (CAN and serial
 protocols are packed byte layouts), shared-memory frames between a vision process
 and a controller, and every "why is `sizeof` 24 and not 14?" interview whiteboard.
@@ -310,6 +345,18 @@ struct Detection { float x, y, w, h; float score; int class_id; };
   scores; std::vector<float> xs; ...` — all scores side by side:
   `score score score ...`.
 
+You have felt this choice in Python. A list of dicts —
+`[{'x': ..., 'score': ...}, ...]` — is AoS (with extra pointer-chasing on top); a
+dict of NumPy arrays — `{'xs': np.array(...), 'scores': np.array(...)}` — is SoA,
+and so is a pandas DataFrame, which stores each column as its own contiguous array.
+If you have ever converted a list of dicts into arrays and watched a scan get
+dramatically faster, this section is the receipt.
+
+One piece of hardware completes the picture. **SIMD** (single instruction, multiple
+data — "vector instructions") lets one CPU instruction process 4-16 values at once —
+but only when those values sit next to each other in memory. Keep that in mind while
+reading the measurement.
+
 Now scan 20 million detections for the best score. AoS reads 4 useful bytes per
 24 — it drags 480 MB through the cache to use 80 MB. SoA reads exactly the 80 MB
 it needs. Measured honestly, in two acts (one machine, 20M detections):
@@ -327,12 +374,13 @@ for (float s        : scores)  best = s      > best ? s      : best;   // 9.4 ms
 //   AoS: 5.2 ms          SoA: 0.9 ms          — ~6x, on one machine
 ```
 
-**SIMD** (single instruction, multiple data — "vector instructions") lets one
-instruction process 4-16 values at once, but only when they sit contiguously. The
-packed `scores` array vectorizes; the stride-24 walk through `Detection`s cannot.
-That is the full lesson of SoA: **layout doesn't just set your cache traffic — it
-decides whether SIMD is possible at all.** Inference runtimes are SoA from top to
-bottom; a tensor is SoA taken to its logical extreme.
+The packed `scores` array vectorizes — SIMD eats it 4-16 floats at a time; the
+stride-24 walk through `Detection`s cannot. That is the full lesson of SoA:
+**layout doesn't just set your cache traffic — it decides whether SIMD is possible
+at all.** Inference runtimes are SoA from top to bottom; a tensor is SoA taken to
+its logical extreme — and it is the deeper reason NumPy's whole-array operations
+win: they run compiled loops over packed same-type values, the one layout the
+hardware can process several-at-a-time.
 
 AoS is still right when the hot loop uses *all* fields of one element together
 (box math in NMS, integrating one robot state). The design question to ask out
@@ -341,6 +389,8 @@ Fields that travel together, stay together; a field scanned alone earns its own
 array.
 
 ### 9. Consequence 5 — `reserve()`: don't reallocate in the middle of a hot loop
+
+One consequence left, and it moves from *reading* buffers to *building* them.
 
 A `std::vector` owns one heap block. `size()` is how many elements you have;
 **capacity** is how many fit in the current block. `push_back` onto a full vector
@@ -367,18 +417,25 @@ for (int i = 0; i < 1'000'000; ++i) w.push_back(i);
 *Why does `vector` grow this way at all?* Doubling makes `push_back` cheap *on
 average* (each element is recopied a bounded number of times — "amortized O(1)"
 in interview language), which is the right default for code that does not know
-its final size. But a 30-60 Hz control loop *does* know its size, cannot afford a
-surprise multi-millisecond allocation spike mid-frame, and really cannot afford a
-stale pointer into a freed block. `reserve()` is one line that deletes both risks.
+its final size. Python's `list.append` plays the same amortized game under the
+hood — geometric growth, periodic recopying — you have simply never had a
+`reserve()` to reach for. But a 30-60 Hz control loop *does* know its size, cannot
+afford a surprise multi-millisecond allocation spike mid-frame, and really cannot
+afford a stale pointer into a freed block. `reserve()` is one line that deletes
+both risks.
 
 ### 10. Why C++ hands you this control
 
 Step back. Nothing in sections 5-9 changed an algorithm — every win came from
-choosing *where bytes sit*. Most languages do not let you make these choices:
-they put objects behind references, let a runtime place them wherever it likes,
-and often move them around afterwards. That is a perfectly good design for
-productivity — and it takes the performance lever out of your hands, because as
-this lesson measured, **layout IS the performance lever** on modern hardware.
+choosing *where bytes sit*. Python is the clearest contrast: it does not let you
+make these choices. Every object lives behind a pointer, placed wherever the
+allocator liked; a list of a million floats is a million pointer-chases. That is a
+perfectly good design for productivity — and it takes the performance lever out of
+your hands, because as this lesson measured, **layout IS the performance lever** on
+modern hardware. It is also exactly why NumPy exists: an ndarray is C's memory
+layout — contiguous, typed, padding-predictable — smuggled into Python, with the
+hot loops compiled. Every time you vectorized, you were renting this lesson's
+discipline. C++ hands you the deed.
 
 C++'s philosophy is the opposite bet, and it is the same zero-overhead philosophy
 you have met in every lesson so far: *the programmer, not a runtime, decides.* A
@@ -432,10 +489,11 @@ padded_size_report()   // -> {24, 16} once GoodOrder is properly ordered
 
 Where you'll see it: "why is `sizeof` of this struct 24 and not 14 — and make it
 smaller" is a C++ interview staple, as is reading a struct and computing its size on
-a whiteboard. For real: message structs on the wire to a robot arm (CAN/serial
-protocols are packed byte layouts), shared-memory frames between a vision process
-and a controller, and shrinking a per-detection struct so more of them fit per cache
-line in the post-processing loop.
+a whiteboard (you can check your paper answer in NumPy first: section 7's
+`align=True` structured dtype replays both numbers). For real: message structs on
+the wire to a robot arm (CAN/serial protocols are packed byte layouts),
+shared-memory frames between a vision process and a controller, and shrinking a
+per-detection struct so more of them fit per cache line in the post-processing loop.
 
 ### `sum_rows_first(m, rows, cols)` / `sum_cols_first(m, rows, cols)`
 
@@ -466,9 +524,11 @@ sum_list({1, 2, 3})     // -> 6, eventually — each ++it is a dependent load
 Where you'll see it: "when would you use `std::list`?" (expected answer: almost
 never — and *why*), and the Big-O-vs-locality discussion this whole lesson is named
 after: O(1) middle-insert still has to *walk* to the middle, one dependent load per
-node. For real: point clouds, detection buffers, joint trajectories — every
-per-frame collection in a robotics pipeline is a contiguous buffer, and node-based
-structures inside a control loop are a code-review rejection.
+node. You have measured this gap once before, from the other side: it is the C++
+half of the list-vs-ndarray comparison in python drill 08. For real: point clouds,
+detection buffers, joint trajectories — every per-frame collection in a robotics
+pipeline is a contiguous buffer, and node-based structures inside a control loop
+are a code-review rejection.
 
 ### `top_score_aos(dets)` / `top_score_soa(scores)`
 
@@ -485,7 +545,8 @@ Where you'll see it: "how would you lay out a million detections?" is a real
 inference-engineer interview question, and AoS-vs-SoA by name is a favorite at
 robotics and game-engine shops (it is the founding idea of ECS architectures). For
 real: NMS and top-k score scans in every detector's post-processing, and the reason
-tensors exist at all — a tensor is SoA taken to the limit.
+tensors exist at all — a tensor is SoA taken to the limit, and a DataFrame is SoA
+wearing a spreadsheet costume.
 
 ### `fill_with_reserve(n)` / `fill_without_reserve(n)`
 

@@ -30,8 +30,8 @@ static double ms_since(std::chrono::steady_clock::time_point start) {
 // divisible by its alignment (double: 8, int: 4, char: 1), the compiler may
 // NOT reorder fields for you — it can only insert invisible padding bytes —
 // and the total size rounds up to a multiple of the largest field alignment.
-// JAVA: the JVM reorders fields behind your back (plus a 12-16 byte object
-//       header you never see), so declaration order never mattered. Here it does.
+// PYTHON: plain objects hide layout entirely, but NumPy shows it: a structured
+//         dtype with align=True pads exactly like this (itemsize 24 vs 14 packed).
 struct BadOrder {   // 1 + 7 pad + 8 + 1 + 3 pad + 4 = 24 bytes
     char   ready;
     double timestamp;
@@ -55,9 +55,9 @@ std::pair<std::size_t, std::size_t> padded_size_report() {
 // ---- Drill 2: traversal order over a row-major matrix -----------------------
 // The matrix is ONE flat vector; element (r, c) lives at index r * cols + c —
 // row-major: each row's floats sit side by side in memory.
-// JAVA: float[][] is an array of POINTERS to separately heap-allocated row
-//       objects. A flat float[rows*cols] with manual indexing is the C++ way,
-//       and it is how images and tensors actually arrive.
+// PYTHON: np.zeros((rows, cols)) is exactly this flat buffer ("C order" IS
+//         row-major), and arr[r, c] computes r * cols + c for you. Here you
+//         write the multiplication yourself — it is how images and tensors arrive.
 // Row-by-row touches addresses in increasing order: every byte of every cache
 // line gets used and the prefetcher streams the next lines ahead of the loop.
 double sum_rows_first(const std::vector<float>& m, std::size_t rows,
@@ -87,9 +87,9 @@ double sum_cols_first(const std::vector<float>& m, std::size_t rows,
 // ---- Drill 3: contiguous vs pointer-chasing ---------------------------------
 // std::vector<int>: the ints themselves, back to back. One cache line holds
 // 16-32 of them; the prefetcher sees the sequential walk and streams ahead.
-// JAVA: even ArrayList<Integer> pointer-chases — it is an array of references
-//       to boxed Integer objects scattered on the heap. vector<int> is what
-//       you always wished ArrayList was.
+// PYTHON: a NumPy array is this exact layout — drill 08's "single fixed-size
+//         block of raw memory". vector<int> is an ndarray you write the
+//         loops over yourself.
 long long sum_vector(const std::vector<int>& values) {
     long long total = 0;
     for (int v : values) {
@@ -101,7 +101,8 @@ long long sum_vector(const std::vector<int>& values) {
 // std::list<int>: a doubly-linked list — every element is its own heap
 // allocation holding {prev, next, value} (~24 bytes to store 4). Each ++it is
 // a dependent pointer load: the CPU cannot fetch node N+1 until node N arrives.
-// JAVA: LinkedList<Integer>, and the same advice applies: almost never.
+// PYTHON: iterating a plain list pointer-chases too (each element is a separate
+//         heap object) — half of why the pure-Python loop lost by 100x in drill 08.
 long long sum_list(const std::list<int>& values) {
     long long total = 0;
     for (int v : values) {
@@ -149,7 +150,8 @@ float top_score_soa(const std::vector<float>& scores) {
 // Counts how many times the vector's capacity CHANGES while building it: each
 // change is a reallocation — allocate a bigger block, copy every element,
 // free the old block (and every pointer/iterator into it dies).
-// JAVA: ArrayList grows ~1.5x per overflow; ensureCapacity(n) is reserve(n).
+// PYTHON: list.append does the same geometric-growth dance invisibly;
+//         reserve(n) is the control Python never gives you.
 // Measured on this machine's libc++: reserve(n) jumps capacity 0 -> n in one
 // step and the n push_backs never touch it again, so this returns exactly 1.
 int fill_with_reserve(std::size_t n) {
