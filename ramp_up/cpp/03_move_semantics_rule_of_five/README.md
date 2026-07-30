@@ -320,9 +320,21 @@ One habit from steps 1–5 would be exactly wrong, so it gets its own step. If c
 is expensive and `std::move` prevents copies, surely returning a big object should be
 `return std::move(result);`?
 
-No — and it is the opposite of harmless. In Python, `return result` is free by
-definition: it hands back a reference. In C++, returning by value *looks* like it
-should copy a whole frame — and is free anyway:
+No — and it is the opposite of harmless. To see why, first be clear about why
+returning needs any machinery at all.
+
+A function's local variables live in the function's private workspace, and that
+workspace is torn down the moment the function returns (lesson 02's stack — and the
+same fact you met in Python's closure lesson: locals stop existing when the function
+ends). So a returned local cannot simply *continue existing* outside the function:
+its box is about to vanish, and the caller's variable is a different box in a
+workspace that survives. The value must get from the dying box into the surviving one
+before the teardown. The only real question is what that trip costs.
+
+Python never made you ask this, because in Python every object lives on the heap and
+`return result` hands back a *reference* — teardown kills names, never objects. In
+C++ the local object itself is in the doomed workspace, so C++ must answer. And its
+answer is better than you'd guess — the trip is usually free:
 
 ```cpp
 FrameBuffer make_frame(int width, int height) {
