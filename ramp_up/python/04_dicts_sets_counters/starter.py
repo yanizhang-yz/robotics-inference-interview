@@ -22,10 +22,7 @@ def group_by_first_letter(words: list[str]) -> dict[str, list[str]]:
         the empty list for you: groups[word[0]].append(word). Convert with
         dict(groups) at the end so the auto-create behavior doesn't leak out.
     """
-    groups: defaultdict[str, list[str]] = defaultdict(list)
-    for word in words:
-        groups[word[0]].append(word)
-    return dict(groups)
+    raise NotImplementedError
 
 
 def count_items(items: list) -> dict:
@@ -36,7 +33,7 @@ def count_items(items: list) -> dict:
     HINT: Counter(items) does the entire loop; wrap in dict(...) to return
         a plain dict.
     """
-    return dict(Counter(items))
+    raise NotImplementedError
     
 
 
@@ -50,7 +47,7 @@ def top_k_frequent(items: list, k: int) -> list:
     HINT: Counter(items).most_common(k) returns (item, count) pairs already
         sorted; strip the counts with a list comprehension.
     """
-    return [item for item, _count in Counter(items).most_common(k)]
+    raise NotImplementedError
 
 def invert_mapping(d: dict) -> dict:
     """Swap keys and values. Values are assumed unique (and hashable).
@@ -59,7 +56,7 @@ def invert_mapping(d: dict) -> dict:
 
     HINT: one dict comprehension: {v: k for k, v in d.items()}.
     """
-    return { v: k for k, v in d.items()}
+    raise NotImplementedError
 
 
 def merge_sum(d1: dict, d2: dict) -> dict:
@@ -72,9 +69,7 @@ def merge_sum(d1: dict, d2: dict) -> dict:
         counts instead of replacing. (Or a plain loop:
         merged[k] = merged.get(k, 0) + v.)
     """
-    merged = Counter(d1)
-    merged.update(d2)
-    return dict(merged)
+    raise NotImplementedError
 
 
 def get_nested(d: dict, keys: list, default: Any = None) -> Any:
@@ -88,12 +83,7 @@ def get_nested(d: dict, keys: list, default: Any = None) -> Any:
         dict) guard each step, returning default early. d.get(k) returning
         None instead of throwing is what makes this short.
     """
-    current: Any = d
-    for key in keys:
-        if not isinstance(current, dict) or key not in current:
-            return default
-        current = current[key]
-    return current
+    raise NotImplementedError
 
 
 def first_duplicate(items: list) -> Any:
@@ -106,12 +96,7 @@ def first_duplicate(items: list) -> Any:
         is an O(1) membership test. Functions return None implicitly when
         they fall off the end.
     """
-    seen = set()
-    for item in items:
-        if item in seen:
-            return item
-        seen.add(item)
-    return None
+    raise NotImplementedError
 
 
 def have_common_element(a: list, b: list) -> bool:
@@ -123,7 +108,7 @@ def have_common_element(a: list, b: list) -> bool:
         circuits on the first hit, and mutates nothing. (set(a) & set(b)
         works too but builds the whole intersection.)
     """
-    return not set(a).isdisjoint(b)
+    raise NotImplementedError
 
 
 def unique_in_order(items: list) -> list:
@@ -135,7 +120,7 @@ def unique_in_order(items: list) -> list:
         (guaranteed since 3.7), and fromkeys keeps the first occurrence of
         each key. No insertion-ordered set type needed: every dict IS one.
     """
-    return list(dict.fromkeys(items))
+    raise NotImplementedError
 
 
 def first_unique_char(s: str) -> int:
@@ -147,5 +132,4 @@ def first_unique_char(s: str) -> int:
     HINT: counts = Counter(s), then scan with enumerate(s) for the first
         index where counts[c] == 1 — next((...), -1) gives the sentinel.
     """
-    counts = Counter(s)
-    return next((i for i,c in enumerate(s) if counts[c]  == 1), -1)
+    raise NotImplementedError

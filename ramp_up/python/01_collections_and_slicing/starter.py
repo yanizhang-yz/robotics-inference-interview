@@ -17,11 +17,7 @@ def rotate_left(lst: list, k: int) -> list:
     HINT: slice and concatenate: lst[k:] + lst[:k], with k reduced modulo
           len(lst) first. Slices never throw, so no bounds checks needed.
     """
-    if not lst:
-        return []
-
-    k = k % len(lst)
-    return lst[k:] + lst[:k]
+    raise NotImplementedError
 
 def last_n(lst: list, n: int) -> list:
     """
@@ -30,11 +26,7 @@ def last_n(lst: list, n: int) -> list:
     HINT: negative slicing: lst[-n:]. Careful — when n == 0, lst[-0:] is
           lst[0:] (the whole list), so n == 0 needs explicit handling.
     """
-    if n == 0:
-        return []
-    if n < 0:
-        raise ValueError("n must be non-negative")
-    return lst[-n:]
+    raise NotImplementedError
 
 
 def every_other(lst: list) -> list:
@@ -43,7 +35,7 @@ def every_other(lst: list) -> list:
 
     HINT: step slicing: lst[::2]. The third slice component is the stride.
     """
-    return lst[::2]
+    raise NotImplementedError
 
 def reverse_copy(lst: list) -> list:
     """
@@ -53,7 +45,7 @@ def reverse_copy(lst: list) -> list:
           slice, returns a NEW list. (lst.reverse() is the mutating twin
           and returns None.)
     """
-    return lst[::-1]
+    raise NotImplementedError
 
 
 def swap_ends(lst: list) -> list:
@@ -65,11 +57,7 @@ def swap_ends(lst: list) -> list:
           out[0], out[-1] = out[-1], out[0]
           (Make the copy first — e.g. list(lst) — so the input is untouched.)
     """
-    if len(lst) < 2:
-        return list(lst)
-    out = list(lst)
-    out[0], out[-1] = out[-1], out[0]
-    return out
+    raise NotImplementedError
 
 
 def interleave(a: list, b: list) -> list:
@@ -80,7 +68,7 @@ def interleave(a: list, b: list) -> list:
           free; flatten the pairs with a nested comprehension:
           [x for pair in zip(a, b) for x in pair]
     """
-    return list(x for pair in zip(a, b) for x in pair)
+    raise NotImplementedError
 
 
 def sort_by_length_then_alpha(words: list[str]) -> list[str]:
@@ -91,7 +79,7 @@ def sort_by_length_then_alpha(words: list[str]) -> list[str]:
           each element to a tuple, and tuples compare field by field, so a
           tuple key IS a multi-level sort.
     """
-    return sorted(words, key=lambda w: (len(w), w))
+    raise NotImplementedError
 
 
 
@@ -103,7 +91,7 @@ def top_k_smallest(nums: list, k: int) -> list:
     HINT: sorted(nums)[:k]. sorted() always returns a new list, and a
           slice past the end just clamps — no min() needed.
     """
-    return sorted(nums)[:k]
+    raise NotImplementedError
 
 
 def chunk(lst: list, size: int) -> list[list]:
@@ -114,7 +102,7 @@ def chunk(lst: list, size: int) -> list[list]:
     HINT: one comprehension — slices clamp at the end automatically:
           [lst[i:i + size] for i in range(0, len(lst), size)]
     """
-    return [lst[i:i+size] for i in range(0, len(lst), size)]
+    raise NotImplementedError
 
 def flatten_one_level(nested: list[list]) -> list:
     """
@@ -123,4 +111,4 @@ def flatten_one_level(nested: list[list]) -> list:
     HINT: nested comprehension, loops read left to right like the
           equivalent for-loops: [x for sub in nested for x in sub]
     """
-    return [ x for lst in nested for x in lst]
+    raise NotImplementedError

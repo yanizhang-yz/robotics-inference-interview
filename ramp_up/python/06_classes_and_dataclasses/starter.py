@@ -26,12 +26,9 @@ class Vector2D:
     """
     Immutable 2D vector.
 
-    JAVA:   an immutable POJO: final fields, constructor, getters, and
-            hand-written equals()/hashCode(); arithmetic via method calls
-            like BigDecimal — a.add(b).scale(2).
-    PYTHON: @dataclass(frozen=True) generates __init__/__eq__/__repr__ AND
-            __hash__ (the equals/hashCode contract, for free). Dunder
-            methods make `v1 + v2` and `v1 - v2` just work.
+    HINT: @dataclass(frozen=True) generates __init__/__eq__/__repr__ AND
+          __hash__ (consistent equality + hashing, for free). Dunder
+          methods make `v1 + v2` and `v1 - v2` just work.
     """
 
     x: float
@@ -39,111 +36,101 @@ class Vector2D:
 
     def __add__(self, other: "Vector2D") -> "Vector2D":
         """
-        JAVA:   public Vector2D add(Vector2D other)
-        PYTHON: __add__ is what the + operator calls; return a NEW Vector2D.
+        HINT: __add__ is what the + operator calls; return a NEW Vector2D.
         """
-        return Vector2D(self.x + other.x, self.y + other.y)
+        raise NotImplementedError
 
     def __sub__(self, other: "Vector2D") -> "Vector2D":
         """
-        JAVA:   public Vector2D subtract(Vector2D other)
-        PYTHON: __sub__ powers the - operator; return a NEW Vector2D.
+        HINT: __sub__ powers the - operator; return a NEW Vector2D.
         """
-        return Vector2D(self.x - other.x, self.y - other.y)
+        raise NotImplementedError
 
     def scaled(self, k: float) -> "Vector2D":
         """
-        JAVA:   public Vector2D scale(double k) — returns a new instance
-                because the fields are final.
-        PYTHON: same idea; frozen dataclasses can't mutate, so build and
-                return a new Vector2D.
+        HINT: frozen dataclasses can't mutate, so build and
+              return a new Vector2D.
         """
-        return Vector2D(self.x * k, self.y * k)
+        raise NotImplementedError
 
     def magnitude(self) -> float:
         """
-        JAVA:   Math.sqrt(x * x + y * y) or Math.hypot(x, y).
-        PYTHON: math.hypot(self.x, self.y).
+        HINT: math.hypot(self.x, self.y).
         """
-        return math.hypot(self.x, self.y)
+        raise NotImplementedError
 
 
 class Temperature:
     """
     Stores celsius; exposes fahrenheit as a computed, settable attribute.
 
-    JAVA:   private double celsius; getCelsius/setCelsius plus
-            getFahrenheit/setFahrenheit doing the conversion.
-    PYTHON: store a plain public attribute `self.celsius` (no getters "just
-            in case"!). Expose fahrenheit via @property + @fahrenheit.setter
-            so `t.fahrenheit = 212` converts and stores back into celsius —
-            callers use attribute syntax either way.
+    HINT: store a plain public attribute `self.celsius` (no getters "just
+          in case"!). Expose fahrenheit via @property + @fahrenheit.setter
+          so `t.fahrenheit = 212` converts and stores back into celsius —
+          callers use attribute syntax either way.
 
     Conversions: F = C * 9/5 + 32, and C = (F - 32) * 5/9.
     """
 
     def __init__(self, celsius: float) -> None:
-        self.celsius = celsius
+        raise NotImplementedError
 
     @property
     def fahrenheit(self) -> float:
         """Computed from self.celsius on every read."""
-        return self.celsius * 9 / 5 + 32
+        raise NotImplementedError
 
     @fahrenheit.setter
     def fahrenheit(self, value: float) -> None:
         """Convert back and store into self.celsius."""
-        self.celsius = (value - 32) * 5 / 9
+        raise NotImplementedError
 
     def __repr__(self) -> str:
         """Return 'Temperature(celsius=25.0)' style (like toString())."""
-        return f"Temperature(celsius={self.celsius})"
+        raise NotImplementedError
 
 
 class Stack:
     """
     LIFO stack wrapping a plain list.
 
-    JAVA:   class Stack<T> implements Iterable<T> — you'd write size(),
-            isEmpty(), iterator() returning an Iterator<T> object, and throw
-            EmptyStackException from pop().
-    PYTHON: define dunders and the whole language cooperates:
-            __len__  -> len(stack) works
-            __bool__ -> `if stack:` is "not empty" (len alone would give
-                        this fallback; defining it makes the intent explicit)
-            __iter__ -> for/list()/any() work; yield items TOP-FIRST
-                        (pop order) — `iter(reversed-list)` is enough,
-                        no Iterator class needed
-            pop()/peek() on an empty stack: let the underlying list raise
-            IndexError (EAFP) rather than pre-checking.
+    HINT: define dunders and the whole language cooperates:
+          __len__  -> len(stack) works
+          __bool__ -> `if stack:` is "not empty" (len alone would give
+                      this fallback; defining it makes the intent explicit)
+          __iter__ -> for/list()/any() work; yield items TOP-FIRST
+                      (pop order) — `iter(reversed-list)` is enough,
+                      no iterator class needed
+          pop()/peek() on an empty stack: let the underlying list raise
+          IndexError (EAFP) rather than pre-checking.
     """
 
     def __init__(self) -> None:
-        self._items: list[Any] = []
+        raise NotImplementedError
 
     def push(self, item: Any) -> None:
-        self._items.append(item)
+        raise NotImplementedError
 
     def pop(self) -> Any:
         """Remove and return the top item; IndexError if empty."""
-        return self._items.pop()
+        raise NotImplementedError
 
     def peek(self) -> Any:
         """Return the top item without removing it; IndexError if empty."""
-        return self._items[-1]
+        raise NotImplementedError
 
     def __len__(self) -> int:
-        return len(self._items)
+        raise NotImplementedError
 
     def __bool__(self) -> bool:
-        return bool(self._items)
+        raise NotImplementedError
 
     def __iter__(self) -> Iterator[Any]:
-        return reversed(self._items)
+        raise NotImplementedError
 
     def __repr__(self) -> str:
         """Return 'Stack([1, 2, 3])' with items bottom-to-top."""
-        return f"Stack({self._items!r})"
+        raise NotImplementedError
 
 
 @dataclass
@@ -151,11 +138,9 @@ class Task:
     """
     A prioritized task; lower priority value = more urgent.
 
-    JAVA:   class Task implements Comparable<Task> { public int compareTo... }
-            so PriorityQueue and Collections.sort accept it.
-    PYTHON: define __lt__ (just less-than — not a three-way compareTo) and
-            both sorted() and heapq order Tasks directly. The dataclass
-            already generated __eq__ and __repr__.
+    HINT: define __lt__ (just less-than — no three-way compare method) and
+          both sorted() and heapq order Tasks directly. The dataclass
+          already generated __eq__ and __repr__.
     """
 
     priority: int
@@ -163,15 +148,15 @@ class Task:
 
     def __lt__(self, other: "Task") -> bool:
         """Order by priority only (name is not part of the ordering)."""
-        return self.priority < other.priority
+        raise NotImplementedError
 
 
 @dataclass
 class Point:
     """
-    JAVA:   a static factory: public static Point fromString(String s).
-    PYTHON: @classmethod receives the class as `cls` — construct with
-            cls(...) so subclasses get instances of themselves.
+    HINT: @classmethod is the named-constructor idiom — it receives the
+          class as `cls`; construct with cls(...) so subclasses get
+          instances of themselves.
     """
 
     x: float
@@ -183,38 +168,37 @@ class Point:
         Parse "3,4" (whitespace around numbers allowed, e.g. "3, 4")
         into Point(x=3.0, y=4.0).
         """
-        x_str, y_str = s.split(",")
-        return cls(float(x_str), float(y_str))
+        raise NotImplementedError
 
 
 class Dog:
     """A speaker with no shared base class or interface — see describe()."""
 
     def __init__(self, name: str) -> None:
-        self._name = name
+        raise NotImplementedError
 
     def speak(self) -> str:
         """Return '<name> says woof'."""
-        return f"{self._name} says woof"
+        raise NotImplementedError
 
     def __repr__(self) -> str:
         """Return "Dog(name='Rex')" style."""
-        return f"Dog(name={self._name!r})"
+        raise NotImplementedError
 
 
 class Robot:
     """Also speaks; shares NO base class with Dog. That's the point."""
 
     def __init__(self, model: str) -> None:
-        self._model = model
+        raise NotImplementedError
 
     def speak(self) -> str:
         """Return '<model> goes beep boop'."""
-        return f"{self._model} goes beep boop"
+        raise NotImplementedError
 
     def __repr__(self) -> str:
         """Return "Robot(model='R2')" style."""
-        return f"Robot(model={self._model!r})"
+        raise NotImplementedError
 
 
 def describe(obj: Any) -> str:
@@ -222,10 +206,8 @@ def describe(obj: Any) -> str:
     Return '<ClassName>: <whatever obj.speak() returns>',
     e.g. describe(Dog("Rex")) == "Dog: Rex says woof".
 
-    JAVA:   requires `interface Speaker { String speak(); }` and every class
-            declaring `implements Speaker` before this method can accept it.
-    PYTHON: duck typing — call obj.speak() on ANY object that has it. No
-            interface, no cast, no common superclass. Use type(obj).__name__
-            for the class name.
+    HINT: duck typing — call obj.speak() on ANY object that has it. No
+          interface, no cast, no common superclass. Use type(obj).__name__
+          for the class name.
     """
-    return f"{type(obj).__name__}: {obj.speak()}"
+    raise NotImplementedError

@@ -20,7 +20,7 @@ def squares_of_evens(nums: list[int]) -> list[int]:
     HINT: one list comprehension does filter + map + collect:
           [n * n for n in nums if n % 2 == 0]
     """
-    return [ n * n for n in nums if n % 2 == 0]
+    raise NotImplementedError
 
 
 def word_length_map(words: list[str]) -> dict[str, int]:
@@ -30,7 +30,7 @@ def word_length_map(words: list[str]) -> dict[str, int]:
     HINT: dict comprehension: {w: len(w) for w in words}. Duplicate keys
           silently keep the LAST value — no error, no warning.
     """
-    return { w: len(w) for w in words}
+    raise NotImplementedError
 
 
 def unique_first_letters(words: list[str]) -> set[str]:
@@ -41,7 +41,7 @@ def unique_first_letters(words: list[str]) -> set[str]:
           {w[0].lower() for w in words if w}
           (an empty string is falsy, so "if w" filters it out)
     """
-    return {w[0].lower() for w in words if w}
+    raise NotImplementedError
 
 
 def transpose(matrix: list[list]) -> list[list]:
@@ -52,7 +52,7 @@ def transpose(matrix: list[list]) -> list[list]:
           zip pairs them up column-wise. zip yields tuples, so convert:
           [list(col) for col in zip(*matrix)]
     """
-    return [list(col) for col in zip(*matrix)]
+    raise NotImplementedError
 
 
 def flatten_matrix(matrix: list[list]) -> list:
@@ -63,7 +63,7 @@ def flatten_matrix(matrix: list[list]) -> list:
           as the equivalent nested loops (outer first):
           [x for row in matrix for x in row]
     """
-    return [x for row in matrix for x in row]
+    raise NotImplementedError
 
 
 def running_totals(nums: list[int]) -> list[int]:
@@ -73,7 +73,7 @@ def running_totals(nums: list[int]) -> list[int]:
     HINT: the standard library already has it:
           list(itertools.accumulate(nums))
     """
-    return list(itertools.accumulate(nums))
+    raise NotImplementedError
 
 
 def countdown(n: int) -> Iterator[int]:
@@ -84,8 +84,7 @@ def countdown(n: int) -> Iterator[int]:
           between calls for you. Values are produced lazily, one per
           next() call; the caller can list() it or pull with next().
     """
-    for i in range(n, 0, -1):
-        yield i
+    raise NotImplementedError
 
 
 def first_matching(
@@ -101,7 +100,7 @@ def first_matching(
           next((x for x in iterable if predicate(x)), default)
           The genexpr is lazy, so evaluation stops at the first hit.
     """
-    return next((x for x in iterable if predicate(x)), default)
+    raise NotImplementedError
 
 
 def adjacent_pairs(lst: list) -> list[tuple]:
@@ -113,7 +112,7 @@ def adjacent_pairs(lst: list) -> list[tuple]:
           list(zip(lst, lst[1:]))
           zip stops at the shorter argument, so the bounds work out.
     """
-    return list(zip(lst, lst[1:]))
+    raise NotImplementedError
 
 
 def all_products(colors: list, sizes: list) -> list[tuple]:
@@ -124,4 +123,4 @@ def all_products(colors: list, sizes: list) -> list[tuple]:
     HINT: list(itertools.product(colors, sizes)) — or the nested
           comprehension [(c, s) for c in colors for s in sizes].
     """
-    return list(itertools.product(colors, sizes))
+    raise NotImplementedError

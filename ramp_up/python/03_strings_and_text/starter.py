@@ -16,7 +16,7 @@ def reverse_words(s: str) -> str:
     HINT: s.split() with no args already trims and collapses whitespace;
         reverse the list with [::-1]; stitch back with " ".join(...).
     """
-    return " ".join(s.split()[::-1])
+    raise NotImplementedError
 
 
 def clean_palindrome(s: str) -> bool:
@@ -29,8 +29,7 @@ def clean_palindrome(s: str) -> bool:
         ([c.casefold() for c in s if c.isalnum()]) and compare it to its
         [::-1] reverse. casefold() is the aggressive, correct lowercase.
     """
-    cleaned = [c.casefold() for c in s if c.isalnum()]
-    return cleaned == cleaned[::-1]
+    raise NotImplementedError
 
 
 def char_frequencies(s: str) -> dict[str, int]:
@@ -41,7 +40,7 @@ def char_frequencies(s: str) -> dict[str, int]:
     HINT: collections.Counter(s) does the whole loop; wrap in dict(...) to
         return a plain dict. (Manual version: d[c] = d.get(c, 0) + 1.)
     """
-    return Counter(s)
+    raise NotImplementedError
 
 
 def caesar_shift(s: str, k: int) -> str:
@@ -54,15 +53,7 @@ def caesar_shift(s: str, k: int) -> str:
         Python's % is always non-negative so (ord(c) - base + k) % 26 just
         works, even for negative k; build the result with "".join(generator).
     """
-    def shift(c: str) -> str:
-        if "a" <= c <= "z":
-            base = ord("a")
-        elif "A" <= c <= "Z":
-            base = ord("A")
-        else:
-            return c
-        return chr(base + (ord(c) - base + k) % 26)
-    return "".join(shift(c) for c in s)
+    raise NotImplementedError
 
 
 def snake_to_camel(s: str) -> str:
@@ -74,8 +65,7 @@ def snake_to_camel(s: str) -> str:
     HINT: first, *rest = s.split("_")  (star-unpacking!), then
         first + "".join(word.capitalize() for word in rest).
     """
-    first, *rest = s.split("_")
-    return first + "".join(word.capitalize() for word in rest)
+    raise NotImplementedError
 
 
 def find_all_indices(s: str, sub: str) -> list[int]:
@@ -87,14 +77,7 @@ def find_all_indices(s: str, sub: str) -> list[int]:
     HINT: a while loop with s.find(sub, start) — find returns -1 instead
         of throwing; advance start to i + 1 to catch overlaps. No regex needed.
     """
-    if not sub:
-        return []
-    indices = []
-    i = s.find(sub)
-    while i != -1:
-        indices.append(i)
-        i = s.find(sub, i+1)
-    return indices
+    raise NotImplementedError
 
 
 def longest_common_prefix(strs: list[str]) -> str:
@@ -105,12 +88,7 @@ def longest_common_prefix(strs: list[str]) -> str:
     HINT: zip(*strs) transposes the strings into columns of characters
         (stopping at the shortest); walk columns while len(set(chars)) == 1.
     """
-    prefix = []
-    for chars in zip(*strs):
-        if len(set(chars)) != 1:
-            break
-        prefix.append(chars[0])
-    return "".join(prefix)
+    raise NotImplementedError
 
 
 
@@ -126,7 +104,7 @@ def format_report(name: str, score: int, total: int) -> str:
         :<10 left-aligns in 10 chars, and :.1% multiplies by 100, keeps
         1 decimal, and appends % — so pass the raw ratio score / total.
     """
-    return f"{name:<10} {score}/{total} ({score / total:.1%})"
+    raise NotImplementedError
 
 
 def join_nonempty(parts: list[str], sep: str) -> str:
@@ -138,7 +116,7 @@ def join_nonempty(parts: list[str], sep: str) -> str:
         empty strings are falsy so `if p` filters them. No trailing-separator
         bookkeeping needed; join handles it.
     """
-    return sep.join(part for part in parts if part)
+    raise NotImplementedError
 
 
 def is_anagram(a: str, b: str) -> bool:
@@ -150,4 +128,4 @@ def is_anagram(a: str, b: str) -> bool:
     HINT: sorted(a) == sorted(b), or better: Counter(a) == Counter(b)
         (O(n), and dict equality ignores insertion order).
     """
-    return Counter(a) == Counter(b)
+    raise NotImplementedError

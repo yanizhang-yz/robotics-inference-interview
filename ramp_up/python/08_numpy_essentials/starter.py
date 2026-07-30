@@ -17,13 +17,9 @@ def normalize(v: np.ndarray) -> np.ndarray:
     Return v scaled to unit length. For the zero vector, return a
     same-shape array of zeros (no division by zero, no NaN).
 
-    JAVA: one loop for the sum of squares, sqrt, then a second loop dividing.
-    PYTHON: v / np.linalg.norm(v) — whole-array division; guard norm == 0.
+    HINT:   v / np.linalg.norm(v) — whole-array division; guard norm == 0.
     """
-    norm = np.linalg.norm(v)
-    if norm == 0:
-        return np.zeros_like(v, dtype=float)
-    return v / norm
+    raise NotImplementedError
 
 
 
@@ -31,10 +27,9 @@ def relu(x: np.ndarray) -> np.ndarray:
     """
     Elementwise max(x, 0). Works on any shape. NO loops.
 
-    JAVA: for (int i...) out[i] = Math.max(x[i], 0);
-    PYTHON: np.maximum(x, 0) — elementwise max against a broadcast scalar.
+    HINT:   np.maximum(x, 0) — elementwise max against a broadcast scalar.
     """
-    return np.maximum(x, 0)
+    raise NotImplementedError
 
 
 def softmax(logits: np.ndarray) -> np.ndarray:
@@ -43,12 +38,10 @@ def softmax(logits: np.ndarray) -> np.ndarray:
     Must be numerically stable for large logits (e.g. 1000) — subtract
     the max first; softmax(x) == softmax(x - c). See README.
 
-    JAVA: loop computing exps, loop summing, loop dividing — and it still
         overflows unless you remembered the max-subtraction trick.
-    PYTHON: e = np.exp(logits - logits.max()); return e / e.sum().
+    HINT:   e = np.exp(logits - logits.max()); return e / e.sum().
     """
-    e = np.exp(logits - logits.max());
-    return e / e.sum()
+    raise NotImplementedError
 
 
 def one_hot(labels: np.ndarray, num_classes: int) -> np.ndarray:
@@ -56,20 +49,18 @@ def one_hot(labels: np.ndarray, num_classes: int) -> np.ndarray:
     Return an array of shape (len(labels), num_classes) of 0.0/1.0 where
     row i has a 1.0 at column labels[i].
 
-    JAVA: new double[n][k] + a loop setting out[i][labels[i]] = 1.
-    PYTHON: np.eye(num_classes)[labels] — fancy indexing picks whole rows.
+    HINT:   np.eye(num_classes)[labels] — fancy indexing picks whole rows.
     """
-    return np.eye(num_classes)[labels]
+    raise NotImplementedError
 
 
 def count_above(x: np.ndarray, threshold: float) -> int:
     """
     Count elements strictly greater than threshold. Return a plain int.
 
-    JAVA: counter loop: if (x[i] > t) count++.
-    PYTHON: (x > threshold).sum() — a boolean mask sums as 0s and 1s.
+    HINT:   (x > threshold).sum() — a boolean mask sums as 0s and 1s.
     """
-    return int((x > threshold).sum())
+    raise NotImplementedError
 
 
 def clamp_negatives(x: np.ndarray) -> np.ndarray:
@@ -77,14 +68,11 @@ def clamp_negatives(x: np.ndarray) -> np.ndarray:
     Return a COPY of x with negative entries set to 0. The input array
     must NOT be mutated (tests check this).
 
-    JAVA: defensive-copy loop with Math.max — mutation bugs are rarer
         because arrays are copied explicitly.
-    PYTHON: out = x.copy(); out[out < 0] = 0 — boolean-mask assignment.
+    HINT:   out = x.copy(); out[out < 0] = 0 — boolean-mask assignment.
         Without the .copy() you'd silently clobber the caller's array.
     """
-    out = x.copy()
-    out[out < 0] = 0
-    return out
+    raise NotImplementedError
 
 
 def row_argmax(mat: np.ndarray) -> np.ndarray:
@@ -92,11 +80,10 @@ def row_argmax(mat: np.ndarray) -> np.ndarray:
     For a 2-D matrix, return a 1-D array with the column index of the
     max of each ROW (shape (n_rows,)).
 
-    JAVA: per-row loop tracking bestIdx and bestVal.
-    PYTHON: mat.argmax(axis=1) — axis=1 collapses the column dimension,
+    HINT:   mat.argmax(axis=1) — axis=1 collapses the column dimension,
         leaving one answer per row.
     """
-    return mat.argmax(axis=1)
+    raise NotImplementedError
 
 
 def moving_average(x: np.ndarray, k: int) -> np.ndarray:
@@ -104,10 +91,9 @@ def moving_average(x: np.ndarray, k: int) -> np.ndarray:
     Moving average with window k, "valid" mode only: output has
     len(x) - k + 1 entries, each the mean of a full window.
 
-    JAVA: sliding-window loop maintaining a running sum.
-    PYTHON: np.convolve(x, np.ones(k), mode="valid") / k (or a cumsum trick).
+    HINT:   np.convolve(x, np.ones(k), mode="valid") / k (or a cumsum trick).
     """
-    return np.convolve(x, np.ones(k), mode="valid") / k
+    raise NotImplementedError
 
 
 def pairwise_distances(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -116,12 +102,10 @@ def pairwise_distances(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     where entry [i, j] is the Euclidean distance between a[i] and b[j].
     NO loops — this is THE broadcasting drill.
 
-    JAVA: triple nested loop over n, m, and d.
-    PYTHON: diff = a[:, None, :] - b[None, :, :]  # (n, m, d) via broadcasting
+    HINT:   diff = a[:, None, :] - b[None, :, :]  # (n, m, d) via broadcasting
         then sqrt of the squared diff summed over the last axis.
     """
-    diff = a[:, None, :] - b[None, :, :]
-    return np.sqrt((diff**2).sum(axis=-1))
+    raise NotImplementedError
 
 
 def standardize_columns(mat: np.ndarray) -> np.ndarray:
@@ -130,12 +114,8 @@ def standardize_columns(mat: np.ndarray) -> np.ndarray:
     Columns with zero std (constant columns) must come out as all zeros,
     not NaN. Do not mutate the input.
 
-    JAVA: two passes of column-major loops (mean, then std), plus an
         if (std == 0) branch inside the divide loop.
-    PYTHON: (mat - mat.mean(axis=0)) / np.where(std == 0, 1, std) —
+    HINT:   (mat - mat.mean(axis=0)) / np.where(std == 0, 1, std) —
         axis=0 collapses rows, giving per-column stats that broadcast back.
     """
-    mean = mat.mean(axis=0)
-    std = mat.std(axis=0)
-    safe_std = np.where(std == 0, 1.0, std)
-    return (mat - mean) / safe_std
+    raise NotImplementedError

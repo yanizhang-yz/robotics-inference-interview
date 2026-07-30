@@ -17,9 +17,7 @@ def apply_n_times(f: Callable[[Any], Any], n: int, x: Any) -> Any:
 
     HINT: functions are ordinary values; just call f(x) in a loop.
     """
-    for _ in range(n):
-        x = f(x)
-    return x
+    raise NotImplementedError
 
 
 def make_multiplier(k: float) -> Callable[[float], float]:
@@ -29,7 +27,7 @@ def make_multiplier(k: float) -> Callable[[float], float]:
 
     HINT: return a lambda (or inner def) that closes over k.
     """
-    return lambda x: x*k
+    raise NotImplementedError
 
 
 def make_counter() -> Callable[[], int]:
@@ -41,12 +39,7 @@ def make_counter() -> Callable[[], int]:
           `nonlocal count` first. Forgetting nonlocal (and getting
           UnboundLocalError) is THE classic closure gotcha.
     """
-    count = 0
-    def counter() -> int:
-        nonlocal count
-        count += 1
-        return count
-    return counter
+    raise NotImplementedError
 
 
 def safe_divide(a: float, b: float, default: float | None = None) -> float | None:
@@ -56,10 +49,7 @@ def safe_divide(a: float, b: float, default: float | None = None) -> float | Non
     HINT: one function with a default parameter value; EAFP style —
           try the division and catch ZeroDivisionError.
     """
-    try:
-        return a / b
-    except ZeroDivisionError:
-        return default
+    raise NotImplementedError
 
 
 def append_to(item: Any, target: list | None = None) -> list:
@@ -71,10 +61,7 @@ def append_to(item: Any, target: list | None = None) -> list:
           calls (see README). Use the None-sentinel idiom: default to None,
           then create the list inside the body.
     """
-    if target is None:
-        target = []
-    target.append(item)
-    return target
+    raise NotImplementedError
 
 
 def describe_call(*args: Any, **kwargs: Any) -> str:
@@ -86,7 +73,7 @@ def describe_call(*args: Any, **kwargs: Any) -> str:
     HINT: *args collects extra positionals into a tuple, **kwargs collects
           keyword arguments into a dict (insertion-ordered).
     """
-    return f"args={args} kwargs={kwargs}"
+    raise NotImplementedError
 
 
 def compose(*funcs: Callable[[Any], Any]) -> Callable[[Any], Any]:
@@ -97,11 +84,7 @@ def compose(*funcs: Callable[[Any], Any]) -> Callable[[Any], Any]:
     HINT: return a new function that loops over reversed(funcs), threading
           the value through. Functions building functions.
     """
-    def composed(x: Any) -> Any:
-        for f in reversed(funcs):
-            x = f(x)
-        return x
-    return composed
+    raise NotImplementedError
 
 
 def memoize(f: Callable[..., Any]) -> Callable[..., Any]:
@@ -119,13 +102,7 @@ def memoize(f: Callable[..., Any]) -> Callable[..., Any]:
           here you build it yourself to learn the mechanics.)
     """
 
-    cache: dict[tuple, Any] = {}
-    @functools.wraps(f)
-    def wrapper(*args: Any) -> Any:
-        if args not in cache:
-            cache[args] = f(*args)
-        return cache[args]
-    return wrapper
+    raise NotImplementedError
 
 
 def call_with_retry(f: Callable[[], Any], attempts: int) -> Any:
@@ -137,15 +114,7 @@ def call_with_retry(f: Callable[[], Any], attempts: int) -> Any:
     HINT: a for-loop with try/except, stashing the exception; after the loop
           a bare `raise last_exc` re-raises with the traceback intact.
     """
-    if attempts < 1:
-        raise ValueError(f"attempts must be >= 1, got {attempts}")
-    last_exception: Exception | None = None
-    for _ in range(attempts):
-        try:
-            return f()
-        except Exception as exception:
-            last_exception = exception
-    raise last_exception
+    raise NotImplementedError
 
 
 def sort_by(records: list[dict], *fields: str) -> list[dict]:
@@ -157,4 +126,4 @@ def sort_by(records: list[dict], *fields: str) -> list[dict]:
     HINT: sorted(records, key=lambda r: tuple-of-field-values) — tuples
           compare element by element, so earlier fields dominate.
     """
-    return sorted(records, key=lambda r: tuple(r[field] for field in fields))
+    raise NotImplementedError

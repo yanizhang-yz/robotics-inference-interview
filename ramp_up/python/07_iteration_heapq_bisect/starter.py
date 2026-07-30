@@ -21,7 +21,7 @@ def numbered_lines(lines: list[str], start: int = 1) -> list[str]:
 
     HINT: enumerate(lines, start=start) yields (number, line) pairs directly.
     """
-    return [f"{n}: {line}" for n, line in enumerate(lines, start=start)]
+    raise NotImplementedError
 
 
 def pair_scores(names: list[str], scores: list[int]) -> dict[str, int]:
@@ -31,7 +31,7 @@ def pair_scores(names: list[str], scores: list[int]) -> dict[str, int]:
 
     HINT: dict(zip(names, scores)).
     """
-    return dict(zip(names, scores))
+    raise NotImplementedError
 
 
 def k_largest(nums: list[int], k: int) -> list[int]:
@@ -41,7 +41,7 @@ def k_largest(nums: list[int], k: int) -> list[int]:
 
     HINT: heapq.nlargest(k, nums) — one call, already sorted descending.
     """
-    return heapq.nlargest(k, nums)
+    raise NotImplementedError
 
 
 def merge_sorted_lists(lists: list[list[int]]) -> list[int]:
@@ -50,7 +50,7 @@ def merge_sorted_lists(lists: list[list[int]]) -> list[int]:
 
     HINT: list(heapq.merge(*lists)) — lazy k-way merge from the stdlib.
     """
-    return list(heapq.merge(*lists))
+    raise NotImplementedError
 
 
 def insertion_index(sorted_nums: list[int], x: int) -> int:
@@ -60,7 +60,7 @@ def insertion_index(sorted_nums: list[int], x: int) -> int:
 
     HINT: bisect.bisect_left(sorted_nums, x).
     """
-    return bisect_left(sorted_nums, x)
+    raise NotImplementedError
 
 
 def count_in_range(sorted_nums: list[int], lo: int, hi: int) -> int:
@@ -69,7 +69,7 @@ def count_in_range(sorted_nums: list[int], lo: int, hi: int) -> int:
 
     HINT: bisect_right(sorted_nums, hi) - bisect_left(sorted_nums, lo).
     """
-    return bisect_right(sorted_nums, hi) - bisect_left(sorted_nums, lo)
+    raise NotImplementedError
 
 
 def min_by_distance(
@@ -81,7 +81,7 @@ def min_by_distance(
 
     HINT: min(points, key=lambda p: ...) — the key function defines the ordering.
     """
-    return min(points, key=lambda p: (p[0] - target[0]) ** 2 + (p[1] - target[1]) ** 2)
+    raise NotImplementedError
 
 
 def all_increasing(nums: list[int]) -> bool:
@@ -92,7 +92,7 @@ def all_increasing(nums: list[int]) -> bool:
     HINT: all(a < b for a, b in zip(nums, nums[1:])) — short-circuits on the
     first violation.
     """
-    return all(a < b for a, b in zip(nums, nums[1:]))
+    raise NotImplementedError
 
 
 def take(iterable: Iterable, n: int) -> list:
@@ -102,7 +102,7 @@ def take(iterable: Iterable, n: int) -> list:
 
     HINT: list(itertools.islice(iterable, n)) — works on anything iterable.
     """
-    return list(islice(iterable, n))
+    raise NotImplementedError
 
 
 def fibonacci() -> Iterator[int]:
@@ -112,7 +112,4 @@ def fibonacci() -> Iterator[int]:
 
     HINT: a generator function — `yield` inside `while True`.
     """
-    a, b = 0, 1
-    while True:
-        yield a
-        a, b = b, a+b
+    raise NotImplementedError
