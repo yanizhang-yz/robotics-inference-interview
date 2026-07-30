@@ -102,7 +102,7 @@ class TestCountdown:
     def test_single_use(self):
         gen = countdown(2)
         assert list(gen) == [2, 1]
-        assert list(gen) == []  # exhausted — unlike a re-streamable Java List
+        assert list(gen) == []  # exhausted — a generator is single-use, not a list
 
 
 class TestFirstMatching:
