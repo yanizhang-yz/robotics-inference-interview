@@ -18,6 +18,7 @@
 
 // reverseWords("robots move fast") -> "fast move robots"
 // Words are runs of non-whitespace; output is single-space separated.
+// Python's " ".join(reversed(text.split())), with each step spelled out.
 // Idiom: std::istringstream + `while (stream >> word)` tokenizes for free (>>
 //        skips whitespace). Collect into a vector, walk it backwards with
 //        reverse iterators (rbegin()/rend()), build the result with +=.
@@ -29,13 +30,14 @@ std::string reverseWords(const std::string& text) {
 // charFrequencies("abbccc") -> {'a':1, 'b':2, 'c':3}
 // Idiom: range-based for over the string (`for (char c : text)`), then
 //        ++freq[c] — operator[] inserts a 0 for missing keys, so counting
-//        is a single expression.
+//        is a single expression. Python's Counter loop, spelled ++freq[c].
 std::unordered_map<char, int> charFrequencies(const std::string& text) {
     // TODO: implement
     return {};
 }
 
 // topKSmallest({5,1,4,2,3}, 3) -> {1,2,3}; k >= size returns everything sorted.
+// Python: sorted(values)[:k]. Here the sort mutates and the copy is explicit.
 // Idiom: the parameter is BY VALUE on purpose — it IS your private copy.
 //        std::sort(values.begin(), values.end()), then resize(k) if k < size().
 std::vector<int> topKSmallest(std::vector<int> values, std::size_t k) {
@@ -45,17 +47,20 @@ std::vector<int> topKSmallest(std::vector<int> values, std::size_t k) {
 
 // groupByLength({"go","rust","cpp"}) -> {2:{"go"}, 3:{"cpp"}, 4:{"rust"}}
 // Words keep their input order within each group.
+// Python: the defaultdict(list) grouping from drill set 04, keys pre-sorted.
 // Idiom: std::map keeps its keys sorted. Loop with `const auto& w`,
 //        and groups[w.size()].push_back(w) — operator[] creates the empty
-//        vector on first touch.
+//        vector on first touch, like defaultdict.
 std::map<int, std::vector<std::string>> groupByLength(const std::vector<std::string>& words) {
     // TODO: implement
     return {};
 }
 
 // sumOfUnique({1,2,2,3,3}) -> 6: each DISTINCT value counted once.
+// Python: the seen-set scan (drill set 04's first_duplicate), summing new values.
 // Idiom: seen.insert(v) returns pair<iterator,bool>; use .second as the
-//        "was it new?" boolean. Accumulate in long long (guaranteed 64-bit).
+//        "was it new?" boolean. Accumulate in long long (guaranteed 64-bit —
+//        unlike Python's, C++ ints overflow).
 long long sumOfUnique(const std::vector<int>& values) {
     // TODO: implement
     return 0;
@@ -64,7 +69,8 @@ long long sumOfUnique(const std::vector<int>& values) {
 // appendDoubled({1,2,3}) makes the SAME vector {1,2,3,2,4,6}.
 // THE TRAP: `for (int x : v) v.push_back(x * 2);` is undefined behavior —
 //           push_back may relocate the block while the range-for still holds
-//           an iterator into the OLD one.
+//           an iterator into the OLD one. (Python's version of this loop
+//           merely never terminates; C++ makes no promises at all.)
 // Idiom: freeze the size first (`const std::size_t original = v.size();`),
 //        then loop by index up to `original` — indexes survive relocation.
 void appendDoubled(std::vector<int>& v) {

@@ -17,10 +17,10 @@
 
 // reverseWords("robots move fast") -> "fast move robots"
 // Words are runs of non-whitespace; output is single-space separated.
-// JAVA: String.join(" ", reverse(Arrays.asList(text.trim().split("\\s+"))))
+// PYTHON: " ".join(reversed(text.split()))
 // C++:  istringstream's >> is the tokenizer (skips any whitespace); walk the
-//       collected words backwards with reverse iterators. Strings are mutable
-//       values here — building with += is idiomatic, no StringBuilder needed.
+//       collected words backwards with reverse iterators. C++ strings are
+//       mutable, so building with += is idiomatic — no join() needed.
 std::string reverseWords(const std::string& text) {
     std::istringstream stream(text);
     std::vector<std::string> words;
@@ -39,8 +39,9 @@ std::string reverseWords(const std::string& text) {
 }
 
 // charFrequencies("abbccc") -> {'a':1, 'b':2, 'c':3}
-// JAVA: HashMap<Character,Integer> + merge(c, 1, Integer::sum)
-// C++:  operator[] default-inserts 0 for a missing key, so counting is one line.
+// PYTHON: Counter(text)  (drill set 04's count_items)
+// C++:  operator[] default-inserts 0 for a missing key — built-in defaultdict
+//       behavior — so counting is one line.
 std::unordered_map<char, int> charFrequencies(const std::string& text) {
     std::unordered_map<char, int> freq;
     for (char c : text) {
@@ -50,7 +51,7 @@ std::unordered_map<char, int> charFrequencies(const std::string& text) {
 }
 
 // topKSmallest({5,1,4,2,3}, 3) -> {1,2,3}; k >= size returns everything sorted.
-// JAVA: copy = new ArrayList<>(list); Collections.sort(copy); copy.subList(0, k)
+// PYTHON: sorted(values)[:k]  (drill set 01's top_k_smallest)
 // C++:  the parameter is BY VALUE on purpose — we need our own copy to sort, so
 //       let the copy be the parameter. The caller's vector is untouched.
 std::vector<int> topKSmallest(std::vector<int> values, std::size_t k) {
@@ -63,9 +64,9 @@ std::vector<int> topKSmallest(std::vector<int> values, std::size_t k) {
 
 // groupByLength({"go","rust","cpp"}) -> {2:{"go"}, 3:{"cpp"}, 4:{"rust"}}
 // Words keep their input order within each group.
-// JAVA: TreeMap + computeIfAbsent(len, x -> new ArrayList<>()).add(w)
-// C++:  std::map IS the TreeMap (sorted keys); operator[] default-inserts an
-//       empty vector, so no computeIfAbsent dance. Loop with const auto&.
+// PYTHON: defaultdict(list) grouping (drill set 04), then sorted keys on demand
+// C++:  std::map keeps keys sorted for free; operator[] default-inserts an
+//       empty vector, so no setdefault dance. Loop with const auto&.
 std::map<int, std::vector<std::string>> groupByLength(const std::vector<std::string>& words) {
     std::map<int, std::vector<std::string>> groups;
     for (const auto& w : words) {
@@ -75,9 +76,10 @@ std::map<int, std::vector<std::string>> groupByLength(const std::vector<std::str
 }
 
 // sumOfUnique({1,2,2,3,3}) -> 6: each DISTINCT value counted once.
-// JAVA: HashSet.add(x) returns false on duplicates; accumulate in a long.
-// C++:  insert() returns pair<iterator,bool> — .second is Java's boolean.
-//       long long is the guaranteed-64-bit type (plain long may be 32 bits).
+// PYTHON: the seen-set scan (drill set 04's first_duplicate), summing new values.
+// C++:  insert() returns pair<iterator,bool> — .second answers "was it new?",
+//       so test-and-insert is one call. long long is the guaranteed-64-bit
+//       type: Python ints never overflow, C++ ints do, so pick the box.
 long long sumOfUnique(const std::vector<int>& values) {
     std::unordered_set<int> seen;
     long long total = 0;
@@ -115,7 +117,7 @@ int main() {
         assert(freq.size() == 3);
         assert(freq['a'] == 1 && freq['b'] == 2 && freq['c'] == 3);
         int total = 0;
-        for (const auto& [ch, count] : freq) {  // structured bindings: no Map.Entry
+        for (const auto& [ch, count] : freq) {  // structured bindings: C++'s `for k, v in d.items()`
             (void)ch;
             total += count;
         }

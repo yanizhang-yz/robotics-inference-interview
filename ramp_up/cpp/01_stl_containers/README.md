@@ -2,9 +2,12 @@
 
 This lesson gives you the C++ mental model from the ground up — what the compiler does,
 what a variable really is, what assignment and function calls cost — and then the five
-standard containers you will use every day. After it, you can implement the five drills in
-`starter.cpp` without looking anything up: tokenize a string, count frequencies,
-sort-and-truncate a copy, group values into a sorted map, and dedup with a set.
+standard containers you will use every day. Every one of them has a Python counterpart
+you already know cold from the Python drill sets, and this lesson leans on that: each
+container is introduced as "the C++ answer to the Python tool you'd reach for". After it,
+you can implement the six drills in `starter.cpp` without looking anything up: tokenize a
+string, count frequencies, sort-and-truncate a copy, group values into a sorted map,
+dedup with a set, and safely append to a vector you are still reading from.
 
 ("STL" = Standard Template Library, the historical name for the containers-and-algorithms
 part of the C++ standard library. When someone says "STL", they mean these containers.)
@@ -14,29 +17,41 @@ output shown in a comment is real.
 
 ## The problem this lesson solves
 
-You already know how to program: variables, loops, functions, classes. What you have
-probably never had to think about is what your data is doing *in memory*. Where does a
-list actually live? What happens when you assign it to a second variable — do you get two
-lists, or two names for one list? What does it cost to hand a list to a function?
+You arrive here fluent in Python — the drill sets in `ramp_up/python/` are behind you.
+What Python never made you think about is what your data is doing *in memory*. Where does
+a list actually live? What happens when you assign it to a second variable — two lists,
+or two names for one list? Python's answer, from drill set 01: two names for one list,
+because a Python variable is a reference, and a garbage collector quietly cleans up
+whatever nothing points at anymore.
 
-In most languages, the runtime answers those questions for you, invisibly, and usually by
-sharing: many variables quietly point at one object, and a garbage collector cleans up
-later. C++ makes every one of those answers explicit and puts you in charge. That is not
-a hazing ritual — it is the entire reason C++ is fast and predictable, and the reason
-robots and inference engines are written in it. A control loop that must respond in 2
-milliseconds cannot afford hidden costs.
+C++ answers every one of those questions differently — and makes you answer them
+explicitly, in the source. That is not a hazing ritual: it is the entire reason C++ is
+fast and predictable, and the reason robots and inference engines are written in it. A
+control loop that must respond in 2 milliseconds cannot afford hidden costs.
 
-The trade: you must carry a small, precise mental model. This lesson builds that model
-one piece at a time, then teaches the containers on top of it.
+The container vocabulary, at least, transfers almost one-to-one:
+
+| Python | C++ | taught in |
+|---|---|---|
+| `list` | `std::vector` | step 5 |
+| `str` | `std::string` | step 6 |
+| `dict` | `std::unordered_map` | step 8 |
+| (no stdlib sorted dict — you'd `sorted(d)` on demand) | `std::map` | step 9 |
+| `set` | `std::unordered_set` | step 10 |
+
+The trade: you must carry a small, precise mental model of memory. This lesson builds
+that model one piece at a time, then teaches the containers on top of it.
 
 ## The lesson
 
 ### 1. C++ compiles the whole program before it runs
 
-A C++ program runs in two separate steps. First the **compiler** (`clang++` here) reads
-all of your source code and translates it into **machine code** — the raw instructions
-your CPU executes directly. The result is a binary file. Then you run that binary. Your
-source code is not involved at runtime at all.
+Python reads your source as it runs: `python3 script.py` starts executing line one
+immediately, and a mistake on line 40 explodes only when line 40 runs. A C++ program runs
+in two separate steps instead. First the **compiler** (`clang++` here) reads *all* of
+your source code and translates it into **machine code** — the raw instructions your CPU
+executes directly. The result is a binary file. Then you run that binary. Your source
+code is not involved at runtime at all.
 
 ```cpp
 #include <iostream>
@@ -60,13 +75,23 @@ int x = "hello";
 // error: cannot initialize a variable of type 'int' with an lvalue of type 'const char[6]'
 ```
 
+In Python that line is unremarkable — a name has no type of its own, only the object it
+currently points at does, and `x = "hello"` followed by `x = 5` is everyday code. In C++
+every variable declares its type up front, and the compiler holds you to it: wrong types
+don't blow up at runtime, they refuse to compile. This is the first big inversion from
+Python — the same mistakes, moved earlier and made louder.
+
 Get used to this rhythm: the compiler is a strict reviewer that reads your whole program
 first. A compile error is the *cheap* kind of error — nothing has run yet, nothing is
 broken. Read the first error message, fix it, recompile.
 
-Why C++ is designed this way: with no interpreter or virtual machine between your code
-and the CPU, the speed of your program is the speed of the machine. That is what a 50 Hz
-robot control loop or a GPU inference server needs.
+Why C++ is designed this way: with no interpreter between your code and the CPU, the
+speed of your program is the speed of the machine. That is what a 50 Hz robot control
+loop or a GPU inference server needs.
+
+The compiler can only be this strict because it knows the exact type — and therefore the
+exact size — of every variable before the program runs. What it does with that knowledge
+is the next step.
 
 ### 2. A variable is a box of bytes
 
@@ -80,9 +105,11 @@ sizeof(x);         // -> 4    (sizeof reports a box's size in bytes)
 sizeof(d);         // -> 8
 ```
 
-The box holds the value directly. `x` is not a link, handle, or reference to a 42 that
-lives somewhere else — the 4 bytes *are* the 42. Hold onto this picture; the whole
-language follows from it.
+The box holds the value directly. This is the ground-level difference from Python, where
+a name is a *label* tied to an object living somewhere else — drill set 01's "variables
+are references" rule. A C++ variable is not a label pointing at a 42: the 4 bytes *are*
+the 42. Hold onto this picture; the whole language follows from it — starting with the
+question of what `=` does when there are two boxes.
 
 ### 3. Assignment copies the contents of the box
 
@@ -95,20 +122,32 @@ b = 99;
 // a -> 1     b's change did not touch a. Two boxes, two values.
 ```
 
-Here is the part that surprises everyone: **containers work exactly the same way**. A
-`std::vector<int>` (a growable array — full introduction in step 5) is also a box, and
-assigning it copies *all of its contents* into a brand-new, independent container:
+Now recall the rule drill set 01 drummed into you for Python lists:
+
+```python
+a = [1, 2]
+b = a            # Python: two NAMES for ONE list — an alias, not a copy
+b.append(3)
+a                # -> [1, 2, 3]   a saw the change; same object
+```
+
+**C++ inverts this, and the inversion is the single most important thing in this
+lesson.** A `std::vector<int>` (a growable array — Python's `list`; full introduction in
+step 5) is also a box, and assigning it copies *all of its contents* into a brand-new,
+independent container:
 
 ```cpp
 std::vector<int> a = {1, 2};
 std::vector<int> b = a;         // copies BOTH elements into a new vector
-b.push_back(3);                 // append 3 to b
+b.push_back(3);                 // push_back = append; grows b only
 // a.size() -> 2                a still has {1, 2}. b has {1, 2, 3}.
 // a == b   -> false            == compares CONTENTS, element by element
 ```
 
-Two boxes, two vectors. Changing `b` cannot touch `a`, ever. This is called **value
-semantics**: the variable *is* the object, and copies are real copies.
+Two boxes, two vectors. Changing `b` cannot touch `a`, ever. Where Python's default is
+*share*, C++'s default is *copy*. This is called **value semantics**: the variable *is*
+the object, and copies are real copies. Retrain the instinct now — every step below
+leans on it.
 
 Why C++ is designed this way: no hidden sharing. When you hold a vector, you know with
 certainty that no other part of the program can mutate it behind your back — and every
@@ -119,9 +158,11 @@ function calls.
 
 ### 4. Passing to a function: copy it, or lend it
 
-When you pass a variable to a function, the same assignment rule applies: **by default,
-the parameter is a copy**. Mutating the parameter mutates the copy; the caller's variable
-is untouched:
+In Python, passing a list to a function hands over one more reference to the same list —
+that's why a function mutating its parameter mutates the caller's data, and why passing
+costs nothing no matter the size. C++ applies its own assignment rule instead: **by
+default, the parameter is a copy**. Mutating the parameter mutates the copy; the caller's
+variable is untouched:
 
 ```cpp
 void tryToGrow(std::vector<int> v) {   // v is a COPY of the caller's vector
@@ -141,9 +182,11 @@ percent of it copying data nobody needed copied.
 
 The alternative: instead of copying the box, hand the function the box's *address* — 8
 bytes, effectively free (about a nanosecond in the same measurement). C++ spells this
-`&`, a **reference**: an alias for the caller's actual object, not a copy of it. And
-because sharing an object is exactly how functions mutate things behind your back, C++
-lets you slap `const` on it: "you may look, but the compiler forbids you to touch."
+`&`, a **reference**: an alias for the caller's actual object, not a copy of it. In other
+words, Python's share-by-default behavior is available in C++ — you just ask for it
+explicitly. And because sharing an object is exactly how functions mutate things behind
+your back, C++ adds something Python cannot: slap `const` on the reference and the
+*compiler* enforces "you may look, but you may not touch."
 
 ```cpp
 void f(std::vector<int> v);         // BY VALUE: copies everything; mutations invisible to caller
@@ -177,29 +220,38 @@ Where you'll use this: camera frames, point clouds, and tensors are multi-megaby
 buffers arriving 30+ times per second. `const&` is how real pipelines pass them around
 without ever copying by accident.
 
+That is the whole cost model: copy, or lend. Now the containers themselves, starting
+with the one you will use for everything.
+
 ### 5. `std::vector` — the default container
 
-`std::vector<T>` is a growable array. The `<T>` names the element type:
-`std::vector<int>`, `std::vector<std::string>` — anything. Its elements live
-**contiguously**: packed back-to-back in one solid block of memory, no gaps. Element 7
-lives exactly 7 × 4 bytes past element 0.
+`std::vector<T>` is a growable array — the C++ counterpart of Python's `list`, with one
+restriction visible right in the type. The `<T>` names the element type:
+`std::vector<int>`, `std::vector<std::string>` — anything, but every element must be a
+`T`. Python's mixed-type `[1, "two", 3.0]` has no C++ equivalent; the compiler needs one
+type to know every box's size. In exchange, the elements live **contiguously**: packed
+back-to-back in one solid block of memory, no gaps. Element 7 lives exactly 7 × 4 bytes
+past element 0.
 
 ```cpp
 std::vector<int> v = {5, 1, 4};  // a vector holding 5, 1, 4
 v.push_back(2);                  // append: {5, 1, 4, 2} (grows automatically)
-v.size();                        // -> 4
+v.size();                        // -> 4   len(v)
 v[0];                            // -> 5   read by index, NO safety check
 v.at(0);                         // -> 5   read by index WITH check: bad index throws std::out_of_range
-std::sort(v.begin(), v.end());   // {1, 2, 4, 5}  sort ascending
+std::sort(v.begin(), v.end());   // {1, 2, 4, 5}  sort ascending, in place
 v.resize(2);                     // chop to first 2 elements: {1, 2}
 ```
 
-Gotcha, and your first meeting with an important term: `v[i]` with a bad index is
-**undefined behavior** — C++'s phrase for "the language makes no promises: a crash, a
-garbage value, or silently passing tests today are all allowed outcomes." The unchecked
-`[]` exists because a bounds check in a hot loop costs time and C++ refuses to charge you
-for safety you didn't ask for. While learning, use `v.at(i)` whenever you're not certain
-the index is valid.
+Gotcha, and your first meeting with an important term: in Python, an out-of-range index
+always raises `IndexError`. C++ splits that into a choice. `v.at(i)` checks and throws,
+like Python. `v[i]` does not check at all: with a bad index it is **undefined behavior**
+— C++'s phrase for "the language makes no promises: a crash, a garbage value, or silently
+passing tests today are all allowed outcomes." The unchecked `[]` exists because a bounds
+check in a hot loop costs time and C++ refuses to charge you for safety you didn't ask
+for. While learning, use `v.at(i)` whenever you're not certain the index is valid. And
+retire the negative-index reflex: there is no `v[-1]` in C++ (it's undefined behavior,
+not "last element") — the last element is `v.back()`.
 
 Note the last two lines above: algorithms like `std::sort`, `std::reverse`, `std::find`
 are standalone functions from the `<algorithm>` header, not methods on the container. You
@@ -216,11 +268,16 @@ Mechanical note: each container needs its own `#include` — `<vector>`, `<strin
 `<map>`, `<unordered_map>`, `<unordered_set>`, `<sstream>`, `<algorithm>`. Both
 `starter.cpp` and `solution.cpp` already include everything the drills need.
 
+We can now store a growing sequence of anything — including characters, which C++ gives
+a dedicated container of their own.
+
 ### 6. `std::string` — text as a container
 
 `std::string` is a container of `char` with text conveniences bolted on. It follows every
-rule you just learned: it's a value (assignment copies it), it's mutable in place, and
-`==` compares contents.
+rule you just learned: it's a value (assignment copies it), and `==` compares contents.
+The break from Python: a Python `str` is immutable — every `+=` quietly builds a whole
+new string, which is why the Python track taught you `"".join(parts)` as the string
+builder. A `std::string` is **mutable in place**, so `+=` really appends:
 
 ```cpp
 std::string s = "robot";
@@ -230,15 +287,18 @@ s += "ics";                      // append IN PLACE: no new string is created
 // s.substr(2, 3)   -> "bot"    (start index, LENGTH — not an end index!)
 ```
 
-Building a string with `+=` in a loop is idiomatic and fast — append writes into the
-existing box. The one trap worth memorizing: `substr(i, n)` takes a *length* as its
-second argument. `s.substr(2, 3)` means "3 characters starting at index 2".
+Building a string with `+=` in a loop is therefore idiomatic and fast — append writes
+into the existing box; no `join` needed. The one trap worth memorizing: `substr(i, n)`
+takes a *length* as its second argument, where Python's `s[2:5]` takes an end index.
+`s.substr(2, 3)` means "3 characters starting at index 2".
+
+We can build strings up. The reverse chore — taking one apart — is next.
 
 ### 7. `std::istringstream` — reading tokens out of a string
 
-A constant chore in real code: you hold one string containing several values — a log
-line, a command, a sentence — and you need the pieces. C++ has no built-in `split()`
-function. Its tool for the job is a **stream**.
+You hold one string containing several values — a log line, a command, a sentence — and
+you need the pieces. In Python this is one call: `text.split()`. C++ has no built-in
+split function. Its tool for the job is a **stream**.
 
 A stream is an object you read from one piece at a time, front to back. Keyboard input
 is a stream; a file is a stream. `std::istringstream` wraps a plain string so the same
@@ -286,14 +346,17 @@ index bookkeeping, no special cases for repeated or leading whitespace.
 number and fails (condition turns false) if the text is not numeric — one mechanism for
 both splitting and parsing.
 
+We can now store words and split sentences into them. The next problem: counting them.
+
 ### 8. `std::unordered_map` — the hash table
 
 A map stores key → value pairs: `unordered_map<std::string, int>` maps strings to ints.
-Under the hood it is a **hash table**: an array of slots, where a hash function converts
-each key into a slot number. Lookup, insert, and erase therefore cost O(1) on average —
-one hash, one slot, done — regardless of how many entries the map holds. The price:
-entries live in no meaningful order. Built-in types and `std::string` hash out of the
-box.
+This is C++'s `dict` — the same machinery you met in Python drill set 04. Under the hood
+it is a **hash table**: an array of slots, where a hash function converts each key into a
+slot number. Lookup, insert, and erase therefore cost O(1) on average — one hash, one
+slot, done — regardless of how many entries the map holds. The price: entries live in no
+meaningful order (and unlike a post-3.7 Python dict, insertion order is *not* remembered
+either). Built-in types and `std::string` hash out of the box.
 
 The single most important behavior — `[]` on a missing key does not fail. It **inserts**
 that key with a zero-equivalent value (`0` for numbers, `""` for strings, an empty vector
@@ -305,8 +368,12 @@ m["missing"];                    // key not found -> INSERTS {"missing", 0}
 // m.size() -> 1  (!!)
 ```
 
-That auto-insert is a footgun for lookups but a superpower for building. It makes
-counting a one-liner — first touch of `freq[c]` inserts 0, then `++` bumps it:
+Python faced the same design question and gave the opposite answer: `d[k]` on a missing
+key *raises* `KeyError`, and auto-insert is something you opt into with `defaultdict`.
+C++ builds the `defaultdict` behavior straight into `operator[]`. That auto-insert is a
+footgun for lookups but a superpower for building. You counted characters with `Counter`
+in Python drill set 04 — here the same drill is a one-liner with no import: first touch
+of `freq[c]` inserts 0, then `++` bumps it:
 
 ```cpp
 std::unordered_map<char, int> freq;
@@ -331,14 +398,14 @@ value.** Standalone statements `++i;` and `i++;` behave identically — the habi
 nothing and reads as fluency.
 
 Gotcha: never use `m[k]` to *test* membership — `if (m[k] == 0)` just inserted `k`. The
-read-only lookups are:
+read-only lookups map cleanly onto the Python vocabulary you already have:
 
 ```cpp
-if (m.count(k)) { ... }                        // does the key exist? (0 or 1)
-if (auto it = m.find(k); it != m.end()) {      // find without inserting
+if (m.count(k)) { ... }                        // Python's `k in d` (returns 0 or 1)
+if (auto it = m.find(k); it != m.end()) {      // Python's d.get(k): look, never insert
     use(it->second);                           // it->first is the key, it->second the value
 }
-m.at(k);                                       // get-or-throw (std::out_of_range)
+m.at(k);                                       // Python's d[k]: get-or-throw (std::out_of_range)
 ```
 
 (Two things to unpack there. `find` returns an iterator: a position marker pointing at
@@ -352,9 +419,12 @@ as a separate one, so you only ever pay for the property you actually need.
 
 ### 9. `std::map` — the sorted tree
 
-Same interface, different machine. `std::map` stores its keys in a **self-balancing
-binary search tree**, which keeps them permanently sorted. Every operation costs O(log n)
-— slower than hashing — but iterating visits keys in ascending order, guaranteed:
+Same interface, different machine. Python's standard library has no sorted dict — when
+drill set 04 needed keys in order, the answer was to sort on demand with `sorted(d)`.
+C++ ships the sorted mapping as its own container: `std::map` stores its keys in a
+**self-balancing binary search tree**, which keeps them permanently sorted. Every
+operation costs O(log n) — slower than hashing — but iterating visits keys in ascending
+order, guaranteed:
 
 ```cpp
 std::map<int, std::string> m;
@@ -368,10 +438,12 @@ Naming trap: the *sorted* container got the short name `std::map`. If you type
 not need. Default to `unordered_map`; reach for `map` only when you need sorted keys —
 as the `groupByLength` drill does.
 
+Maps hold key → value pairs. Drop the values and you get the last container on the tour.
+
 ### 10. `std::unordered_set` — membership only
 
-A set stores keys with no values: "have I seen this before?" as a data structure. It's
-the same hash table as `unordered_map`, minus the values.
+A set stores keys with no values: "have I seen this before?" as a data structure —
+Python's `set`, backed by the same hash table as `unordered_map`, minus the values.
 
 `insert` does two jobs at once. It returns a `std::pair` — a two-field struct, C++'s
 standard "return two things" type, fields `.first` and `.second`. For `insert`, `.second`
@@ -383,14 +455,19 @@ seen.insert(42).second;          // -> true    first time
 seen.insert(42).second;          // -> false   already there
 ```
 
-That one expression — `if (seen.insert(x).second)` — is test-and-insert in a single
-hash lookup, and it's the whole trick behind the `sumOfUnique` drill.
+Remember the seen-set scan from drill set 04's `first_duplicate` — `if item in seen`
+then `seen.add(item)`, two hash lookups? In C++ that whole dance is one expression and
+one lookup: `if (seen.insert(x).second)`. Test-and-insert in a single call — the whole
+trick behind the `sumOfUnique` drill.
+
+Five containers down. What's left is how C++ loops over them — and a choice Python never
+asked you to make.
 
 ### 11. Loops: range-based `for`, `auto`, structured bindings
 
-The range-based `for` visits every element of a container without index bookkeeping. The
-one decision you must make is how the loop variable binds — and it's the same
-copy-or-lend decision from step 4, in miniature:
+The range-based `for` is C++'s `for x in v`: it visits every element of a container with
+no index bookkeeping. The one decision Python never asked of you is how the loop variable
+binds — and it's the same copy-or-lend decision from step 4, in miniature:
 
 ```cpp
 for (int x : v)             { ... }        // copies each element: right for int/char/double
@@ -407,7 +484,7 @@ Gotcha (verified): `for (auto s : names) s += "!";` compiles cleanly and changes
 loop's writes aren't sticking, look for the missing `&`.
 
 Iterating a map yields key/value pairs, and C++17 **structured bindings** unpack each
-pair into named variables right in the loop header:
+pair into named variables right in the loop header — C++'s `for k, v in d.items()`:
 
 ```cpp
 for (const auto& [key, value] : m) use(key, value);
@@ -453,6 +530,13 @@ for (int x : v) {          // range-for holds an iterator into v...
 }
 ```
 
+You have met mutate-while-iterating before. Python drill set 04 showed the dict version
+— `RuntimeError: dictionary changed size during iteration` — and Python's *list* version
+doesn't even raise: `for x in v: v.append(...)` just loops forever, chasing the growing
+end (verified). Python at least keeps the behavior defined. C++ checks nothing: the same
+mistake is undefined behavior, and it can *pass your tests* until the day the block
+happens to move.
+
 The safe version of "append while reading" loops by **index over the original size** —
 indexes name positions, not addresses, so they survive relocation:
 
@@ -467,15 +551,18 @@ Rule: don't hold an iterator across a mutation, and never `push_back` onto the v
 you are currently range-looping over. The drill `appendDoubled` below makes you write
 the safe version.
 
+One machine-level reality remains that Python hid completely: numbers have sizes.
+
 ### 12. Numbers: `long long`, and the unsigned `size()` trap
 
-C++ integer sizes vary by platform; `int` is 4 bytes here, and its maximum value is
-2,147,483,647 — about 2.1 billion. The guaranteed-64-bit integer is **`long long`** (a
-plain `long` is only 4 bytes on some platforms, so spell out both words). The drill
-`sumOfUnique` adds values near 2 billion: an `int` accumulator overflows — and signed
-overflow is undefined behavior, not a polite wraparound — so the accumulator must be
-`long long`. Interviewers deliberately plant this trap: a sum that passes on small inputs
-and corrupts at scale.
+A Python `int` grows without limit — `2**200` just works, and no Python drill ever
+mentioned overflow because Python has none. A C++ integer is a fixed-size box. Sizes
+vary by platform; `int` is 4 bytes here, and its maximum value is 2,147,483,647 — about
+2.1 billion. The guaranteed-64-bit integer is **`long long`** (a plain `long` is only 4
+bytes on some platforms, so spell out both words). The drill `sumOfUnique` adds values
+near 2 billion: an `int` accumulator overflows — and signed overflow is undefined
+behavior, not a polite wraparound — so the accumulator must be `long long`. Interviewers
+deliberately plant this trap: a sum that passes on small inputs and corrupts at scale.
 
 Gotcha (verified): `v.size()` returns `std::size_t`, an *unsigned* — never negative —
 integer type. Unsigned arithmetic wraps around: on an empty vector, `v.size() - 1` is not
@@ -536,9 +623,11 @@ All five live in `starter.cpp`; `main()` asserts every edge case listed here.
 
 Split a sentence on any whitespace, rejoin the words in reverse order, single-spaced.
 
-Pure practice of step 7 (the stream tokenizer) plus step 11's reverse iterators:
-collect the words with `while (stream >> word)`, then walk the vector backwards with
-`rbegin()`/`rend()`, appending into the result string.
+In Python this whole drill is `" ".join(reversed(text.split()))` (verified). The C++
+version makes each of those three steps explicit, and that's the point: pure practice of
+step 7 (the stream tokenizer) plus step 11's reverse iterators. Collect the words with
+`while (stream >> word)`, then walk the vector backwards with `rbegin()`/`rend()`,
+appending into the result string.
 
 ```cpp
 // tokenize (step 7) -> {"robots", "move", "fast"}
@@ -564,7 +653,8 @@ for (char c : text) ++freq[c];
 // charFrequencies("abbccc") -> {'a':1, 'b':2, 'c':3}
 ```
 
-The whole drill is step 8's auto-insert working *for* you: first touch of `freq[c]`
+This is drill set 04's `count_items` — `Counter(text)` — with the counting loop written
+out. The whole drill is step 8's auto-insert working *for* you: first touch of `freq[c]`
 inserts 0, then `++` bumps it. Note `for (char c : text)` — a string is a container of
 `char`, copied per element (cheap).
 
@@ -589,10 +679,12 @@ std::vector<int> topKSmallest(std::vector<int> values, std::size_t k) {  // BY V
 // topKSmallest({5,1,4,2,3}, 3) -> {1,2,3}; the caller's vector is untouched
 ```
 
-The lesson is the signature: you need a private copy to sort, so *let the copy be the
-parameter* (step 4). No separate copy line anywhere in the body — the copy happens at the
-call itself. Then `resize(k)` chops the tail; guard it with `k < size()` so a big `k`
-doesn't *grow* the vector with zeros.
+You wrote this in Python drill set 01 as `sorted(nums)[:k]` — `sorted()` made the copy
+for you and the slice clamped. The C++ lesson is the signature: you need a private copy
+to sort, so *let the copy be the parameter* (step 4). No separate copy line anywhere in
+the body — the copy happens at the call itself. Then `resize(k)` chops the tail; guard
+it with `k < size()` so a big `k` doesn't *grow* the vector with zeros (unlike a Python
+slice, `resize` doesn't clamp — it takes you at your word).
 
 Where you'll see it: the "top-k" archetype — "Kth Largest Element in an Array" (LeetCode
 215), "K Closest Points to Origin", "Top K Frequent Elements". Sort-then-truncate is the
@@ -614,9 +706,11 @@ for (const auto& w : words)
 //   -> {1:{"c"}, 2:{"go"}, 3:{"cpp"}, 4:{"rust","java"}}   (keys visit 1,2,3,4)
 ```
 
-Three lesson pieces in one line: `const auto&` loop variable (no string copies, step 11),
-`operator[]` creating the empty vector on first touch (step 8), and `std::map` giving you
-sorted keys with zero extra work (step 9). The `static_cast<int>` converts `w.size()`
+This is drill set 04's `defaultdict(list)` grouping pattern, upgraded: three lesson
+pieces in one line. `const auto&` loop variable (no string copies, step 11),
+`operator[]` creating the empty vector on first touch (step 8 — the built-in
+`defaultdict`), and `std::map` giving you sorted keys with zero extra work (step 9),
+where Python would sort them on demand. The `static_cast<int>` converts `w.size()`
 (unsigned `std::size_t`, step 12) to the map's `int` key explicitly — C++'s spelling of
 an intentional conversion. The code compiles without it, but stricter builds
 (`-Wconversion`) flag the silent 64-bit-unsigned-to-int narrowing; writing the cast says
@@ -642,10 +736,12 @@ for (int v : values)
 // sumOfUnique({2000000000, 1500000000, 2000000000}) -> 3500000000
 ```
 
+The seen-set scan from drill set 04's `first_duplicate`, with a sum bolted on.
 `insert(v).second` is the drill: test-and-insert in a single call (step 10), no separate
-membership check. The second example is why the accumulator is `long long`: 3,500,000,000
-doesn't fit in an `int` (max ~2.1 billion), and signed overflow is undefined behavior
-(step 12).
+membership check. The second example is why the accumulator is `long long`:
+3,500,000,000 doesn't fit in an `int` (max ~2.1 billion), and signed overflow is
+undefined behavior (step 12). Python never asked you to think about the accumulator —
+its ints can't overflow. C++ makes you pick the box before you pour into it.
 
 Where you'll see it: the seen-set idiom is "Contains Duplicate", "Intersection of Two
 Arrays", the visited set inside every BFS/DFS ("Number of Islands" and its whole
@@ -674,10 +770,10 @@ that. Two facts make the index version safe: an index names a *position* rather 
 address, and freezing `original` up front means you never chase the growing end.
 
 Where you'll see it: this trap is a standard C++ screening question ("what's wrong with
-this loop?"), and the modify-while-iterating mistake appears in every language — deleting
-from a list you're looping over is its sibling. In real code it's the frame queue you're
-draining while a callback appends to it — which is why real pipelines hand that job to a
-proper queue (lesson 06).
+this loop?"), and the modify-while-iterating mistake appears in every language — Python's
+`RuntimeError: dictionary changed size during iteration` is the same crime with a kinder
+sentence (step 11). In real code it's the frame queue you're draining while a callback
+appends to it — which is why real pipelines hand that job to a proper queue (lesson 06).
 
 ## How to practice
 
