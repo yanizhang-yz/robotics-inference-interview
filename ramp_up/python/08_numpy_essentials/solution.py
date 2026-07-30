@@ -1,7 +1,7 @@
 """
 NumPy essentials — reference solutions.
 
-The recurring lesson: replace Java's element-by-element loops with
+The recurring lesson: replace element-by-element loops with
 whole-array operations, boolean masks, axis reductions, and broadcasting.
 No function in this file contains a loop.
 """

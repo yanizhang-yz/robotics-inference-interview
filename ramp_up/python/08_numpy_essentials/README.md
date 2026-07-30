@@ -1,6 +1,6 @@
 # 08 — NumPy essentials
 
-After this lesson you will be able to replace Java-style element loops with
+After this lesson you will be able to replace element-by-element loops with
 whole-array NumPy operations: filter and count with boolean masks, reduce a
 matrix along a chosen axis, build lookup tables with fancy indexing, and
 combine differently-shaped arrays with broadcasting. These are the exact
@@ -8,39 +8,15 @@ moves you need to implement softmax, normalization, one-hot encoding, and
 distance matrices live in an interview — which is most of the NumPy an
 inference-engineer interview actually asks for.
 
-## The Java you know
+## The problem this lesson solves
 
-In Java, "do X to every element" means a `for` loop over `double[]`. That is
-the only idiom, and it is fine — the JIT compiles it to fast machine code:
-
-```java
-// Scale a vector to unit length: two passes, index arithmetic, manual guard.
-static double[] normalize(double[] v) {
-    double sumSq = 0.0;
-    for (int i = 0; i < v.length; i++) {
-        sumSq += v[i] * v[i];
-    }
-    double norm = Math.sqrt(sumSq);
-    double[] out = new double[v.length];
-    if (norm == 0.0) return out;              // all zeros
-    for (int i = 0; i < v.length; i++) {
-        out[i] = v[i] / norm;                 // -> [0.6, 0.8] for {3.0, 4.0}
-    }
-    return out;
-}
-
-// Count elements above a threshold: the counter-loop idiom.
-static int countAbove(double[] x, double t) {
-    int count = 0;
-    for (int i = 0; i < x.length; i++) {
-        if (x[i] > t) count++;                // -> 3 for {1,5,3,7}, t=2.5
-    }
-    return count;
-}
-```
-
-In NumPy those two functions are `v / np.linalg.norm(v)` and
-`(x > t).sum()` — one line each, no loop. This lesson explains why that
+The instinctive way to "do X to every element" is a `for` loop with index
+arithmetic: two passes and a manual zero-guard to scale a vector to unit
+length, a counter variable to count elements above a threshold. In a
+compiled language that is fine — the compiler turns it into fast machine
+code. In Python the same loop pays interpreter overhead on every single
+element, and the idiomatic NumPy versions are one line each with no loop:
+`v / np.linalg.norm(v)` and `(x > t).sum()`. This lesson explains why that
 works, and why in Python the loop version is well over 100x slower.
 
 ## The lesson
@@ -49,10 +25,11 @@ works, and why in Python the loop version is well over 100x slower.
 
 NumPy's core type is the **ndarray** ("n-dimensional array"). Unlike a
 Python `list` — which is a resizable bag of pointers to arbitrary objects —
-an ndarray is a single fixed-size block of raw memory, like Java's
-`double[]`. Every element has the same type, recorded once for the whole
-array as the **dtype** (data type, e.g. `float64` = Java `double`,
-`int64` = Java `long`). An array where all elements share one type is
+an ndarray is a single fixed-size block of raw memory, like a primitive
+numeric array in a compiled language. Every element has the same type,
+recorded once for the whole array as the **dtype** (data type, e.g.
+`float64` for double-precision floats, `int64` for 64-bit
+integers). An array where all elements share one type is
 called **homogeneous**; a Python list, which can mix types
 (`[1, "two", 3.0]`), is **heterogeneous**.
 
@@ -83,16 +60,10 @@ loop over array elements is a bug.
 
 **Vectorization** means writing an operation against the whole array and
 letting NumPy apply it to every element in C. All the arithmetic operators
-are **elementwise** (applied independently to each element):
-
-```java
-// Java
-double[] out = new double[x.length];
-for (int i = 0; i < x.length; i++) out[i] = x[i] * 2;
-```
+are **elementwise** (applied independently to each element) — the
+allocate-loop-assign dance disappears entirely:
 
 ```python
-# Python
 x = np.array([1.0, 2.0, 3.0])
 x * 2          # -> array([2., 4., 6.])
 x + x          # -> array([2., 4., 6.])
@@ -109,16 +80,16 @@ reach for the `np.` versions, which handle both.
 
 ### Boolean masks: filtering and counting without loops
 
-In Java, `x[i] > 0` is a `boolean`. In NumPy, `x > 0` compares every
-element at once and returns a **boolean mask** — an array of
-`True`/`False` the same shape as `x`:
+Comparing one element, `x[i] > 0`, gives one boolean. In NumPy, `x > 0`
+compares every element at once and returns a **boolean mask** — an array
+of `True`/`False` the same shape as `x`:
 
 ```python
 x = np.array([1.0, -2.0, 3.0, -4.0])
 mask = x > 0        # -> array([ True, False,  True, False])
 ```
 
-One mask replaces three Java loop patterns:
+One mask replaces three classic loop patterns:
 
 ```python
 mask.sum()          # COUNT:  True counts as 1, False as 0     -> 2
@@ -158,14 +129,14 @@ m.sum(axis=1)    # collapse the 3 columns            -> array([ 6, 15])    shape
 m.mean(axis=0)   # per-column means                  -> array([2.5, 3.5, 4.5])
 ```
 
-Java equivalent of `m.sum(axis=0)`: nested loops accumulating into
-`double[] sums = new double[cols]`. When unsure which axis you need, do
+Written as loops, `m.sum(axis=0)` is a nested pair accumulating into a
+per-column sums array. When unsure which axis you need, do
 not guess — check the result shape: `(2, 3)` with `axis=0` must give
 `(3,)`; if you wanted one value per row, that was the wrong axis.
 
 ### Fancy indexing: an array as the index
 
-Java array indices are single `int`s. NumPy also accepts an *array of
+Ordinary indexing takes a single integer. NumPy also accepts an *array of
 indices* — called **fancy indexing** — which gathers all those positions
 in one shot, in order, with repeats allowed:
 
@@ -226,17 +197,16 @@ The payoff — every pairwise difference between an `(n, d)` and an
 a[:, None, :] - b[None, :, :]   # (n,1,d) - (1,m,d) -> (n, m, d)
 ```
 
-Entry `[i, j]` of the result is the vector `a[i] - b[j]`. In Java this is
-a triple nested loop over `n`, `m`, `d`. This one line is the single most
-tested NumPy idiom in ML-infrastructure interviews.
+Entry `[i, j]` of the result is the vector `a[i] - b[j]`. Written as
+loops, this is a triple nest over `n`, `m`, `d`. This one line is the
+single most tested NumPy idiom in ML-infrastructure interviews.
 
 ### Views vs copies: the mutation trap
 
-Python variables are references, like Java object references —
-`List<Integer> b = a` makes `b` and `a` the same list. NumPy adds a
+Python variables are references — assigning an array to a second name
+gives you two names for the same object, never a copy. NumPy adds a
 second trap: **slicing returns a view**, a window onto the *same
-underlying memory*, not a **copy** (a new independent array — what Java's
-`Arrays.copyOfRange` gives you).
+underlying memory*, not a **copy** (a new independent array).
 
 ```python
 x = np.array([1.0, 2.0, 3.0, 4.0])
@@ -262,11 +232,11 @@ Gotcha 9 in `../LEARNING_POINTS.md`.
 
 ### Numerical stability: when the math is right but the floats overflow
 
-`float64` (Java `double`) maxes out around `1.8e308`. `np.exp(710.0)`
+`float64` (double precision) maxes out around `1.8e308`. `np.exp(710.0)`
 exceeds that, so the result **overflows** to `inf` — a special float value
 meaning "too big to represent". And `inf / inf` is **NaN** ("not a
-number", the poison value that makes every comparison false and spreads
-through all arithmetic — same as Java's `Double.NaN`).
+number", the standard IEEE-754 poison value that makes every comparison
+false and spreads through all arithmetic).
 
 Softmax is the canonical victim. Softmax turns a vector of raw scores —
 called **logits** in ML — into probabilities that sum to 1:
