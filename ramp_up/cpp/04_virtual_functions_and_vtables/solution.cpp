@@ -21,10 +21,11 @@ std::vector<std::string>& destructionLog() {
 }
 
 // Drill 1 — Sensor: a C++ "interface".
-// JAVA: interface Sensor { String name(); double read(); }
-// C++:  an abstract base class: pure virtual methods (= 0) declare the
-//       contract, plus the one member Java never needed — a VIRTUAL destructor,
-//       so `delete` through a Sensor* tears down the real object completely.
+// PYTHON: no declaration needed — any class with name() and read() would pass
+//         (duck typing, like your describe() drill in python set 06).
+// C++:  the contract is written down as an abstract base class: pure virtual
+//       methods (= 0), plus the one member Python handles for you — a VIRTUAL
+//       destructor, so `delete` through a Sensor* tears down the real object.
 //       The destructor logs "Sensor" (it runs LAST: derived first, then base).
 class Sensor {
 public:
@@ -37,8 +38,9 @@ public:
 // name() -> "camera" / "lidar"; read() -> 30.0 / 10.0 (pretend rates in Hz).
 // Each destructor logs its own class name; base ~Sensor then logs "Sensor",
 // so destroying a Camera through ANY handle must produce {"Camera","Sensor"}.
-// JAVA: class Camera implements Sensor — but here `override` is doing
-//       @Override's job, and inheriting Sensor's virtual dtor is load-bearing.
+// PYTHON: a typo'd method name would silently define a NEW method that is
+//         never called; here `override` makes the compiler catch exactly that.
+//         Inheriting Sensor's virtual destructor is load-bearing.
 class Camera : public Sensor {
 public:
     ~Camera() override { destructionLog().push_back("Camera"); }
@@ -55,7 +57,8 @@ public:
 
 // Drill 3 — pollAll: one loop over mixed sensors, ZERO type checks.
 // pollAll({Camera, Lidar}) -> {"camera=30", "lidar=10"}
-// JAVA: for (Sensor s : sensors) out.add(s.name() + "=" + ...); — free in Java.
+// PYTHON: for s in sensors: out.append(f"{s.name()}={s.read()}") — dispatch is
+//         always dynamic there, so it just works.
 // C++:  s->name() / s->read() are virtual calls, so each unique_ptr<Sensor>
 //       dispatches to whatever it really holds. ostringstream prints 30.0 as
 //       "30" (default formatting drops the trailing ".0").
@@ -73,7 +76,7 @@ std::vector<std::string> pollAll(const std::vector<std::unique_ptr<Sensor>>& sen
 // describe(camera) -> "Sensor[camera]"
 // The parameter is `const Sensor&` — dynamic dispatch works through references
 // exactly as through pointers. Taking `Sensor` BY VALUE would slice a concrete
-// base (README §6); here it wouldn't even compile, because an abstract class
+// base (README §7); here it wouldn't even compile, because an abstract class
 // can't be instantiated — a hidden safety bonus of pure-virtual interfaces.
 std::string describe(const Sensor& sensor) {
     return "Sensor[" + sensor.name() + "]";

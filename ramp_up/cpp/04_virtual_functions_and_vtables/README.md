@@ -19,30 +19,40 @@ for (const auto& s : sensors) {
 }
 ```
 
-One list, one loop, and adding a sensor type never touches the loop. For that to
-work, three things must be true. One list has to be able to hold different types.
-The call `s->read()` has to run the *right* `read` for whatever `s` really is. And
-when a sensor is destroyed through that list, the right cleanup has to run.
+One list, one loop, and adding a sensor type never touches the loop.
 
-C++ makes each of those an explicit decision, because of a ground rule the whole
-language is built on: **the compiler decides everything it can at compile time.**
-Runtime machinery — anything that costs cycles or bytes while the program runs — is
-never added silently; you must ask for it. (You'll hear this called the
-**zero-overhead principle**: you don't pay for what you don't use.) This lesson is
-the story of asking correctly — and of the three quiet bugs that appear when you
-forget.
+You have already written this program — in Python. The `describe()` drill in Python
+set 06 did exactly this: `Dog` and `Robot` shared no base class, and `describe(obj)`
+called `obj.speak()` on whatever arrived. It worked because a Python method call
+*always* looks up the method on the object's real type, at runtime, every single
+call. Duck typing made the loop free; there was nothing to opt into.
+
+C++ will give you the same loop — but not by default, because of a ground rule the
+whole language is built on: **the compiler decides everything it can at compile
+time.** Runtime machinery — anything that costs cycles or bytes while the program
+runs — is never added silently; you must ask for it. (You'll hear this called the
+**zero-overhead principle**: you don't pay for what you don't use.) For the loop
+above, three things must be asked for. One list has to be able to hold different
+types. The call `s->read()` has to run the *right* `read` for whatever `s` really
+is. And when a sensor is destroyed through that list, the right cleanup has to run.
+This lesson is the story of asking correctly — and of the three quiet bugs that
+appear when you forget.
 
 ## The lesson
 
 ### 1. A base-class pointer can point at a derived object
 
-First, inheritance syntax. `struct Robot : Machine` declares that every `Robot`
-contains a complete `Machine` — its fields, its functions — plus whatever `Robot`
-adds. We say `Robot` **derives from** the **base class** `Machine`, and that a
-`Robot` *is a* `Machine`. (With the `class` keyword you write
-`class Robot : public Machine` — members and base classes default to `private` in a
-`class` and `public` in a `struct`; that is the only difference between the two
-keywords.)
+Start with the first requirement: one list holding many types. A Python list holds
+anything, because every element is just a reference to some object. A `std::vector`
+holds exactly one type — so C++ needs a single type that can stand for "camera, or
+lidar, or whatever we add next month". Inheritance provides it.
+
+First, the syntax. `struct Robot : Machine` declares that every `Robot` contains a
+complete `Machine` — its fields, its functions — plus whatever `Robot` adds. We say
+`Robot` **derives from** the **base class** `Machine`, and that a `Robot` *is a*
+`Machine`. (With the `class` keyword you write `class Robot : public Machine` —
+members and base classes default to `private` in a `class` and `public` in a
+`struct`; that is the only difference between the two keywords.)
 
 The mechanism is concrete: the compiler lays out each `Robot` object with its
 `Machine` part at the front. So inside every `Robot` there literally *is* a
@@ -55,10 +65,9 @@ Machine& ref = r;    // references work the same way
 ```
 
 This is called an **upcast** — viewing a derived object through a base-class handle.
-Why would you want one? It is exactly the opening problem: a
-`std::vector<Machine*>` can hold pointers to robots, drills, and conveyors in one
-container, and code written against `Machine*` works for all of them. One list, many
-types. That much, C++ gives you for free.
+And it solves the container problem: a `std::vector<Machine*>` can hold pointers to
+robots, drills, and conveyors in one container, and code written against `Machine*`
+works for all of them. One list, many types. That much, C++ gives you for free.
 
 The question that matters is what happens when you *call* something through that
 pointer.
@@ -94,9 +103,12 @@ int main() {
 All three outputs verified. The object never stops being a `Robot` — yet through a
 `Machine*`, `Machine::name` runs.
 
-Now apply the ground rule and this stops being surprising. The compiler decides
-everything it can at compile time — and it *can* decide this call. It looks at the
-**declared type** of the expression: `p` is declared `Machine*`, therefore
+If your instincts are Python instincts, this is disorienting: in Python, `p.name()`
+asks the *object* — "what does this object's class define?" — at the moment of the
+call, so the answer would be `Robot`, every time. C++'s default asks a different
+question entirely. Apply the ground rule and the surprise dissolves: the compiler
+decides everything it can at compile time — and it *can* decide this call. It looks
+at the **declared type** of the expression: `p` is declared `Machine*`, therefore
 `p->name()` is hard-wired to call `Machine::name` before the program ever runs. The
 object's real class is never consulted. This is called **static dispatch**: the
 function is chosen statically, at compile time, from the type written in the source.
@@ -111,7 +123,7 @@ error, no exception. Just the wrong answer, quietly.
 
 ### 3. `virtual` opts in to runtime dispatch
 
-What we want for sensors is the opposite rule: *decide at runtime, from the object's
+What we want for sensors is the Python rule: *decide at runtime, from the object's
 real type.* That is called **dynamic dispatch**, and one keyword on the base-class
 function switches it on:
 
@@ -131,22 +143,28 @@ std::cout << ref.name() << "\n";   // -> Robot
 ```
 
 `virtual` on `Machine::name` says: calls to `name` through a `Machine*` or
-`Machine&` are resolved at runtime from the object's real class. Virtual-ness is
+`Machine&` are resolved at runtime from the object's real class — the behavior
+Python gives every call, now switched on for this one function. Virtual-ness is
 inherited — once a function is virtual in the base, every derived function with the
 same signature is automatically virtual too, all the way down, whether or not the
 derived class repeats the keyword.
 
 #### The mechanism: the vtable
 
-How can a call possibly be resolved at runtime? Interviewers ask for this machinery
-by name, and it is worth knowing for real. A **vtable** (virtual table) is a hidden
-per-*class* table of function addresses — one slot per virtual function, filled with
-the most-derived version for that class. `Machine`'s table has `Machine::name` in
-the slot; `Robot`'s table has `Robot::name`. Every *object* of a class with at least
-one virtual function carries one hidden pointer — the **vptr** — to its class's
-table, planted by the constructor. A virtual call compiles to: follow the object's
-vptr, index the slot, call whatever address is there. The pointer you called through
-no longer matters; the object brought its own dispatch table.
+How can a call possibly be resolved at runtime? You already know one way: Python
+does it with a dictionary lookup — `obj.speak()` searches the object's class (and
+its parent classes) *by name*, on every call. C++ compiles that idea down to
+something far cheaper, and interviewers ask for the machinery by name. A **vtable**
+(virtual table) is a hidden per-*class* table of function addresses — one slot per
+virtual function, filled with the most-derived version for that class. `Machine`'s
+table has `Machine::name` in the slot; `Robot`'s table has `Robot::name`. Every
+*object* of a class with at least one virtual function carries one hidden pointer —
+the **vptr** — to its class's table, planted by the constructor. A virtual call
+compiles to: follow the object's vptr, index the slot, call whatever address is
+there. Where Python hashes a method name at every call, C++ turned the name into a
+fixed slot number at compile time — what remains at runtime is one indexed load. The
+pointer you called through no longer matters; the object brought its own dispatch
+table.
 
 The vptr is real, and you can see it — objects get bigger:
 
@@ -161,15 +179,16 @@ sizeof(WithVptr)   // -> 16  int + hidden 8-byte vptr + alignment padding
 
 #### Why C++ makes this opt-in
 
-Now the design question: why isn't every function virtual? Count what dynamic
-dispatch costs. Every object grows by a pointer — for a class of one `int`, that was
-4 bytes becoming 16, a 4× size increase, which matters enormously when you have a
-million small objects marching through a cache. Every call becomes two memory loads
-plus an indirect jump. The loads are nearly free; the real price is that a target
-unknown until runtime **blocks inlining** — the compiler cannot paste the function
-body into the call site, so it also cannot constant-fold, vectorize, or otherwise
-optimize across the call boundary. That lost optimization is often 10× the cost of
-the indirection itself.
+Now the design question: why isn't every function virtual? Python answers "every
+call is dynamic" and simply always pays — it is part of why a Python method call
+costs what it costs. C++ counts the cost first. Every object grows by a pointer —
+for a class of one `int`, that was 4 bytes becoming 16, a 4× size increase, which
+matters enormously when you have a million small objects marching through a cache.
+Every call becomes two memory loads plus an indirect jump. The loads are nearly
+free; the real price is that a target unknown until runtime **blocks inlining** —
+the compiler cannot paste the function body into the call site, so it also cannot
+constant-fold, vectorize, or otherwise optimize across the call boundary. That lost
+optimization is often 10× the cost of the indirection itself.
 
 The zero-overhead principle then dictates the answer: C++ refuses to make everyone
 pay for what only some need. Functions dispatch statically — free — until you write
@@ -184,7 +203,12 @@ second half in mind; step 7 shows what happens when you lose it.
 
 Step 2 showed that a derived function with a merely *similar* signature silently
 hides instead of overriding. That makes overriding fragile: one typo and your
-function is never called. Watch a one-character bug:
+function is never called. Python has this exact failure mode, and you have met its
+cousin: just as assigning to a misspelled attribute silently creates a new attribute
+(the `m.rmp = 90` gotcha from Python set 06), misspelling a method name in a
+subclass silently defines a brand-new method that nothing ever calls. Python offers
+no seatbelt there. C++ does — but you have to wear it. First, watch a one-character
+bug:
 
 ```cpp
 struct Machine {
@@ -231,7 +255,10 @@ drills follow that convention.
 You met destructors in lesson 02: a destructor is the function that runs, at a
 deterministic line, when an object dies — and in RAII code it is where files close,
 locks release, and memory frees. Inheritance adds a sharp question: *when an object
-dies through a base-class pointer, which destructor runs?*
+dies through a base-class pointer, which destructor runs?* In Python this question
+never comes up — cleanup finds the object's real type automatically, like every
+other method call. In C++ a destructor is a member function, and you have just seen
+what member functions do by default.
 
 Set the stage with the correct, everyday case — a stack object dies at its brace and
 tears down completely:
@@ -272,14 +299,13 @@ delete p;                  // prints: ~Model
                            // buf's destructor never ran. GPU memory LEAKED.
 ```
 
-Why: a destructor is a member function like any other, and this one is not virtual —
-so `delete p` static-dispatches on the pointer's type (step 2, one more time) and
-runs *only* `Model::~Model`. The derived half of the object is never torn down.
-Honesty about the fine print: the C++ standard formally declares this **undefined
-behavior** — deleting a derived object through a base pointer whose destructor is
-non-virtual means the program is allowed to do anything at all. What clang and gcc
-actually do is what you see above (verified): base destructor only, leak included,
-no diagnostic.
+Why: this destructor is not virtual — so `delete p` static-dispatches on the
+pointer's type (step 2, one more time) and runs *only* `Model::~Model`. The derived
+half of the object is never torn down. Honesty about the fine print: the C++
+standard formally declares this **undefined behavior** — deleting a derived object
+through a base pointer whose destructor is non-virtual means the program is allowed
+to do anything at all. What clang and gcc actually do is what you see above
+(verified): base destructor only, leak included, no diagnostic.
 
 The fix is one word, in one place — the base:
 
@@ -326,8 +352,16 @@ Sensor s;   // error: variable type 'Sensor' is an abstract class
 ```
 
 An abstract class whose every function is pure virtual is what other contexts call
-an *interface*: no data, no behavior, just a contract. C++ has no separate keyword
-for it — plain inheritance is the single mechanism, and a class may inherit from
+an *interface*: no data, no behavior, just a contract — and it is the
+compile-checked version of the deal duck typing gave you in Python set 06. There,
+the contract was never written down: any object with `speak()` passed, and a wrong
+one — `describe(Cat())` on a speechless `Cat` — failed only when the call actually
+ran, with a runtime `AttributeError`. The pure-virtual base writes the same contract
+into a type the compiler enforces: derive without implementing and your class cannot
+be instantiated; pass the wrong type and the code does not compile. (Python's
+`typing.Protocol`, mentioned at the end of that lesson, points the same direction;
+in C++ this is simply how interfaces are done.) There is no separate `interface`
+keyword — plain inheritance is the single mechanism, and a class may inherit from
 several bases at once when it needs to satisfy several contracts (the sharp edges of
 multiple inheritance are a story for another lesson).
 
@@ -345,8 +379,10 @@ s->read();                                                // dynamic dispatch
 ### 7. Object slicing: when the object doesn't fit
 
 Step 3 left a warning hanging: dynamic dispatch needs a pointer or reference at the
-call site. Here is what happens without one — and it is stranger than "dispatch
-turns off."
+call site. Here is what happens without one — and fair warning: this trap has *no*
+Python analog. In Python a variable is a name, and a name fits any object, so
+nothing in your Python experience predicts what comes next. That is exactly why it
+surprises everyone.
 
 Recall lesson 01's rule one final time: a variable *is* its object, and assignment
 copies the whole thing. Now combine that with inheritance and ask: copy *into what*?
@@ -490,7 +526,8 @@ tool).
 ### Drill 4 — `describe(const Sensor&)`: polymorphism by reference
 
 Task: return `"Sensor[" + name + "]"` for any sensor, taking the parameter by
-`const Sensor&`.
+`const Sensor&`. (This is `describe()` from Python set 06, ported — the duck-typed
+contract, now declared.)
 
 ```cpp
 Camera cam;
