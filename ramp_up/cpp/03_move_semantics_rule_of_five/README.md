@@ -223,7 +223,71 @@ after `int y = std::move(x);` both `x` and `y` hold the value). Fun interview nu
 a short `std::string` like `"hi"` stores its characters *inline* inside the string
 object — the "small string optimization" — so "moving" it copies those bytes too.
 
-### 5. The Rule of Three, the Rule of Five, the Rule of Zero
+### 5. Where you actually write `std::move`: three everyday sites
+
+Step 4 gave you a label and a promise. The natural next question: where in real code
+do you apply it? One rule covers every legitimate site:
+
+**You write `std::move` when *you* are done with a variable before the *compiler* can
+know it.** A variable with a name and more scope ahead of it looks alive to the
+compiler, so the compiler protects its contents. Only you know its useful life is
+already over. The label is how you say so. Three places account for nearly all real
+uses.
+
+**Site 1 — moving into a container.** You build an object, then store it:
+
+```cpp
+std::vector<FrameBuffer> frames;
+for (int i = 0; i < n; ++i) {
+    FrameBuffer frame = capture_next();     // build this iteration's frame
+    frames.push_back(std::move(frame));     // store it WITHOUT copying the pixels
+}                                           // the emptied frame dies here, cheaply
+```
+
+Without the label, `push_back(frame)` must copy every pixel — `frame`'s scope has
+another line to go, so as far as the compiler knows, you still need it. With the
+label, the vector steals the buffer. The drills prove it with the counters:
+copies 0, moves 1.
+
+**Site 2 — handing to a sink.** A **sink** is a function whose parameter is by value
+because the function intends to *keep* the object:
+
+```cpp
+void enqueue(FrameBuffer fb);           // by-value parameter: "give me the frame"
+
+FrameBuffer frame = capture_next();
+enqueue(std::move(frame));              // hand it over; frame is empty afterwards
+// frame.width() ...                    <- WRONG: you promised you were done with it
+```
+
+The drill `consume` is exactly this shape.
+
+**Site 3 — into a member, inside a constructor.** The standard spelling for "accept
+a value and keep it":
+
+```cpp
+class Robot {
+    std::string name_;
+public:
+    Robot(std::string name) : name_(std::move(name)) {}   // take by value, move into place
+};
+```
+
+The parameter `name` is already the constructor's own copy (lesson 01, step 4), so
+moving it into the member finishes the job without a second copy. This compiles and
+behaves as shown (verified).
+
+Now notice what all three sites share: **after the handoff, the variable keeps
+existing.** The loop's `frame` has a line of scope left. `name` lives until the
+constructor's closing brace. That is exactly why you had to speak up — without the
+label, the compiler protects contents you no longer want.
+
+Hold that thought, because there is one place where the variable does *not* keep
+existing afterwards — and there the label stops helping and starts hurting. That
+mistake gets step 7 to itself, right after we settle who writes all this stealing
+machinery in the first place.
+
+### 6. The Rule of Three, the Rule of Five, the Rule of Zero
 
 Now flip from *using* moves to *providing* them. `vector` ships with a correct copy
 constructor and move constructor. The classes you write need to get theirs from
@@ -314,9 +378,10 @@ for the low-level 5% that wrap a raw resource (or need observable copy/move
 behavior — which is precisely why the drill's instrumented `FrameBuffer` writes them
 out).
 
-### 6. Returning by value is free — don't "help"
+### 7. Returning by value is free — don't "help"
 
-One habit from steps 1–5 would be exactly wrong, so it gets its own step. If copying
+After step 5's three sites, one more habit suggests itself — and it is exactly
+wrong, so it gets its own step. If copying
 is expensive and `std::move` prevents copies, surely returning a big object should be
 `return std::move(result);`?
 
