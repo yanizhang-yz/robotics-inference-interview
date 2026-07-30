@@ -17,10 +17,12 @@ vanishes at its closing brace. That model has a hole in it: what about data that
 returns it. A camera frame that travels through a pipeline long after the capture
 function returned. That data can't live in a box that dies with the function.
 
-Every language has to answer this, and most answer it with a **garbage collector**: all
-objects go in one big pool, and background machinery periodically hunts for objects
-nothing refers to anymore and frees them. It works — at the cost of *when*. Collection
-runs when the collector decides, and it can pause your program to do it.
+Every language has to answer this. Python's answer is the **garbage collector**: every
+object lives in one big pool, the runtime tracks who still refers to it, and memory
+whose last reference disappears gets reclaimed for you. You wrote eight Python drill
+sets without freeing a single byte — that machinery was working the whole time. It works
+— at the cost of *when*. Collection runs when the runtime decides, and it can pause your
+program to do it.
 
 C++ refuses that trade, on purpose. A robot control loop at 50 Hz has 20 milliseconds
 per tick, every tick, forever; an inference server promises a latency budget per request.
@@ -110,9 +112,11 @@ int* p = &x;    // & means "address of" — p points at a STACK box. No heap inv
 
 Only `new` allocates on the heap. And here's the part you've been living with unaware:
 **you used the heap through all of lesson 01.** A `std::vector`'s elements live in a
-heap block — that is how it can grow — and `std::string`'s characters do too. You never
-wrote `delete` because the containers freed their blocks themselves. How they pull that
-off is exactly where this lesson is headed.
+heap block — that is how it can grow — and `std::string`'s characters do too. (Python
+goes all the way: every object you ever made in the Python drills lived in its process's
+heap — the "pool" the garbage collector patrols is exactly this region.) You never wrote
+`delete` because the containers freed their blocks themselves. How they pull that off is
+exactly where this lesson is headed.
 
 **How you give memory back.** Hand the address to `delete` — check out of the room:
 
@@ -171,8 +175,11 @@ pointer box on the stack, and the 4 MB block on the heap:
 
 Why does it "run fine"? Because the allocator's ledger only records *occupied or free*.
 Nobody audits whether you still hold the address; no collector exists to trace what's
-reachable. That is the C++ deal from lesson 01 — no garbage collector, so no surprise
-pauses — and this is the bill for it.
+reachable. Run the same loop in Python and nothing leaks: the moment `block` is rebound,
+the old object's last reference is gone and Python frees it on the spot (verified). That
+per-assignment bookkeeping, running behind every line you write, is exactly the cost C++
+declined to pay. No garbage collector, so no surprise pauses — and this is the bill for
+it.
 
 One honest question remains: the comment says the memory is gone *"until the process
 exits"* — so does the heap get cleaned up at the end? **Yes.** When a process exits, the
@@ -260,9 +267,13 @@ try {
 // caught: boom
 ```
 
-This is the deterministic cleanup the garbage-collected world can't give you: not
-"eventually", not "when the collector runs", but *on that brace, in that order, every
-time, even mid-exception*. Cleanup rides on scope.
+This is the deterministic cleanup the garbage-collected world can't give you as a
+default: not "eventually", not "when the collector runs", but *on that brace, in that
+order, every time, even mid-exception*. Cleanup rides on scope.
+
+If that exception-proof guarantee feels familiar, it should — Python has one construct
+that makes the same promise, and you have typed it a thousand times: `with`. That
+parallel is the key to the next section.
 
 ### 5. RAII: tie every resource to a scope
 
@@ -271,6 +282,15 @@ simple pattern: *put the resource inside an object*. The constructor acquires th
 resource (opens the file, locks the lock, allocates the memory); the destructor releases
 it. Section 4's scope rules then guarantee the release with no cleanup code at the call
 site, ever — you cannot forget to free something you never had to remember.
+
+You already know this pattern from Python: it is the `with` statement. `with open(path)
+as f:` acquires the file in `__enter__` and guarantees its release in `__exit__` — even
+when an exception flies out of the block, which is exactly what makes it safe to pair
+with the try-first EAFP style from Python drill set 05. RAII is that idea promoted from
+a special statement to *every object in the language*: the destructor is an `__exit__`
+you never have to remember to ask for. No `with` line to forget, no extra indentation —
+**scope itself is the with-block**. Python guarantees cleanup for the objects you
+explicitly wrap; C++ guarantees it for everything.
 
 The entire standard library is built on this one mechanism:
 
@@ -335,13 +355,17 @@ a *zero-cost abstraction*: the safety is free at runtime, which is why it's acce
 a control loop.
 
 (What if two places genuinely must share one object? That exists — `std::shared_ptr`
-keeps a count of owners and frees the object when the count hits zero — but it's the
-exception in well-designed code, not the default.)
+keeps a count of owners and frees the object when the count hits zero. If that sounds
+familiar, it should: a reference count on every object is precisely how Python manages
+its whole heap. What Python does for everything, C++ reserves for the rare case of
+genuinely shared lifetime — in well-designed code it's the exception, not the default.)
 
 ### 7. `std::move`: handing over the keys
 
 If copying is banned, how does a `unique_ptr` ever leave the function that made it? By
-**moving**: transferring ownership instead of duplicating it. `std::move(p)` is —
+**moving**: transferring ownership instead of duplicating it. (Python has no verb for
+this — when every assignment shares, nothing is ever *handed over*. Sole ownership makes
+the handoff a real operation, so C++ had to give it a spelling.) `std::move(p)` is —
 despite the name — just a marker: it moves nothing itself, it only flags `p` as "you may
 take from this". The receiving `unique_ptr` does the actual transfer: it takes the
 address and nulls out the source. Verified:
@@ -383,9 +407,10 @@ is devoted to it. For now: `std::move` on a `unique_ptr` = ownership transfer.
 
 ### 8. The rule of zero
 
-If a class hand-writes a destructor, it usually also needs hand-written copy and move
-rules — in C++ folklore, the "rule of three/five" (destructor, copy pair, and move pair
-travel together). The modern escape hatch is the **rule of zero**: make every field a
+One question remains before the drills: when you write your own resource-owning class,
+how much of this machinery must you write by hand? Ideally, none. If a class hand-writes
+a destructor, it usually also needs hand-written copy and move rules — in C++ folklore,
+the "rule of three/five" (destructor, copy pair, and move pair travel together). The modern escape hatch is the **rule of zero**: make every field a
 self-cleaning type (`std::vector`, `std::string`, `std::unique_ptr`) and write *none* of
 the five. The compiler-generated destructor destroys each field, each field frees its own
 resource, done. The `Buffer` drill below is a rule-of-zero class: it owns heap memory yet
@@ -419,7 +444,7 @@ contains no cleanup code whatsoever.
   must be initialized in the member initializer list, and the borrowing object must not
   outlive the thing it borrows.
 - **`std::size_t`** is the unsigned (never negative) integer type C++ uses for sizes and
-  indexing. **`long long`** is the guaranteed-64-bit integer (lesson 01, step 11).
+  indexing. **`long long`** is the guaranteed-64-bit integer (lesson 01, step 12).
 
 ## Muscle memory
 
@@ -514,7 +539,9 @@ preprocess → inference) hand frames along the same way.
 ### Drill 4 — `ScopedLogger`: the RAII scope guard
 
 Task: constructor appends `"enter"` to the borrowed log vector, destructor appends
-`"exit"`. Copying is already `= delete`d in the stub.
+`"exit"`. Copying is already `= delete`d in the stub. In Python terms you are writing
+`__enter__` and `__exit__` — except no caller ever needs a `with` line, because the
+brace is the block.
 
 ```cpp
 std::vector<std::string> log;
