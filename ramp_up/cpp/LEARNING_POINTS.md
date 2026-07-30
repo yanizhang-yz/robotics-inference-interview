@@ -1,8 +1,21 @@
 # C++ Foundations for Inference and Robotics
 
-This is a standalone introduction. It assumes you can program — variables, loops,
-functions, classes — but have never had to think about memory. That is the one new
-skill C++ demands. It is also the skill that unlocks GPUs.
+This is a standalone introduction, written for someone arriving from the Python track
+(`ramp_up/python/`): fluent with variables, loops, functions, and classes, but never
+forced to think about memory. That is the one new skill C++ demands. It is also the
+skill that unlocks GPUs.
+
+Coming from Python, four defaults invert — watch for them throughout this document
+and the lessons:
+
+- **Assignment copies.** In Python, `b = a` makes a second name for one object; in
+  C++ it copies the whole container (section 3).
+- **Types are checked before the program runs.** Wrong types don't explode at
+  runtime; they refuse to compile.
+- **No garbage collector.** Cleanup isn't "eventually" — destructors run at a
+  closing brace you can point to (section 7).
+- **Indexing a map may insert.** Python's `d[k]` raises `KeyError` on a missing
+  key; C++'s `m[k]` quietly creates the entry (section 9).
 
 Every code snippet in this document was compiled and run with `clang++ -std=c++17`
 before it was written down. You can trust the behavior shown.
@@ -14,9 +27,10 @@ before it was written down. You can trust the behavior shown.
 A robot arm must react in a few milliseconds, every time. An inference server must
 answer within its latency budget, every time. These are deadlines.
 
-Most popular languages use a garbage collector. A garbage collector is a background
-system that finds unused memory and reclaims it. It runs when *it* decides to. When
-it runs, your program can pause. A pause at the wrong moment blows the deadline.
+Python — like most popular languages — uses a garbage collector. A garbage collector
+is a background system that finds unused memory and reclaims it. It runs when *it*
+decides to. When it runs, your program can pause. A pause at the wrong moment blows
+the deadline.
 
 C++ has no garbage collector. Nothing runs behind your back. Every cost in a C++
 program is a line you wrote, paid at the moment that line executes. This is called
@@ -42,9 +56,10 @@ Here is the model. Everything else in this document is a corollary of it.
 
 > **A variable is a box of bytes at a fixed address.**
 
-Not a label. Not a handle to an object living somewhere else. The variable *is* the
-bytes. `int x = 7;` reserves 4 bytes somewhere and writes the value 7 into them.
-Ask for the address with `&x` and you get a real number, like `0x16b4deaac`.
+Not a label. Not a handle to an object living somewhere else — which is exactly what
+a Python name is. The variable *is* the bytes. `int x = 7;` reserves 4 bytes
+somewhere and writes the value 7 into them. Ask for the address with `&x` and you
+get a real number, like `0x16b4deaac`.
 
 **Assignment copies the bytes.** `int y = x;` makes a second, independent box and
 copies the 4 bytes into it. Change `y` and `x` does not move. For bigger objects
@@ -208,9 +223,10 @@ void risky() {
 ```
 
 **RAII** (Resource Acquisition Is Initialization) is the idiom built on that hook:
-a constructor acquires a resource, the destructor releases it. Wrap any resource —
-heap block, file, lock, GPU buffer — in an object, and cleanup becomes impossible
-to forget, on every path, exception or not. This is C++'s deepest idea.
+a constructor acquires a resource, the destructor releases it — Python's `with`
+statement, generalized to every object, with no `with` line to remember. Wrap any
+resource — heap block, file, lock, GPU buffer — in an object, and cleanup becomes
+impossible to forget, on every path, exception or not. This is C++'s deepest idea.
 
 The standard library ships RAII wrappers for heap memory, called smart pointers:
 
@@ -295,7 +311,8 @@ from the header, definitions from the prebuilt library. Same two stages.
 
 ## 9. The workhorse containers
 
-Four types cover most real code. Each is a stack box managing a heap block.
+Four types cover most real code — Python's `list`, `str`, `dict`, and the sorted map
+Python's standard library lacks. Each is a stack box managing a heap block.
 
 | Container | What it is | Cost intuition |
 |---|---|---|
