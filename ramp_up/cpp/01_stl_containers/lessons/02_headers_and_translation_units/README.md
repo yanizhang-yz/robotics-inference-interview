@@ -8,9 +8,13 @@ files, then link those pieces into one executable.
 ## Mental model
 
 A **declaration** tells the compiler a name, its type, and how it may be used.
-A **definition** provides the thing itself: storage for a variable or the body
-of a function. `joint_limits.hpp` declares `JointLimits` and
-`clamp_to_limits`; `joint_limits.cpp` defines `clamp_to_limits`.
+A **definition** provides the thing itself: storage for a variable, the body
+of a function, or the full layout of a class or struct. Headers expose the
+declarations and definitions that every translation unit needs to see, such as
+class definitions, inline functions, constants, and templates.
+`joint_limits.hpp` defines `JointLimits` and declares `clamp_to_limits`;
+`joint_limits.cpp` contains the one non-inline definition of
+`clamp_to_limits`.
 
 `#include` is textual inclusion: before compilation, the preprocessor replaces
 the include line with the header's contents. `#pragma once` prevents that
@@ -63,8 +67,13 @@ starter is expected to fail its first safety assertion.
 
 ## Explain it
 
-- A header shares declarations; source files supply definitions.
-- Textual inclusion makes declarations visible in each translation unit.
+- A header shares declarations and the definitions that must be visible in
+  each translation unit, including class definitions, inline functions,
+  constants, and templates.
+- This lesson keeps the non-inline `clamp_to_limits` definition in exactly one
+  `.cpp` file, satisfying the One Definition Rule (ODR).
+- Textual inclusion makes a header's declarations and needed definitions
+  visible in each translation unit.
 - The linker resolves references between independently compiled translation
   units to form the executable.
 

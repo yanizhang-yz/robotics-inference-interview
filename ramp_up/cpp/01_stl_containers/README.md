@@ -16,8 +16,8 @@ General programming experience is enough. You do not need prior C++ experience.
 | [04 — References and const](lessons/04_references_and_const/) | Read-only and mutable aliases | Choose a parameter type that communicates intended access. |
 | [05 — Pointer borrows](lessons/05_pointer_borrows/) | Nullable, non-owning access and lifetime | Return an address only while its referent remains alive. |
 | [06 — Optional results](lessons/06_optional_results/) | Owned values that may be absent | Model a lookup that has no result without a sentinel. |
-| [07 — Containers and storage](lessons/07_containers_and_storage/) | `std::vector`, strings, maps, and contiguous storage | Keep frame bytes adjacent and select a container by access pattern. |
-| [08 — Algorithms and iteration](lessons/08_algorithms_and_iteration/) | Ranges, iterators, and standard algorithms | Transform or search a container without hand-rolling loops unnecessarily. |
+| [07 — Containers and storage](lessons/07_containers_and_storage/) | `std::vector` ownership and contiguous frame storage | Keep grayscale frame bytes in one owned, contiguous vector. |
+| [08 — Algorithms and iteration](lessons/08_algorithms_and_iteration/) | Range-based iteration and `std::sort` | Select frame IDs with a range-based loop, then sort the result with a standard algorithm. |
 | [09 — Introductory templates](lessons/09_introductory_templates/) | Type-parameterized code and instantiation | Reuse one algorithm for several value types. |
 | [10 — Classes and member initialization](lessons/10_classes_and_member_initialization/) | Object construction and member-initializer lists | Trace how a small value type is initialized. |
 
@@ -39,6 +39,9 @@ If you can explain every answer without guessing, take the fast path: attempt th
 ## Root capstone
 
 The capstone preserves five contracts in `starter.cpp`. Implement them without changing their signatures:
+
+Its exercises apply strings, maps, and sets alongside vectors and standard
+algorithms.
 
 | Function | Contract | Expected complexity |
 | --- | --- | --- |
