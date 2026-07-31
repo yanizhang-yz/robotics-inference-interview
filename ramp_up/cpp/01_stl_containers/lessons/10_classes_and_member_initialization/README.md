@@ -2,13 +2,10 @@
 
 ## Problem
 
-## Application
-
-An image sensor gives a pipeline a frame width, height, and one initial pixel
-value. Build a `CameraFrame` object that keeps those facts together and
-constructs a `width * height` pixel buffer filled with that value. Downstream
-code may inspect the frame, but it must not be able to replace its dimensions
-or pixel storage directly.
+Camera metadata and pixel storage must describe the same image from the moment
+a frame is created. How can construction guarantee that the recorded width and
+height match an initialized pixel buffer, without exposing those members for
+downstream code to change independently?
 
 ## Mental model
 
@@ -44,6 +41,14 @@ earlier in the list.
 when the `CameraFrame` is destroyed. This class therefore needs no destructor,
 copy constructor, or copy-assignment operator: it is an early example of the
 Rule of Zero.
+
+## Application
+
+An image sensor gives a pipeline a frame width, height, and one initial pixel
+value. Build a `CameraFrame` object that keeps those facts together and
+constructs a `width * height` pixel buffer filled with that value. Downstream
+code may inspect the frame, but it must not be able to replace its dimensions
+or pixel storage directly.
 
 ## Prediction
 

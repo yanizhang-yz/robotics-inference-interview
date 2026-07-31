@@ -33,7 +33,7 @@ available in their original order for logging, diagnostics, or another policy.
 returns a new collection containing only qualifying IDs, sorted in ascending
 order.
 
-## Prediction checkpoints
+## Prediction
 
 Before running the program, answer these questions:
 

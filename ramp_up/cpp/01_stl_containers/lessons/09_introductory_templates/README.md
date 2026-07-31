@@ -34,7 +34,7 @@ when no sample exists. The vector remains the owner, so the returned pointer is
 valid only while that vector stays alive and is not changed in a way that moves
 its elements.
 
-## Prediction checkpoints
+## Prediction
 
 Before running the program, answer these questions:
 

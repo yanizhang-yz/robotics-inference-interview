@@ -29,6 +29,16 @@ CONTRACT_HEADINGS = (
 )
 
 
+def _level_two_sections(text: str) -> list[tuple[str, str]]:
+    sections: list[tuple[str, list[str]]] = []
+    for line in text.splitlines():
+        if line.startswith("## "):
+            sections.append((line, []))
+        elif sections:
+            sections[-1][1].append(line)
+    return [(heading, "\n".join(lines)) for heading, lines in sections]
+
+
 def test_cpp_curriculum_entry_docs_exist() -> None:
     missing = [str(path.relative_to(ROOT)) for path in ENTRY_DOCS if not path.exists()]
     assert missing == []
@@ -56,11 +66,24 @@ def test_discovered_micro_lessons_follow_the_contract() -> None:
                     )
             readme = lesson_dir / "README.md"
             if readme.exists():
-                text = readme.read_text()
-                for heading in CONTRACT_HEADINGS:
-                    if heading not in text:
+                sections = _level_two_sections(readme.read_text())
+                required_sections = [
+                    (heading, content)
+                    for heading, content in sections
+                    if heading in CONTRACT_HEADINGS
+                ]
+                actual_headings = tuple(
+                    heading for heading, _content in required_sections
+                )
+                if actual_headings != CONTRACT_HEADINGS:
+                    violations.append(
+                        f"{lesson_dir.relative_to(ROOT)}: expected required headings "
+                        f"{CONTRACT_HEADINGS}, got {actual_headings}"
+                    )
+                for heading, content in required_sections:
+                    if not content.strip():
                         violations.append(
-                            f"{lesson_dir.relative_to(ROOT)}: missing {heading}"
+                            f"{lesson_dir.relative_to(ROOT)}: empty {heading}"
                         )
     assert violations == []
 
