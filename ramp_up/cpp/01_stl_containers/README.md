@@ -38,10 +38,7 @@ If you can explain every answer without guessing, take the fast path: attempt th
 
 ## Root capstone
 
-The capstone preserves five contracts in `starter.cpp`. Implement them without changing their signatures:
-
-Its exercises apply strings, maps, and sets alongside vectors and standard
-algorithms.
+The capstone preserves six contracts in `starter.cpp`. Implement them without changing their signatures. Its exercises apply strings, maps, and sets alongside vectors and standard algorithms.
 
 | Function | Contract | Expected complexity |
 | --- | --- | --- |
@@ -50,6 +47,7 @@ algorithms.
 | `topKSmallest` | Sort a by-value input and return its smallest `k` values without changing the caller’s vector. | O(n log n) time, O(n) input copy space |
 | `groupByLength` | Group words by length while preserving order inside each group and sorted length keys. | O(n) time plus map insertion costs, O(n) space |
 | `sumOfUnique` | Add each distinct integer exactly once using a `long long` result. | O(n) average time, O(u) space |
+| `appendDoubled` | Append doubled copies of the original elements without retaining invalidated vector iterators or references. | O(n) time, amortized O(n) growth space |
 
 Run the reference capstone:
 

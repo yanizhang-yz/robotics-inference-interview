@@ -4,12 +4,11 @@ Fill in each function below, then run the tests against this file:
 
     PRACTICE=1 uv run pytest ramp_up/python/04_dicts_sets_counters -v
 
-Each docstring has two lines:
-    JAVA:   what you would reach for in Java
-    PYTHON: the idiom to use instead
+Each docstring names the Python idiom to reach for.
 """
 
 from typing import Any
+from collections import Counter, defaultdict
 
 
 def group_by_first_letter(words: list[str]) -> dict[str, list[str]]:
@@ -19,8 +18,7 @@ def group_by_first_letter(words: list[str]) -> dict[str, list[str]]:
     group_by_first_letter(["apple", "bat", "avocado"])
         == {"a": ["apple", "avocado"], "b": ["bat"]}
 
-    JAVA: map.computeIfAbsent(w.charAt(0), k -> new ArrayList<>()).add(w).
-    PYTHON: collections.defaultdict(list) — accessing a missing key creates
+    HINT: collections.defaultdict(list) — accessing a missing key creates
         the empty list for you: groups[word[0]].append(word). Convert with
         dict(groups) at the end so the auto-create behavior doesn't leak out.
     """
@@ -32,11 +30,11 @@ def count_items(items: list) -> dict:
 
     count_items(["a", "b", "a"]) == {"a": 2, "b": 1}
 
-    JAVA: HashMap loop with merge(item, 1, Integer::sum) or getOrDefault.
-    PYTHON: Counter(items) does the entire loop; wrap in dict(...) to return
+    HINT: Counter(items) does the entire loop; wrap in dict(...) to return
         a plain dict.
     """
     raise NotImplementedError
+    
 
 
 def top_k_frequent(items: list, k: int) -> list:
@@ -46,20 +44,17 @@ def top_k_frequent(items: list, k: int) -> list:
 
     top_k_frequent(["a", "a", "b", "b", "b", "c"], 2) == ["b", "a"]
 
-    JAVA: count map, then a PriorityQueue with a comparator, then drain it.
-    PYTHON: Counter(items).most_common(k) returns (item, count) pairs already
+    HINT: Counter(items).most_common(k) returns (item, count) pairs already
         sorted; strip the counts with a list comprehension.
     """
     raise NotImplementedError
-
 
 def invert_mapping(d: dict) -> dict:
     """Swap keys and values. Values are assumed unique (and hashable).
 
     invert_mapping({"a": 1, "b": 2}) == {1: "a", 2: "b"}
 
-    JAVA: loop over entrySet(), put(entry.getValue(), entry.getKey()).
-    PYTHON: one dict comprehension: {v: k for k, v in d.items()}.
+    HINT: one dict comprehension: {v: k for k, v in d.items()}.
     """
     raise NotImplementedError
 
@@ -70,8 +65,7 @@ def merge_sum(d1: dict, d2: dict) -> dict:
 
     merge_sum({"a": 1, "b": 2}, {"b": 3, "c": 4}) == {"a": 1, "b": 5, "c": 4}
 
-    JAVA: copy d1, then d2.forEach((k, v) -> merged.merge(k, v, Integer::sum)).
-    PYTHON: merged = Counter(d1); merged.update(d2) — Counter.update ADDS
+    HINT: merged = Counter(d1); merged.update(d2) — Counter.update ADDS
         counts instead of replacing. (Or a plain loop:
         merged[k] = merged.get(k, 0) + v.)
     """
@@ -85,8 +79,7 @@ def get_nested(d: dict, keys: list, default: Any = None) -> Any:
     get_nested({"a": {"b": {"c": 42}}}, ["a", "b", "c"]) == 42
     get_nested({"a": {}}, ["a", "b"], default=-1) == -1
 
-    JAVA: a pyramid of null checks (or Optional.map chains) — one per level.
-    PYTHON: walk with a for loop; `key in current` and isinstance(current,
+    HINT: walk with a for loop; `key in current` and isinstance(current,
         dict) guard each step, returning default early. d.get(k) returning
         None instead of throwing is what makes this short.
     """
@@ -99,9 +92,8 @@ def first_duplicate(items: list) -> Any:
 
     first_duplicate([3, 1, 4, 1, 5, 9, 5]) == 1
 
-    JAVA: HashSet with the `if (!seen.add(x)) return x;` trick.
-    PYTHON: a seen set with `if item in seen: return item` — `in` on a set
-        is O(1), same as contains(). Functions return None implicitly when
+    HINT: a seen set with `if item in seen: return item` — `in` on a set
+        is an O(1) membership test. Functions return None implicitly when
         they fall off the end.
     """
     raise NotImplementedError
@@ -112,9 +104,7 @@ def have_common_element(a: list, b: list) -> bool:
 
     have_common_element([1, 2, 3], [3, 4]) is True
 
-    JAVA: copy one list into a HashSet, then retainAll (mutates!) and check
-        isEmpty — or loop b calling contains.
-    PYTHON: not set(a).isdisjoint(b) — isdisjoint takes ANY iterable, short-
+    HINT: not set(a).isdisjoint(b) — isdisjoint takes ANY iterable, short-
         circuits on the first hit, and mutates nothing. (set(a) & set(b)
         works too but builds the whole intersection.)
     """
@@ -126,10 +116,9 @@ def unique_in_order(items: list) -> list:
 
     unique_in_order([3, 1, 3, 2, 1]) == [3, 1, 2]
 
-    JAVA: new ArrayList<>(new LinkedHashSet<>(items)).
-    PYTHON: list(dict.fromkeys(items)) — dicts preserve insertion order
+    HINT: list(dict.fromkeys(items)) — dicts preserve insertion order
         (guaranteed since 3.7), and fromkeys keeps the first occurrence of
-        each key. No LinkedHashSet needed: every dict IS one.
+        each key. No insertion-ordered set type needed: every dict IS one.
     """
     raise NotImplementedError
 
@@ -140,8 +129,7 @@ def first_unique_char(s: str) -> int:
 
     first_unique_char("loveleetcode") == 2
 
-    JAVA: int[26] count array (or HashMap), then a second indexed for-loop.
-    PYTHON: counts = Counter(s), then scan with enumerate(s) for the first
+    HINT: counts = Counter(s), then scan with enumerate(s) for the first
         index where counts[c] == 1 — next((...), -1) gives the sentinel.
     """
     raise NotImplementedError

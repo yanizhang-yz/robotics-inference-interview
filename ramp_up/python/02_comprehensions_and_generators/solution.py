@@ -1,9 +1,10 @@
 """
 Comprehensions and Generators — reference solutions.
 
-The recurring theme: what Java Streams expresses as a pipeline with a
-terminal collector, Python expresses as a comprehension (eager, bracket
-picks the container) or a generator (lazy, produced on demand).
+The recurring theme: filter-map-collect pipelines that many languages
+spell as chained method calls, Python expresses as a comprehension
+(eager, bracket picks the container) or a generator (lazy, produced on
+demand).
 """
 
 import itertools

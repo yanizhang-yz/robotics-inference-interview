@@ -1,81 +1,51 @@
 # 01 — Collections and Slicing
 
-This lesson replaces four things you do daily in Java — arrays/`ArrayList`,
-`Arrays.copyOfRange`, `Collections.reverse`/`rotate`, and `Comparator` chains — with two
-Python tools: the `list` type and the slice syntax `lst[start:stop:step]`. After it, you
-should be able to rotate, reverse, chunk, sample, and multi-key-sort a list in one line
-each, without mutating the input, and know exactly which interview problems those one-liners
-solve. Everything here assumes Java knowledge and zero Python. All outputs shown in
-comments were run and verified.
+This lesson covers the two tools behind most everyday sequence work in Python: the `list`
+type and the slice syntax `lst[start:stop:step]`. After it, you should be able to rotate,
+reverse, chunk, sample, and multi-key-sort a list in one line each, without mutating the
+input, and know exactly which interview problems those one-liners solve. Every term is
+defined at first use, and all outputs shown in comments were run and verified.
 
-## The Java you know
+## The problem this lesson solves
 
-This is the topic done the Java way — keep it in mind as the "before" picture:
-
-```java
-int[] raw = {5, 1, 4, 2, 3};                        // primitive array: fixed size
-List<Integer> nums = new ArrayList<>(List.of(5, 1, 4, 2, 3)); // resizable, boxed
-
-// last two elements — index math, and subList is a VIEW of the original, not a copy
-List<Integer> lastTwo = nums.subList(nums.size() - 2, nums.size());
-
-// reversed copy — the utility mutates, so you must copy first
-List<Integer> rev = new ArrayList<>(nums);
-Collections.reverse(rev);                            // returns void, mutates rev
-
-// rotate left by 2 — also mutates
-Collections.rotate(nums, -2);
-
-// sort by length, ties alphabetical
-List<String> words = new ArrayList<>(List.of("banana", "kiwi", "fig"));
-words.sort(Comparator.comparing(String::length)
-                     .thenComparing(Comparator.naturalOrder()));
-```
-
-Every one of those has a shorter Python spelling, and the Python versions return new lists
-instead of mutating — which is exactly the behavior the tests in this folder check for.
+Most list manipulation — take the last n items, reverse without destroying the original,
+rotate by k, split into batches, sort by two criteria at once — *can* be written as index
+loops with careful bounds arithmetic. That version is slow to type, easy to get wrong at
+the edges, and instantly reads as unidiomatic in an interview. Python compresses each of
+those operations into a one-line idiom built on slicing, unpacking, and key functions —
+and the idiomatic versions return new lists instead of mutating, which is exactly the
+behavior the tests in this folder check for.
 
 ## The lesson
 
-### One `list` where Java has two worlds
+### One `list` for everything
 
-In Java you juggle two families of sequences: primitive arrays (`int[]`) and object
-collections (`ArrayList<Integer>`). They do not mix — a generic collection cannot hold a
-primitive `int`, so Java silently wraps every `int` you add into an `Integer` object (this
-wrapping is called **autoboxing**) and unwraps it when you read (**unboxing**). That costs
-an allocation per element and causes the classic bug where two equal `Integer`s fail `==`:
-
-```java
-Integer a = 1000, b = 1000;
-System.out.println(a == b);       // false — == compares object identity
-System.out.println(a.equals(b));  // true
-Integer c = 100, d = 100;
-System.out.println(c == d);       // true (!) — the JVM pre-caches -128..127 only
-```
-
-Python has none of this. There is exactly one everyday sequence type, `list`. It is
-resizable, there are no primitives and no wrapper types, and it is **heterogeneous** —
-meaning its elements may be of different types in the same list:
+Many languages make you juggle two families of sequences: a fixed-size primitive array
+for compact storage and a resizable object container layered on top, with wrapping and
+conversion rules where the two meet. Python has none of this. There is exactly one
+everyday sequence type, `list`. It is resizable, and it is **heterogeneous** — meaning
+its elements may be of different types in the same list:
 
 ```python
-nums = [5, 1, 4, 2, 3]      # a list literal — no `new`, no generics
+nums = [5, 1, 4, 2, 3]      # a list literal — no `new`, no type declarations
 mixed = [1, "two", 3.0]     # legal: int, str, float in one list
 ```
 
-Python also swaps the meaning of Java's two equality operators: `==` in Python compares
-*values* (Java's `.equals()`), and the keyword `is` compares *identity* (Java's `==`).
-You will almost always want `==`.
+Python has two comparison operators, and they answer different questions: `==` compares
+*values* (do these objects hold the same contents?), and the keyword `is` compares
+*identity* (are these literally the same object in memory?). You will almost always
+want `==`.
 
 ```python
-[1, 2] == [1, 2]   # -> True    same contents (Java's .equals)
-[1, 2] is [1, 2]   # -> False   two separate objects (Java's ==)
+[1, 2] == [1, 2]   # -> True    same contents
+[1, 2] is [1, 2]   # -> False   two separate objects
 x = [1, 2]; y = x
 x is y             # -> True    y is an alias — the SAME object
 ```
 
-One thing that carries over unchanged from Java: **variables are references**. A Python
-name is a pointer to an object, never a copy of it, so assigning a list to a second name
-creates an **alias** — two names for the same object:
+One rule sits underneath all of this: **variables are references**. A Python name is a
+pointer to an object, never a copy of it, so assigning a list to a second name creates
+an **alias** — two names for the same object:
 
 ```python
 u = [1, 2]
@@ -89,34 +59,34 @@ below). This matters for every drill, because the tests verify you did not mutat
 
 ### Indexing: negative numbers count from the end
 
-`lst[i]` is Java's `list.get(i)`. The new part: a **negative index** counts backwards from
-the end, with `-1` meaning the last element. This kills the `list.get(list.size() - 1)`
-dance forever:
+`lst[i]` fetches the element at index `i`, counting from 0. The new part: a **negative
+index** counts backwards from the end, with `-1` meaning the last element. This kills the
+`lst[len(lst) - 1]` dance forever:
 
 ```python
 lst = [10, 20, 30]
 lst[-1]     # -> 30   (last)
 lst[-2]     # -> 20   (second to last)
-lst[10]     # raises IndexError — Python's IndexOutOfBoundsException
+lst[10]     # raises IndexError — out-of-range single indexes still throw
 ```
 
-Note the last line: a *single* out-of-range index still throws, exactly like Java. Only
-slices (next section) are forgiving.
+Note the last line: a *single* out-of-range index throws an exception. Only slices
+(next section) are forgiving.
 
 ### Slicing: `lst[start:stop:step]`
 
 A **slice** takes a sub-sequence in one expression: `lst[start:stop:step]`. The rules:
 
 - **Half-open interval**: includes `start`, excludes `stop` — the same convention as
-  Java's `subList(from, to)` and `String.substring`. `lst[1:3]` is elements 1 and 2.
+  `range`. `lst[1:3]` is elements 1 and 2.
 - Every part is optional. `start` defaults to 0, `stop` to the end, `step` to 1.
 - **`step`** (also called the **stride**) is how far to jump between elements. Step 2 takes
   every other element; step -1 walks backwards.
 - Slices **clamp** instead of throwing: indices past the end are silently pulled back to
   the boundary. There is no exception a slice can raise for being out of range.
-- A slice always builds and returns a **new list**. Java's `subList` returns a live *view*
-  of the original (mutate the view, mutate the original); a Python slice is an independent
-  copy of that range.
+- A slice always builds and returns a **new list** — an independent copy of that range.
+  (In some languages a sub-list is a live *view*: mutate the view, mutate the original.
+  A Python slice never does that.)
 
 ```python
 lst = [1, 2, 3, 4, 5]
@@ -153,18 +123,17 @@ A **deep copy** (recursively copying the inner objects too) exists as
 
 ### Mutate in place vs. return a copy — the `None` trap
 
-"**In place**" means modifying the existing object instead of building a new one — what
-`Collections.sort(list)` and `Collections.reverse(list)` do in Java. Python gives you both
-verbs for every operation, with a naming convention:
+"**In place**" means modifying the existing object instead of building a new one. Python
+gives you both verbs for every operation, with a naming convention:
 
 | copying (returns a new list)   | mutating in place (returns nothing) |
 |--------------------------------|--------------------------------------|
 | `sorted(lst)`                  | `lst.sort()`                         |
 | `lst[::-1]`                    | `lst.reverse()`                      |
 
-"Returns nothing" in Python means returning **`None`** — Python's `null`, and the implicit
-return value of any function without a `return` statement. This is the number-one
-Java-refugee bug: **if you write `result = lst.sort()`, you stored `None`, because
+"Returns nothing" in Python means returning **`None`** — Python's "no value", and the
+implicit return value of any function without a `return` statement. This is a classic
+newcomer bug: **if you write `result = lst.sort()`, you stored `None`, because
 `.sort()` mutates and returns nothing** — and the crash happens later, wherever `result`
 is first used.
 
@@ -181,7 +150,7 @@ avoid a copy.
 
 A **tuple** is a list that is **immutable** — frozen after creation, no appends, no item
 assignment. Written with parentheses (or nothing at all: `1, 2` is already a tuple).
-The closest Java analogs are a `record` or the fixed lists from `List.of(...)`:
+It is Python's built-in fixed-size record — no class definition needed:
 
 ```python
 t = (1, 2)
@@ -194,23 +163,24 @@ assigned to the left-hand names — which is why no temp variable is needed:
 
 ```python
 a, b = 1, 2
-a, b = b, a            # -> a == 2, b == 1   (Java: int tmp = a; a = b; b = tmp;)
+a, b = b, a            # -> a == 2, b == 1   (no temp variable)
 first, *rest = [1, 2, 3, 4]   # -> first == 1, rest == [2, 3, 4]
 ```
 
-The `*` in unpacking means "collect the remainder into a list" — like a varargs catch-all.
+The `*` in unpacking means "collect the remainder into a list" — a varargs-style catch-all.
 
-### Sorting: key functions, not Comparators
+### Sorting: key functions
 
-Java sorts by transforming *comparisons*: a `Comparator` takes two elements and says which
-is smaller. Python sorts by transforming *elements*: you pass a **key function** —
-called once per element — and Python orders the elements by their keys. `lambda` is just
-Python's arrow syntax: `lambda w: expr` is Java's `w -> expr`.
+Some languages sort by transforming *comparisons*: you supply a comparator function that
+takes two elements and says which is smaller. Python sorts by transforming *elements*:
+you pass a **key function** — called once per element — and Python orders the elements
+by their keys. `lambda` is Python's inline anonymous-function syntax: `lambda w: expr`
+defines an unnamed function that takes `w` and returns `expr`.
 
-The comparator *chain* falls out for free because of one fact: **tuples compare
+Multi-level sorting falls out for free because of one fact: **tuples compare
 lexicographically**. "Lexicographic" is dictionary order — compare first components; only
-on a tie compare the second; and so on. So a tuple-valued key IS
-`comparing(...).thenComparing(...)`:
+on a tie compare the second; and so on. So a tuple-valued key IS a full
+sort-by-this-then-by-that chain:
 
 ```python
 words = ["banana", "kiwi", "fig", "date", "apple"]
@@ -230,15 +200,15 @@ Two more tools you will use constantly:
   ```
 - **Stability**: Python's sort is **stable** — elements with equal keys keep their original
   relative order. `sorted(["bb", "aa", "cc"], key=len)` returns `['bb', 'aa', 'cc']`
-  unchanged, because all keys tie. (Java's `Collections.sort` is also stable, so your
-  instincts here transfer.)
+  unchanged, because all keys tie. Stability is what makes multi-pass sorting (sort by a
+  secondary key first, then the primary) work at all.
 
 ### `zip`: lockstep iteration
 
 `zip(a, b)` walks two (or more) sequences in parallel, yielding pairs, and **stops at the
-shorter input** — no `Math.min(a.size(), b.size())` bookkeeping. It is **lazy**: it
-produces pairs on demand rather than building a list up front, so wrap it in `list(...)`
-if you want to look at the result directly:
+shorter input** — no manual length bookkeeping. It is **lazy**: it produces pairs on
+demand rather than building a list up front, so wrap it in `list(...)` if you want to
+look at the result directly:
 
 ```python
 list(zip([1, 2, 3], ["a"]))       # -> [(1, 'a')]  — stopped after the shorter list
@@ -247,9 +217,9 @@ list(zip([1, 3, 5], [2, 4, 6]))   # -> [(1, 2), (3, 4), (5, 6)]
 
 ### List comprehensions — the minimum dose
 
-A **comprehension** builds a list from a loop in one expression — Python's replacement for
-`stream().filter(...).map(...).collect(toList())`. Two `for` clauses read left to right,
-exactly like the equivalent nested loops:
+A **comprehension** builds a list from a loop in one expression — filter, transform, and
+collect in a single line. Two `for` clauses read left to right, exactly like the
+equivalent nested loops:
 
 ```python
 [x * 2 for x in [1, 2, 3]]                    # -> [2, 4, 6]
@@ -260,7 +230,7 @@ That second shape (flattening) is all this lesson needs; comprehensions get thei
 treatment in drill set `02_comprehensions_and_generators`.
 
 One last idiom you will see in the solutions: **truthiness**. Empty collections count as
-`False` in a boolean context, so `if not lst:` is the idiomatic `if (list.isEmpty())`:
+`False` in a boolean context, so `if not lst:` is the idiomatic emptiness check:
 
 ```python
 not []        # -> True    an empty list is "falsy"
@@ -281,7 +251,7 @@ lst[::-1]                                 # reversed copy
 lst[k:] + lst[:k]                         # rotate left by k (k already reduced % len)
 lst[i:i + size]                           # one chunk; clamps at the end
 a, b = b, a                               # swap, no temp
-sorted(xs, key=lambda x: (x[0], -x[1]))   # comparator chain via tuple key
+sorted(xs, key=lambda x: (x[0], -x[1]))   # multi-key sort via tuple key
 [x for sub in nested for x in sub]        # flatten one level
 list(lst)                                 # shallow copy (== lst[:])
 ```
@@ -302,8 +272,9 @@ lst[k:] + lst[:k]          # -> [3, 4, 5, 1, 2]
 ```
 
 Guard the empty list first (`if not lst: return []`) because `k % 0` raises
-`ZeroDivisionError`. Bonus over Java: Python's `%` never returns a negative for a positive
-divisor (`-1 % 5 == 4`, where Java gives `-1`), so negative rotations wrap correctly for free.
+`ZeroDivisionError`. Bonus: Python's `%` never returns a negative result for a positive
+divisor (`-1 % 5 == 4`; in many languages the sign of `%` follows the left operand and
+`-1 % 5` is `-1`), so negative rotations wrap correctly for free.
 
 **Where you'll see it:** this is literally "Rotate Array" (LeetCode 189, usually asked as
 rotate-right — same idiom, flipped slice). In robotics it is the ring/circular buffer
@@ -387,7 +358,7 @@ most-typed functions in ML code: pairing timestamps with sensor readings, joint 
 joint angles, predictions with labels. Party trick worth memorizing: `list(zip(*matrix))`
 transposes a matrix — `[[1, 2, 3], [4, 5, 6]]` becomes `[(1, 4), (2, 5), (3, 6)]`. (Here `*`
 means the opposite of the unpacking `*` above: in a *call*, `zip(*rows)` spreads the list's
-items out as separate arguments, i.e. `zip(rows[0], rows[1])` — Java has no equivalent.)
+items out as separate arguments, i.e. `zip(rows[0], rows[1])`.)
 
 ### `sort_by_length_then_alpha(words)`
 
@@ -398,7 +369,7 @@ sorted(["banana", "kiwi", "fig", "date", "apple"], key=lambda w: (len(w), w))
 # -> ['fig', 'date', 'kiwi', 'apple', 'banana']
 ```
 
-The tuple key is the entire `Comparator.comparing(...).thenComparing(...)` chain.
+The tuple key is the entire sort-by-length-then-alphabetical chain in one expression.
 
 **Where you'll see it:** custom-sort is its own interview genre — "Merge Intervals"
 (sort by start first), "K Closest Points to Origin" (sort by distance), "Top K Frequent
@@ -450,8 +421,8 @@ Flatten a list of lists into one list — one level deep only.
 [x for sub in [[1, [2]], [3]] for x in sub]         # -> [1, [2], 3]  (inner nesting kept)
 ```
 
-This is `stream().flatMap(List::stream)`. Read the `for` clauses left to right: outer loop,
-then inner loop — the same order you would write the nested `for` statements.
+Read the `for` clauses left to right: outer loop, then inner loop — the same order you
+would write the nested `for` statements.
 
 **Where you'll see it:** the deep-recursive version is "Flatten Nested List Iterator";
 the one-level version is a daily chore — merging per-camera detection lists into one,

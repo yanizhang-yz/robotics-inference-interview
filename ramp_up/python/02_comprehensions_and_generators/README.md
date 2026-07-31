@@ -1,43 +1,23 @@
 # 02 — Comprehensions and Generators
 
-This lesson replaces `java.util.stream` in your head. After it, you will be able to
-collapse any `stream().filter().map().collect()` pipeline into one line of Python,
+This lesson covers Python's two ways of expressing "transform this collection":
+comprehensions (eager, one expression) and generators (lazy, produced on demand).
+After it, you will be able to collapse any filter-then-transform loop into one line,
 build dicts and sets the same way, write a lazy iterator in three lines instead of a
-`hasNext()/next()` class, and read the `zip(*matrix)` idioms that Python interviewers
+stateful cursor class, and read the `zip(*matrix)` idioms that Python interviewers
 treat as fluency signals. Every term is defined on first use, and every snippet's
 output was executed and checked — trust the `# ->` comments.
 
-## The Java you know
+## The problem this lesson solves
 
-This is how you process a collection today. Keep it in view; the whole lesson maps
-onto these five moves.
-
-```java
-List<Integer> nums = List.of(1, 2, 3, 4, 5);
-
-// filter + map + collect into a List
-List<Integer> squares = nums.stream()
-    .filter(n -> n % 2 == 0)
-    .map(n -> n * n)
-    .collect(Collectors.toList());          // [4, 16]
-
-// collect into a Map
-Map<String, Integer> lengths = words.stream()
-    .collect(Collectors.toMap(w -> w, String::length));
-
-// flatten nested lists
-List<Integer> flat = matrix.stream()
-    .flatMap(List::stream)
-    .collect(Collectors.toList());
-
-// first match or fallback
-int firstEven = nums.stream()
-    .filter(n -> n % 2 == 0)
-    .findFirst().orElse(-1);                // 2
-```
-
-And when you need laziness outside a stream, you hand-write an `Iterator<T>` class
-with state fields. Hold that thought for the generator section.
+An enormous fraction of everyday code has one shape: walk a collection, keep some
+elements, transform them, and collect the results. Written as an explicit loop, that
+shape costs four or five lines of accumulator setup and append bookkeeping every
+single time. Python compresses the whole shape into a single readable expression —
+and when the data is too big (or endless) to hold in memory, the lazy variant
+produces one element at a time, on demand, for free. Interviewers read fluency in
+these two forms as fluency in Python itself, and real pipeline code — data loading,
+log parsing, batch assembly — is built almost entirely out of them.
 
 ## The lesson
 
@@ -46,36 +26,25 @@ with state fields. Hold that thought for the generator section.
 A **comprehension** is Python's syntax for "build a collection by transforming and
 filtering another one." The name comes from mathematical **set-builder notation** —
 the `{ n² | n ∈ nums, n even }` style you saw in school. It reads as a description
-of the result, not as a chain of method calls:
-
-```java
-// Java: a pipeline read top to bottom
-List<Integer> out = nums.stream()
-    .filter(n -> n % 2 == 0)
-    .map(n -> n * n)
-    .collect(Collectors.toList());
-```
+of the result, not as a sequence of steps:
 
 ```python
-# Python: one expression
 out = [n * n for n in [1, 2, 3, 4, 5] if n % 2 == 0]   # -> [4, 16]
 ```
 
-Anatomy, mapped onto the stream calls you know:
+Anatomy:
 
 ```python
 [ n * n     for n in nums     if n % 2 == 0 ]
 # ^expr      ^loop             ^filter
-# .map()     the source        .filter()
-# the [ ] brackets are the .collect(Collectors.toList())
+# transform  the source        keep or drop
+# the [ ] brackets collect the results into a list
 ```
 
-Two execution-model differences from streams:
+Two execution-model facts:
 
-- Java streams are **lazy** (nothing runs until a *terminal operation* like
-  `collect()` fires the pipeline). A comprehension is **eager**: it runs
-  immediately, top to bottom, and hands you the finished list. The lazy variant
-  exists too — that's generators, section 3.
+- A comprehension is **eager**: it runs immediately, top to bottom, and hands you
+  the finished list. The lazy variant exists too — that's generators, section 3.
 - The loop variable is scoped to the comprehension — no leaked loop counters. Once
   the comprehension has run, the name `n` does not exist outside it:
 
@@ -88,7 +57,7 @@ Two execution-model differences from streams:
 **Gotcha — where the `if` goes changes what it means.** A trailing `if` *filters*
 (drops elements). An `if/else` used to *transform* each element must go at the
 front, before the `for`, because there it is a conditional expression (Python's
-ternary operator, its version of Java's `cond ? a : b`):
+ternary operator: `a if cond else b`):
 
 ```python
 [x for x in [-5, 3, -1, 8] if x > 0]           # filter -> [3, 8]
@@ -96,38 +65,37 @@ ternary operator, its version of Java's `cond ? a : b`):
 [x for x in xs if x > 0 else 0]                # SyntaxError — no trailing else
 ```
 
-### 2. The bracket picks the container — there are no Collectors
+### 2. The bracket picks the container
 
-In Java you pick the output container by choosing a collector: `toList()`,
-`toSet()`, `toMap(...)`. In Python the *bracket around the comprehension* decides:
+The *bracket around the comprehension* decides what you get back:
 
 ```python
-[w.upper() for w in words]          # list  — like Collectors.toList()
-{w.upper() for w in words}          # set   — like Collectors.toSet()
-{w: len(w) for w in words}          # dict  — like Collectors.toMap()
+[w.upper() for w in words]          # list
+{w.upper() for w in words}          # set
+{w: len(w) for w in words}          # dict
 (w.upper() for w in words)          # generator — lazy, see section 3
 ```
 
-A **dict** is Python's `HashMap`: key-value pairs with O(1) average lookup. A
-**set** is its `HashSet`: unordered unique values. Both require keys/elements to be
-**hashable** — meaning the object can be converted to a stable integer (a *hash*)
-used to find its storage bucket. Numbers, strings, and tuples are hashable; lists
-are not (they can mutate, which would silently change their bucket).
+A **dict** is Python's hash map: key-value pairs with O(1) average lookup. A
+**set** is its hash-set sibling: unordered unique values. Both require keys/elements
+to be **hashable** — meaning the object can be converted to a stable integer (a
+*hash*) used to find its storage bucket. Numbers, strings, and tuples are hashable;
+lists are not (they can mutate, which would silently change their bucket).
 
-Three behavioral differences that pay off in interviews:
+Three behaviors that pay off in interviews:
 
-- **Duplicate keys: Python keeps the last, Java throws.**
-  `Collectors.toMap` throws `IllegalStateException` on a duplicate key (documented
-  behavior). A dict comprehension silently overwrites:
+- **Duplicate keys: the last one wins.** A dict comprehension never treats a
+  duplicate key as an error (some collection libraries do) — it silently
+  overwrites, keeping the last value:
 
   ```python
   {k: v for k, v in [("a", 1), ("b", 2), ("a", 3)]}   # -> {'a': 3, 'b': 2}
   ```
 
-- **Python dicts remember insertion order.** Iterating a `HashMap` gives keys in
-  effectively arbitrary order; you reach for `LinkedHashMap` to preserve insertion
-  order. Every Python `dict` preserves insertion order, guaranteed by the language
-  since 3.7:
+- **Python dicts remember insertion order.** In many hash-map implementations,
+  iteration order is effectively arbitrary and an order-preserving map is a
+  separate type. Every Python `dict` preserves insertion order, guaranteed by the
+  language since 3.7:
 
   ```python
   list({w: len(w) for w in ["zebra", "ant", "mole"]})   # -> ['zebra', 'ant', 'mole']
@@ -139,7 +107,7 @@ Three behavioral differences that pay off in interviews:
 One Python-ism you need for the drills: **truthiness**. Every value can stand in
 for a boolean. Empty things — `""`, `[]`, `{}`, `0`, `None` — count as `False`
 ("**falsy**"); non-empty things count as `True`. So `if w` inside a comprehension
-is the idiomatic way to skip empty strings — no `!w.isEmpty()` call:
+is the idiomatic way to skip empty strings — no explicit is-it-empty call:
 
 ```python
 {w[0].lower() for w in ["Apple", "avocado", "", "Banana"] if w}   # -> {'a', 'b'}
@@ -150,27 +118,17 @@ is the idiomatic way to skip empty strings — no `!w.isEmpty()` call:
 Vocabulary first, because Python's docs use these constantly:
 
 - An **iterable** is anything a `for` loop can walk: lists, strings, dicts, files.
-  (Java analog: `Iterable<T>`.)
 - An **iterator** is the cursor doing the walking — it hands out one element per
-  request and remembers its position. (Java analog: `Iterator<T>`.)
+  request and remembers its position.
 - A **generator** is an iterator you get for free by writing a function that uses
   the `yield` keyword. `yield` means "emit this value, then FREEZE right here until
   someone asks for the next one." All local variables survive the freeze.
 
-Side by side — counting down:
-
-```java
-// Java: a class with explicit cursor state
-class Countdown implements Iterator<Integer> {
-    private int current;
-    Countdown(int n) { this.current = n; }
-    public boolean hasNext() { return current >= 1; }
-    public Integer next()    { return current--; }
-}
-```
+In most languages, writing your own lazy iterator means a class with explicit
+cursor fields and a has-next/next protocol. In Python, the paused function's local
+variables ARE the cursor state — counting down:
 
 ```python
-# Python: the local variable i IS the cursor state
 def countdown(n):
     for i in range(n, 0, -1):   # range(4, 0, -1) counts 4, 3, 2, 1
         yield i
@@ -196,9 +154,9 @@ Three facts about generators that will bite you if you learn them the hard way:
 
   So `countdown(1_000_000_000)` returns instantly and costs no memory — values are
   produced one at a time, on demand.
-- **Generators are single-use, and exhaustion is SILENT.** A consumed Java stream
-  at least throws `IllegalStateException` ("stream has already been operated upon")
-  if you touch it again. An exhausted generator just quietly yields nothing:
+- **Generators are single-use, and exhaustion is SILENT.** An exhausted generator
+  raises no error and prints no warning if you touch it again — it just quietly
+  yields nothing:
 
   ```python
   g = (n * n for n in [1, 2, 3])
@@ -217,7 +175,7 @@ Three facts about generators that will bite you if you learn them the hard way:
 
   `list()` it first if you need a length or an index.
 
-### 4. Generator expressions and `next()` — `findFirst().orElse()` in one call
+### 4. Generator expressions and `next()` — first match, with a default
 
 A **generator expression** ("genexpr") is a comprehension with parentheses instead
 of brackets: lazy, produces items on demand, never builds the full list. When it is
@@ -237,7 +195,7 @@ next(iter([]))        # raises StopIteration
 next(iter([]), -1)    # -> -1
 ```
 
-Combine the two and you have `findFirst().orElse()` with short-circuiting — a
+Combine the two and you have "first match or fallback" with short-circuiting — a
 **predicate** (a function returning True/False) stops being evaluated at the first
 hit because the genexpr is lazy:
 
@@ -246,14 +204,15 @@ next((x for x in [1, 3, 4, 6] if x % 2 == 0), -1)   # -> 4, never looks at 6
 ```
 
 You'll usually write the predicate inline as a **lambda** — Python's anonymous
-function, its `n -> n * 2`: `lambda n: n * 2`. Same idea, `lambda` keyword, colon
-instead of arrow, no type declarations.
+function syntax: `lambda n: n * 2` defines an unnamed function taking `n` and
+returning `n * 2`. Arguments before the colon, the returned expression after it,
+no type declarations.
 
 ### 5. `zip` and `*` unpacking — the idioms interviewers watch for
 
 `zip(a, b)` staples iterables together element-wise into **tuples** — a tuple being
-Python's immutable fixed-size sequence, `(1, 4)`, the built-in `Pair`/record that
-Java makes you define a class for. Two properties to memorize:
+Python's immutable fixed-size sequence, `(1, 4)`: a built-in pair/record with no
+class definition required. Two properties to memorize:
 
 ```python
 list(zip([1, 2, 3], [10, 20]))   # -> [(1, 10), (2, 20)]  — stops at the SHORTER input
@@ -264,7 +223,7 @@ zip([1], [2])                    # a lazy zip object, not a list — wrap in lis
 separate positional arguments, so `f(*[a, b, c])` means `f(a, b, c)`. Point it at a
 matrix (a list of row-lists) and `zip` receives every row as its own argument, then
 staples them back together column-wise. That is a transpose, in one line, with no
-`new int[cols][rows]` allocation dance:
+index arithmetic and no preallocated output matrix:
 
 ```python
 m = [[1, 2, 3],
@@ -293,17 +252,17 @@ list(zip(lst, lst[1:]))            # -> [(1, 2), (2, 3)]
 (Python 3.10+ ships this as `itertools.pairwise(lst)` — same output. Knowing the
 self-zip spelling is still expected.)
 
-### 6. `itertools`: the stream utility belt
+### 6. `itertools`: the iteration utility belt
 
-`itertools` is a standard-library module of building blocks for iteration — the
-closest thing to the static helpers scattered across `Stream`, `IntStream`, and
-`Collectors`. Everything it returns is lazy, so wrap in `list()` to materialize.
+`itertools` is a standard-library module of building blocks for iteration — lazy,
+composable helpers for the loops you would otherwise write by hand. Everything it
+returns is lazy, so wrap in `list()` to materialize.
 The two you need for the drills:
 
 ```python
 import itertools
 import operator   # each Python operator as a plain function: operator.mul is *,
-                  # operator.add is + — Python's stand-in for Integer::sum
+                  # operator.add is +
 
 # accumulate: running totals (prefix sums); pass a function to change the operation
 list(itertools.accumulate([1, 2, 3, 4]))                 # -> [1, 3, 6, 10]
@@ -336,7 +295,7 @@ Type these until your fingers know them:
 [x for row in matrix for x in row]         # flatten — for-clauses in nested-loop order
 [list(col) for col in zip(*matrix)]        # transpose
 list(zip(lst, lst[1:]))                    # consecutive pairs
-next((x for x in xs if p(x)), default)     # findFirst().orElse(default)
+next((x for x in xs if p(x)), default)     # first match, or default
 sum(f(x) for x in xs)                      # aggregate without building a list
 list(itertools.accumulate(nums))           # prefix sums
 list(itertools.product(colors, sizes))     # all combinations
@@ -366,12 +325,11 @@ Return a dict mapping each word to its length.
 {w: len(w) for w in ["hi", "world"]}   # -> {'hi': 2, 'world': 5}
 ```
 
-Remember: duplicate keys keep the *last* value silently, where `Collectors.toMap`
-throws.
+Remember: duplicate keys keep the *last* value, silently.
 
 Where you'll see it: building a lookup table is the setup move of "Two Sum",
 "Group Anagrams", and "Top K Frequent Elements" — interviewers watch whether you
-build the dict in one comprehension or fumble with `put`-style loops. In ML work
+build the dict in one comprehension or fumble with put-style loops. In ML work
 this is every vocab map (`{word: index}`), label map, and config table.
 
 ### `unique_first_letters`
@@ -418,7 +376,7 @@ row 0 left to right, then row 1, ...).
 The for-clauses appear in the SAME order as the equivalent nested loops — outer
 loop first. Reading them inside-out is the #1 nested-comprehension mistake.
 
-Where you'll see it: the comprehension form of `flatMap`, tested by "Flatten 2D
+Where you'll see it: the one-line flatten, tested by "Flatten 2D
 Vector" and needed mid-solution whenever a grid must become a flat list. In
 practice: flattening per-camera detection lists into one list, grid maps into 1-D
 arrays.
@@ -454,7 +412,7 @@ The tests also check laziness (pull two values with `next`, the rest stay pendin
 and single-use (a second `list()` of the same generator gives `[]`).
 
 Where you'll see it: interviewers probe generators via design questions —
-"Flatten Nested List Iterator" and "Peeking Iterator" are Iterator-design problems
+"Flatten Nested List Iterator" and "Peeking Iterator" are iterator-design problems
 that a `yield` answer collapses. In real work, generators are how you stream data
 too big for memory: reading a multi-GB log or rosbag (a recorded robot-sensor log)
 frame by frame, or a PyTorch `IterableDataset` yielding samples on demand.

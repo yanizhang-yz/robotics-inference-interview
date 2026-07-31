@@ -14,7 +14,7 @@
 #include <vector>
 
 // A Buffer owns a heap-allocated int array via std::unique_ptr<int[]>.
-// JAVA: a class with an int[] field; the GC frees the array whenever it likes.
+// PYTHON: a class holding a list; the GC frees it eventually, whenever it likes.
 // C++:  store std::unique_ptr<int[]> — its destructor frees the array, so you
 //       never write delete[] (the "rule of zero"). Allocate zero-initialized
 //       storage with std::make_unique<int[]>(n).
@@ -47,8 +47,8 @@ private:
 };
 
 // Factory: heap-allocates a Buffer and hands OWNERSHIP to the caller.
-// JAVA: static Buffer create(int n) { return new Buffer(n); } — the returned
-//       reference is just another alias; nobody "owns" the object.
+// PYTHON: a factory just returns the object; every name that receives it is one
+//         more shared reference, and nobody in particular owns it.
 // C++:  return std::make_unique<Buffer>(n). Returning a local unique_ptr moves
 //       it out automatically — do NOT write std::move on the return.
 std::unique_ptr<Buffer> makeBuffer(std::size_t n) {
@@ -60,9 +60,10 @@ std::unique_ptr<Buffer> makeBuffer(std::size_t n) {
 // Takes the unique_ptr BY VALUE: calling this CONSUMES the caller's pointer.
 // The caller must write moveBuffer(std::move(theirPtr)) — ownership transfer is
 // visible at the call site, and their pointer is null afterwards.
-// JAVA: impossible to express — passing a reference never revokes the caller's.
+// PYTHON: impossible to express — handing out a reference never revokes the
+//         caller's name.
 // C++:  return owned->sum(); the Buffer is destroyed when `owned` dies at the
-//       end of this function — deterministic, unlike finalize().
+//       end of this function — at a brace you can point to, no GC involved.
 long long moveBuffer(std::unique_ptr<Buffer> owned) {
     // TODO: implement
     (void)owned;
@@ -70,10 +71,11 @@ long long moveBuffer(std::unique_ptr<Buffer> owned) {
 }
 
 // RAII scope logger: constructor records "enter", destructor records "exit".
-// JAVA: try { log.add("enter"); ... } finally { log.add("exit"); }
-// C++:  the destructor IS the finally block — it runs at the closing brace,
-//       even if an exception unwinds the scope. push_back onto log_ in the
-//       constructor body and destructor body.
+// PYTHON: a context manager — __enter__ appends "enter", __exit__ appends
+//         "exit", guaranteed even mid-exception.
+// C++:  the destructor IS the __exit__ — it runs at the closing brace, even if
+//       an exception unwinds the scope; no `with` line needed. push_back onto
+//       log_ in the constructor body and destructor body.
 class ScopedLogger {
 public:
     explicit ScopedLogger(std::vector<std::string>& log) : log_(log) {
@@ -98,7 +100,7 @@ int main() {
     {
         Buffer b(5);
         assert(b.size() == 5);
-        assert(b.sum() == 0);  // make_unique<int[]> zero-initializes, like Java arrays
+        assert(b.sum() == 0);  // make_unique<int[]> zero-initializes, like [0] * n
         b.fill(3);
         assert(b.sum() == 15);
 

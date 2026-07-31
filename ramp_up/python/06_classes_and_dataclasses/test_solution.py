@@ -25,7 +25,7 @@ class TestVector2D:
             v.x = 99.0
 
     def test_equals_and_hashcode_for_free(self):
-        # In Java you'd hand-write equals() and hashCode(); frozen=True
+        # No hand-written equality or hash methods anywhere; frozen=True
         # generates both, so Vector2D works in sets and as dict keys.
         assert Vector2D(1.0, 2.0) == Vector2D(1.0, 2.0)
         assert len({Vector2D(1.0, 2.0), Vector2D(1.0, 2.0)}) == 1
@@ -144,7 +144,7 @@ class TestDescribe:
 
     def test_any_object_with_speak_works(self):
         # No interface, no inheritance: a class defined right here quacks
-        # its way in. This would not compile in Java without `implements`.
+        # its way in — having the right method is the entire contract.
         class Duck:
             def speak(self) -> str:
                 return "quack"

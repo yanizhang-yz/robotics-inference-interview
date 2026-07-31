@@ -1,38 +1,18 @@
-# 07 — Iteration, heapq, bisect: retiring `Iterator`, `PriorityQueue`, and `TreeMap`
+# 07 — Iteration, heapq, bisect
 
 After this lesson you can loop over anything without managing an index, write a lazy
-infinite stream in four lines, keep a running top-k without building a `PriorityQueue`
+infinite stream in four lines, keep a running top-k without writing a priority-queue
 class, and answer "how many timestamps fall in this window?" in O(log n) with two binary
 searches. This is the single highest-density interview topic in the Python track: heaps
 and binary search appear in a huge fraction of medium-difficulty problems, and Python
 compresses each one to a one-liner — if you know the one-liner.
 
-## The Java you know
+## The problem this lesson solves
 
-Everything below is machinery you have written many times. Keep it in mind as the anchor;
-the whole lesson is "here is what each block collapses into."
-
-```java
-// 1. Top-3 largest: keep a size-3 min-heap, evict the smallest.
-PriorityQueue<Integer> heap = new PriorityQueue<>();   // min-heap by default
-for (int x : nums) {
-    heap.offer(x);
-    if (heap.size() > 3) heap.poll();                  // evict current minimum
-}
-
-// 2. Number each line: manage the index yourself.
-for (int i = 0; i < lines.size(); i++) {
-    out.add((i + 1) + ": " + lines.get(i));
-}
-
-// 3. Closest point: build a Comparator object to define the ordering.
-Point best = Collections.min(points,
-        Comparator.comparingDouble(p -> distance(p, target)));
-
-// 4. Sorted lookups: a TreeMap (a balanced tree) for floor/ceiling queries.
-TreeMap<Long, Pose> log = new TreeMap<>();
-Long t = log.ceilingKey(stamp);                        // smallest key >= stamp
-```
+Four tasks that usually mean writing real machinery by hand: keeping the top-3 largest
+values (a size-3 min-heap with an evict-the-minimum loop), numbering each line (a manual
+index variable), picking the closest point (a comparator object to define the ordering),
+and floor/ceiling lookups over sorted timestamps (a balanced-tree container).
 
 Python replaces all four with: the **iteration protocol** (one rule that makes every
 container loopable), `enumerate`/`zip` (index bookkeeping done for you), `heapq` (heap
@@ -50,9 +30,9 @@ Two words you must own, because every builtin in this lesson is described with t
   to the builtin `iter()`.
 - An **iterator** is the cursor object that `iter()` returns. It remembers the current
   position and gives you the next element each time you call the builtin `next()` on it.
-  This is exactly Java's `Iterator<T>`, except `hasNext()` doesn't exist — instead,
-  `next()` past the end raises a `StopIteration` exception, and the `for` loop catches
-  it silently as its stop signal.
+  This is the classic cursor object from many languages' iterator interfaces, except
+  there is no has-next method — instead, `next()` past the end raises a `StopIteration`
+  exception, and the `for` loop catches it silently as its stop signal.
 
 ```python
 it = iter([10, 20, 30])   # ask the list for a cursor
@@ -83,11 +63,11 @@ If you need two passes, call `list()` on it first to copy the elements into a re
 
 ### `enumerate` and `zip`: the death of the index loop
 
-In Python, writing `for i in range(len(xs))` just to read `xs[i]` marks you as a Java
-developer in the first minute of an interview. The two replacements:
+In Python, writing `for i in range(len(xs))` just to read `xs[i]` reads as unidiomatic
+in the first minute of an interview. The two replacements:
 
 **`enumerate(xs, start=n)`** yields `(index, element)` pairs (`start` defaults to 0) —
-it deletes block 2 of the Java anchor:
+it deletes the manual index variable:
 
 ```python
 # Each (index, element) pair lands straight into two variables `n, line` in the loop header
@@ -96,7 +76,7 @@ it deletes block 2 of the Java anchor:
 ```
 
 **`zip(xs, ys)`** walks two (or more) iterables in lockstep, yielding tuples — the
-parallel-arrays loop from Java, without the loop:
+classic parallel-arrays loop, without the loop:
 
 ```python
 list(zip([1, 2, 3], [10, 20]))                 # -> [(1, 10), (2, 20)]
@@ -104,26 +84,18 @@ dict(zip(["ann", "bob", "cal"], [3, 7]))        # -> {'ann': 3, 'bob': 7}
 ```
 
 **Gotcha (both examples above show it):** `zip` silently stops at the *shorter* input —
-the `3` and `"cal"` just vanished. Java would have thrown `IndexOutOfBoundsException`;
-Python drops the tail with no warning. When mismatched lengths mean a bug in your data,
-pass `strict=True` (Python 3.10+) to make `zip` raise `ValueError` instead.
+the `3` and `"cal"` just vanished. An index loop would have crashed on the length
+mismatch; Python drops the tail with no warning. When mismatched lengths mean a bug in
+your data, pass `strict=True` (Python 3.10+) to make `zip` raise `ValueError` instead.
 
-### Generators: `yield` writes the Iterator class for you
+### Generators: `yield` writes the iterator for you
 
 A **generator function** is a function containing the `yield` keyword. Calling it runs
 *no code at all* — it returns a **generator** (an iterator). Each `next()` call runs the
 body until it hits `yield`, hands that value out, and **freezes the function mid-line**:
 all locals keep their values, and the next `next()` resumes right after the `yield`.
-That frozen state is what your Java `Iterator<Long>` class stored in fields.
-
-```java
-// Java: a whole class to stream Fibonacci numbers
-class Fib implements Iterator<Long> {
-    private long a = 0, b = 1;
-    public boolean hasNext() { return true; }
-    public Long next() { long r = a; long t = a + b; a = b; b = t; return r; }
-}
-```
+That frozen state is exactly what a hand-written iterator class would store in fields —
+here the language stores it for you:
 
 ```python
 def fibonacci():
@@ -157,26 +129,25 @@ The data structure, in plain English: a **heap** (here, a binary *min-heap*) arr
 values in a plain array so the smallest is always at index 0, and restoring that
 arrangement after an insert or removal costs only O(log n). That "smallest on top" rule
 is the **heap property**; a **priority queue** (always serve the smallest item first) is
-the abstract idea a heap implements. Java wraps this in a class. Python gives you
-*functions* that maintain the heap property inside a `list` you own:
+the abstract idea a heap implements. Many languages wrap this in a container class with
+peek/push/pop methods. Python gives you *functions* that maintain the heap property
+inside a `list` you own:
 
-```java
-// Java                                  // Python
-PriorityQueue<Integer> pq =              import heapq
-    new PriorityQueue<>();               h = [5, 1, 9, 3, 7]
-pq.offer(5); /* ... */                   heapq.heapify(h)      # rearrange in place, O(n)
-pq.peek();   // smallest                 h[0]                  # peek: -> 1
-pq.poll();   // remove smallest          heapq.heappop(h)      # -> 1
-pq.offer(0);                             heapq.heappush(h, 0)
+```python
+import heapq
+h = [5, 1, 9, 3, 7]
+heapq.heapify(h)      # rearrange in place, O(n)
+h[0]                  # peek the smallest: -> 1
+heapq.heappop(h)      # remove and return the smallest: -> 1
+heapq.heappush(h, 0)  # insert, keeping the heap property
 ```
 
 After `heapify`, `h` prints as `[1, 3, 9, 5, 7]` — **not sorted**, and that's correct: a
 heap only guarantees the minimum sits at index 0. Never iterate a heap expecting sorted
 order; pop repeatedly instead.
 
-Both languages default to a **MIN-heap**. For max-heap behavior Java passes
-`Comparator.reverseOrder()`; Python's trick is to negate values on the way in and negate
-again on the way out:
+`heapq` is always a **MIN-heap** — there is no max-heap flag. The trick for max-heap
+behavior is to negate values on the way in and negate again on the way out:
 
 ```python
 h = [-x for x in [5, 1, 9]]
@@ -184,7 +155,7 @@ heapq.heapify(h)
 -heapq.heappop(h)   # -> 9
 ```
 
-Two more things Java's `PriorityQueue` makes you build by hand, prebuilt here:
+Two more things you would otherwise build by hand, prebuilt here:
 
 ```python
 heapq.nlargest(3, [5, 1, 9, 3, 7])            # -> [9, 7, 5]  (sorted descending!)
@@ -192,8 +163,8 @@ heapq.nsmallest(2, [5, 1, 9, 3, 7])           # -> [1, 3]
 list(heapq.merge([1, 4, 7], [2, 5], [3, 6, 8]))  # -> [1, 2, 3, 4, 5, 6, 7, 8]
 ```
 
-`nlargest(k, xs)` is the entire "keep a size-k heap, evict the minimum" loop from the
-Java anchor, in one call, result already sorted. `merge` is the lazy k-way merge of
+`nlargest(k, xs)` is the entire "keep a size-k heap, evict the minimum" loop
+in one call, result already sorted. `merge` is the lazy k-way merge of
 already-sorted inputs. And because tuples compare element-by-element (next section), you
 can push `(priority, payload)` tuples and the heap orders by priority:
 
@@ -206,7 +177,7 @@ heapq.heappop(h)   # -> (1, 'a')
 ### `bisect`: binary search you never have to write again
 
 **Binary search** finds a position in a *sorted* list by repeatedly halving the search
-range — O(log n) instead of scanning. You have written it in Java (and probably had the
+range — O(log n) instead of scanning. You have probably written it by hand (and had the
 `mid` off-by-one bug at least once). Python ships it, framed as a question with no
 off-by-ones: *"at which index would `x` be inserted to keep the list sorted?"* That
 index is called the **insertion point**.
@@ -227,8 +198,8 @@ bisect_right([1, 3, 3, 3, 5], 3)   # -> 4   insert AFTER the run
 
 So `bisect_left` returns the index of the *first element >= x*, and `bisect_right` the
 index of the *first element > x*. Subtract them and you've counted the occurrences of
-`x` — or, with different arguments, counted an entire inclusive range with no tree in
-sight (Java: `TreeMap.subMap(lo, true, hi, true).size()`):
+`x` — or, with different arguments, counted an entire inclusive range with no balanced
+tree in sight:
 
 ```python
 xs = [1, 2, 3, 4, 5]
@@ -243,31 +214,25 @@ found; it returns a position. Membership test: `i = bisect_left(xs, x)`, then ch
 it's O(n) per insert, not O(log n). Fine for occasional inserts; for heavy insert
 workloads use a heap instead.
 
-### Key functions: one lambda replaces the whole Comparator
+### Key functions: one lambda replaces the whole comparator
 
-Java customizes ordering by transforming the *comparison* (a `Comparator` object with a
-`compare(a, b)` method). Python customizes ordering by transforming each *element* into
-a sortable stand-in, via the `key=` parameter that `min`, `max`, `sorted`, `nlargest`,
-and `nsmallest` all accept. A **lambda** is an anonymous single-expression function:
-`lambda p: p[0]` is Java's `p -> p[0]`.
-
-```java
-// Java                                          // Python
-Collections.min(points,
-    Comparator.comparingDouble(                  min(points,
-        p -> dist(p, target)));                      key=lambda p: dist(p, target))
-```
+Many languages customize ordering by transforming the *comparison* — a comparator
+object with a two-argument compare method. Python customizes ordering by transforming
+each *element* into a sortable stand-in, via the `key=` parameter that `min`, `max`,
+`sorted`, `nlargest`, and `nsmallest` all accept. A **lambda** is an anonymous
+single-expression function: `lambda p: p[0]` takes `p` and returns `p[0]`.
 
 ```python
+min(points, key=lambda p: dist(p, target))     # closest point, one line
 min(["bb", "a", "ccc"], key=len)               # -> 'a'   (any function works as a key)
 min([(1, "x"), (1, "y")], key=lambda p: p[0])  # -> (1, 'x')   equal keys: first one wins
 ```
 
 Ties go to the **first** element encountered with the minimal key — determinism for free.
 
-For multi-level ordering (Java's `.thenComparing(...)`), return a *tuple* from the key.
-Tuples compare **lexicographically** — dictionary order: compare first elements, and
-only on a tie move to the second, and so on:
+For multi-level ordering (sort by this, then break ties by that), return a *tuple* from
+the key. Tuples compare **lexicographically** — dictionary order: compare first
+elements, and only on a tie move to the second, and so on:
 
 ```python
 (1, 9) < (2, 0)                        # -> True   (first element decides)
@@ -283,7 +248,7 @@ functions are ordinary values in Python (mental-model shift 1.1 in
 
 `all(iterable)` is True if and only if every element is true; `any(iterable)` if at
 least one is. Both **short-circuit** — stop consuming the moment the answer is decided —
-exactly like your Java loop with an early `return false`. Feed them a **generator
+exactly like a hand-written loop with an early `return False`. Feed them a **generator
 expression** (the square-bracket list-building syntax from lesson 02, but with
 parentheses: it produces a lazy iterator instead of building a list) and no
 intermediate list ever exists:
@@ -312,7 +277,7 @@ heapq.nlargest(k, xs)                      # top-k, sorted desc, O(n log k)
 heapq.heappush(h, x); heapq.heappop(h)     # the queue ops, O(log n) each
 bisect_left(xs, x)                         # first index with xs[i] >= x
 bisect_right(xs, hi) - bisect_left(xs, lo) # count in inclusive range, O(log n)
-min(xs, key=lambda x: ...)                 # Comparator, deleted
+min(xs, key=lambda x: ...)                 # custom ordering, no comparator object
 all(a < b for a, b in zip(xs, xs[1:]))     # adjacent-pairs check, short-circuits
 list(islice(iterable, n))                  # first n of ANYTHING, infinite-safe
 yield                                      # inside `while True:` = infinite stream
@@ -330,7 +295,7 @@ Prefix each line with its 1-based (or `start`-based) number, as `"N: line"`.
 ```
 
 **Where you'll see it:** every problem where position matters — interviewers watch for
-`range(len(...))` as a Java tell. Real work: numbering frames in an episode dump,
+`range(len(...))` as an unidiomatic tell. Real work: numbering frames in an episode dump,
 tagging log lines, building `(index, score)` pairs in evaluation scripts.
 
 ### `pair_scores`
@@ -490,8 +455,8 @@ Note `a, b = b, a + b`: both right-hand sides are evaluated *before* either assi
 happens — the same tuple unpacking as the `a, b = b, a` swap, so no temp variable.
 
 **Where you'll see it:** the design-an-iterator family — Peeking Iterator, Flatten
-Nested List Iterator — where a generator replaces the state-machine class Java forces
-on you; also any "process a stream you can't fit in memory" discussion. Real work:
+Nested List Iterator — where a generator replaces the hand-written state-machine
+class; also any "process a stream you can't fit in memory" discussion. Real work:
 PyTorch-style data loaders are exactly this shape (yield batches forever, training loop
 slices), as are frame-by-frame readers over multi-gigabyte robot logs.
 

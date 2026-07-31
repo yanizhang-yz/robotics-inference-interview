@@ -1,9 +1,9 @@
 """
 Collections and Slicing — reference solutions.
 
-Every function here returns a NEW list. That is the Pythonic default and the
-opposite of Java's Collections.reverse / Collections.sort habit of mutating
-the argument.
+Every function here returns a NEW list. That is the Pythonic default:
+reach for the copying forms first, and mutate in place only when you own
+the list and want to avoid a copy.
 """
 
 
@@ -32,14 +32,14 @@ def reverse_copy(lst: list) -> list:
 
 
 def swap_ends(lst: list) -> list:
-    out = list(lst)  # list(x) is the idiomatic shallow copy (like new ArrayList<>(x))
+    out = list(lst)  # list(x) is the idiomatic shallow copy
     if len(out) >= 2:
         out[0], out[-1] = out[-1], out[0]  # tuple unpacking: no tmp variable
     return out
 
 
 def interleave(a: list, b: list) -> list:
-    # zip stops at the shorter input — no Math.min bookkeeping.
+    # zip stops at the shorter input — no manual length bookkeeping.
     return [x for pair in zip(a, b) for x in pair]
 
 

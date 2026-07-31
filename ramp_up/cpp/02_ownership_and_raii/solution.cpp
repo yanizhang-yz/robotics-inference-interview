@@ -13,14 +13,14 @@
 #include <vector>
 
 // A Buffer owns a heap-allocated int array via std::unique_ptr<int[]>.
-// JAVA: a class with an int[] field; the GC frees the array whenever it likes.
+// PYTHON: a class holding a list; the GC frees it eventually, whenever it likes.
 // C++:  unique_ptr<int[]> frees the array in Buffer's destructor — which the
 //       compiler writes FOR us because every member cleans up after itself
 //       (the "rule of zero"). No delete[], no leak, deterministic.
 class Buffer {
 public:
     explicit Buffer(std::size_t n)
-        : size_(n), data_(std::make_unique<int[]>(n)) {}  // zero-initialized, like Java's new int[n]
+        : size_(n), data_(std::make_unique<int[]>(n)) {}  // zero-initialized, like [0] * n
 
     std::size_t size() const { return size_; }  // const: promises not to mutate *this
 
@@ -44,8 +44,8 @@ private:
 };
 
 // Factory: heap-allocates a Buffer and hands OWNERSHIP to the caller.
-// JAVA: static Buffer create(int n) { return new Buffer(n); } — the returned
-//       reference is just another alias; nobody "owns" the object.
+// PYTHON: a factory just returns the object; every name that receives it is one
+//         more shared reference, and nobody in particular owns it.
 // C++:  the unique_ptr in the return value IS the ownership. Returning it moves
 //       it out — no std::move needed on a return of a local.
 std::unique_ptr<Buffer> makeBuffer(std::size_t n) {
@@ -55,18 +55,20 @@ std::unique_ptr<Buffer> makeBuffer(std::size_t n) {
 // Takes the unique_ptr BY VALUE: calling this CONSUMES the caller's pointer.
 // The caller must write moveBuffer(std::move(theirPtr)) — ownership transfer is
 // visible at the call site, and their pointer is null afterwards.
-// JAVA: impossible to express — passing a reference never revokes the caller's.
+// PYTHON: impossible to express — handing out a reference never revokes the
+//         caller's name.
 long long moveBuffer(std::unique_ptr<Buffer> owned) {
     long long total = owned->sum();
     return total;
-    // `owned` dies here -> Buffer destroyed NOW. Deterministic, unlike finalize().
+    // `owned` dies here -> Buffer destroyed NOW, at a brace you can point to.
 }
 
 // RAII scope logger: constructor records "enter", destructor records "exit".
-// JAVA: try { log.add("enter"); ... } finally { log.add("exit"); }
-// C++:  the destructor IS the finally block — it runs at the closing brace,
-//       even if an exception unwinds the scope. Any class can do this; no
-//       AutoCloseable interface required.
+// PYTHON: a context manager — __enter__ appends "enter", __exit__ appends
+//         "exit", guaranteed even mid-exception.
+// C++:  the destructor IS the __exit__ — it runs at the closing brace, even if
+//       an exception unwinds the scope. Any class can do this, and no caller
+//       ever needs a `with` line: the brace is the block.
 class ScopedLogger {
 public:
     explicit ScopedLogger(std::vector<std::string>& log) : log_(log) {
@@ -90,7 +92,7 @@ int main() {
     {
         Buffer b(5);
         assert(b.size() == 5);
-        assert(b.sum() == 0);  // make_unique<int[]> zero-initializes, like Java arrays
+        assert(b.sum() == 0);  // make_unique<int[]> zero-initializes, like [0] * n
         b.fill(3);
         assert(b.sum() == 15);
 

@@ -1,9 +1,9 @@
 """
 Iteration protocol, heapq, bisect — reference solutions.
 
-Java's Iterator / PriorityQueue / TreeMap / Comparator machinery collapses
-into the iteration protocol plus two stdlib modules that operate on plain
-lists. Note: heapq is a MIN-heap (so is Java's PriorityQueue by default);
+The iterator, priority-queue, sorted-lookup, and comparator machinery you
+would otherwise write by hand collapses into the iteration protocol plus
+two stdlib modules that operate on plain lists. Note: heapq is a MIN-heap;
 negate values for max-heap behavior.
 """
 
@@ -24,21 +24,21 @@ def pair_scores(names: list[str], scores: list[int]) -> dict[str, int]:
 
 
 def k_largest(nums: list[int], k: int) -> list[int]:
-    # Replaces the whole PriorityQueue offer/poll loop; result is sorted
+    # Replaces the whole size-k-heap push/evict loop; result is sorted
     # descending. (For k close to len(nums), sorted(nums, reverse=True)[:k]
     # is fine too.)
     return heapq.nlargest(k, nums)
 
 
 def merge_sorted_lists(lists: list[list[int]]) -> list[int]:
-    # heapq.merge is a lazy k-way merge — the same (value, listIndex)
-    # PriorityQueue dance you'd hand-write in Java, prebuilt.
+    # heapq.merge is a lazy k-way merge — the (value, list_index) heap
+    # dance you'd otherwise hand-write, prebuilt.
     return list(heapq.merge(*lists))
 
 
 def insertion_index(sorted_nums: list[int], x: int) -> int:
-    # bisect_left: leftmost slot where x keeps the list sorted. This is the
-    # TreeMap.ceilingKey mental model, but positional.
+    # bisect_left: leftmost slot where x keeps the list sorted — the
+    # "smallest element >= x" question, answered positionally.
     return bisect_left(sorted_nums, x)
 
 
@@ -51,14 +51,14 @@ def min_by_distance(
     points: list[tuple[float, float]], target: tuple[float, float]
 ) -> tuple[float, float]:
     tx, ty = target
-    # key= replaces Comparator.comparingDouble. Squared distance preserves
-    # ordering, so skip the sqrt.
+    # key= defines the ordering — no comparator object. Squared distance
+    # preserves ordering, so skip the sqrt.
     return min(points, key=lambda p: (p[0] - tx) ** 2 + (p[1] - ty) ** 2)
 
 
 def all_increasing(nums: list[int]) -> bool:
     # zip(nums, nums[1:]) yields adjacent pairs; all() short-circuits on the
-    # first violation, just like an early `return false` in a Java loop.
+    # first violation, just like an early `return False` in a manual loop.
     return all(a < b for a, b in zip(nums, nums[1:]))
 
 
@@ -69,7 +69,7 @@ def take(iterable: Iterable, n: int) -> list:
 
 
 def fibonacci() -> Iterator[int]:
-    # A generator function IS the Iterator class: `yield` suspends here and
+    # A generator function IS the iterator: `yield` suspends here and
     # resumes on the next next() call. Infinite on purpose — consumers slice.
     a, b = 0, 1
     while True:

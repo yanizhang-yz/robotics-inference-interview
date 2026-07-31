@@ -15,7 +15,7 @@ Repr convention used throughout (tests check these exactly):
     Dog(name='Rex')
     Robot(model='R2')
 """
-
+import math
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
@@ -26,12 +26,9 @@ class Vector2D:
     """
     Immutable 2D vector.
 
-    JAVA:   an immutable POJO: final fields, constructor, getters, and
-            hand-written equals()/hashCode(); arithmetic via method calls
-            like BigDecimal — a.add(b).scale(2).
-    PYTHON: @dataclass(frozen=True) generates __init__/__eq__/__repr__ AND
-            __hash__ (the equals/hashCode contract, for free). Dunder
-            methods make `v1 + v2` and `v1 - v2` just work.
+    HINT: @dataclass(frozen=True) generates __init__/__eq__/__repr__ AND
+          __hash__ (consistent equality + hashing, for free). Dunder
+          methods make `v1 + v2` and `v1 - v2` just work.
     """
 
     x: float
@@ -39,31 +36,26 @@ class Vector2D:
 
     def __add__(self, other: "Vector2D") -> "Vector2D":
         """
-        JAVA:   public Vector2D add(Vector2D other)
-        PYTHON: __add__ is what the + operator calls; return a NEW Vector2D.
+        HINT: __add__ is what the + operator calls; return a NEW Vector2D.
         """
         raise NotImplementedError
 
     def __sub__(self, other: "Vector2D") -> "Vector2D":
         """
-        JAVA:   public Vector2D subtract(Vector2D other)
-        PYTHON: __sub__ powers the - operator; return a NEW Vector2D.
+        HINT: __sub__ powers the - operator; return a NEW Vector2D.
         """
         raise NotImplementedError
 
     def scaled(self, k: float) -> "Vector2D":
         """
-        JAVA:   public Vector2D scale(double k) — returns a new instance
-                because the fields are final.
-        PYTHON: same idea; frozen dataclasses can't mutate, so build and
-                return a new Vector2D.
+        HINT: frozen dataclasses can't mutate, so build and
+              return a new Vector2D.
         """
         raise NotImplementedError
 
     def magnitude(self) -> float:
         """
-        JAVA:   Math.sqrt(x * x + y * y) or Math.hypot(x, y).
-        PYTHON: math.hypot(self.x, self.y).
+        HINT: math.hypot(self.x, self.y).
         """
         raise NotImplementedError
 
@@ -72,12 +64,10 @@ class Temperature:
     """
     Stores celsius; exposes fahrenheit as a computed, settable attribute.
 
-    JAVA:   private double celsius; getCelsius/setCelsius plus
-            getFahrenheit/setFahrenheit doing the conversion.
-    PYTHON: store a plain public attribute `self.celsius` (no getters "just
-            in case"!). Expose fahrenheit via @property + @fahrenheit.setter
-            so `t.fahrenheit = 212` converts and stores back into celsius —
-            callers use attribute syntax either way.
+    HINT: store a plain public attribute `self.celsius` (no getters "just
+          in case"!). Expose fahrenheit via @property + @fahrenheit.setter
+          so `t.fahrenheit = 212` converts and stores back into celsius —
+          callers use attribute syntax either way.
 
     Conversions: F = C * 9/5 + 32, and C = (F - 32) * 5/9.
     """
@@ -104,18 +94,15 @@ class Stack:
     """
     LIFO stack wrapping a plain list.
 
-    JAVA:   class Stack<T> implements Iterable<T> — you'd write size(),
-            isEmpty(), iterator() returning an Iterator<T> object, and throw
-            EmptyStackException from pop().
-    PYTHON: define dunders and the whole language cooperates:
-            __len__  -> len(stack) works
-            __bool__ -> `if stack:` is "not empty" (len alone would give
-                        this fallback; defining it makes the intent explicit)
-            __iter__ -> for/list()/any() work; yield items TOP-FIRST
-                        (pop order) — `iter(reversed-list)` is enough,
-                        no Iterator class needed
-            pop()/peek() on an empty stack: let the underlying list raise
-            IndexError (EAFP) rather than pre-checking.
+    HINT: define dunders and the whole language cooperates:
+          __len__  -> len(stack) works
+          __bool__ -> `if stack:` is "not empty" (len alone would give
+                      this fallback; defining it makes the intent explicit)
+          __iter__ -> for/list()/any() work; yield items TOP-FIRST
+                      (pop order) — `iter(reversed-list)` is enough,
+                      no iterator class needed
+          pop()/peek() on an empty stack: let the underlying list raise
+          IndexError (EAFP) rather than pre-checking.
     """
 
     def __init__(self) -> None:
@@ -151,11 +138,9 @@ class Task:
     """
     A prioritized task; lower priority value = more urgent.
 
-    JAVA:   class Task implements Comparable<Task> { public int compareTo... }
-            so PriorityQueue and Collections.sort accept it.
-    PYTHON: define __lt__ (just less-than — not a three-way compareTo) and
-            both sorted() and heapq order Tasks directly. The dataclass
-            already generated __eq__ and __repr__.
+    HINT: define __lt__ (just less-than — no three-way compare method) and
+          both sorted() and heapq order Tasks directly. The dataclass
+          already generated __eq__ and __repr__.
     """
 
     priority: int
@@ -169,9 +154,9 @@ class Task:
 @dataclass
 class Point:
     """
-    JAVA:   a static factory: public static Point fromString(String s).
-    PYTHON: @classmethod receives the class as `cls` — construct with
-            cls(...) so subclasses get instances of themselves.
+    HINT: @classmethod is the named-constructor idiom — it receives the
+          class as `cls`; construct with cls(...) so subclasses get
+          instances of themselves.
     """
 
     x: float
@@ -221,10 +206,8 @@ def describe(obj: Any) -> str:
     Return '<ClassName>: <whatever obj.speak() returns>',
     e.g. describe(Dog("Rex")) == "Dog: Rex says woof".
 
-    JAVA:   requires `interface Speaker { String speak(); }` and every class
-            declaring `implements Speaker` before this method can accept it.
-    PYTHON: duck typing — call obj.speak() on ANY object that has it. No
-            interface, no cast, no common superclass. Use type(obj).__name__
-            for the class name.
+    HINT: duck typing — call obj.speak() on ANY object that has it. No
+          interface, no cast, no common superclass. Use type(obj).__name__
+          for the class name.
     """
     raise NotImplementedError
