@@ -42,44 +42,24 @@ questions/               # Interview questions by topic
 ├── 05_systems/          # Ownership, memory layout, queues, concurrency
 └── 06_linear_algebra/   # SVD, PCA, eigendecomposition
 
-ramp_up/                 # Language fluency drills (for devs coming from Java)
+ramp_up/                 # Language fluency tracks for experienced programmers
 ├── python/              # LEARNING_POINTS.md + 8 drill sets — do these FIRST
-├── cpp/                 # LEARNING_POINTS.md + 6 drill sets (STL, RAII, moves, vtables, cache, threads)
+├── cpp/                 # Self-paced C++20 track: concept map, reference card, 6 modules
 ├── rust/                # LEARNING_POINTS.md (exercises coming)
 └── typescript/          # LEARNING_POINTS.md (exercises coming)
 ```
 
-## Language ramp-up (coming from Java?)
+## Language ramp-up
 
-If you think in Java (or another language) and the friction is *writing* Python, start with
-[`ramp_up/python/LEARNING_POINTS.md`](ramp_up/python/LEARNING_POINTS.md) — a Java→Python
-reference card — then work through the drill sets in order:
-
-| # | Drill set | What it replaces from Java |
-|---|-----------|---------------------------|
-| 01 | Collections & slicing | Arrays / ArrayList / Collections.sort |
-| 02 | Comprehensions & generators | Streams API |
-| 03 | Strings & text | String / StringBuilder |
-| 04 | Dicts, sets, counters | HashMap / HashSet boilerplate |
-| 05 | Functions & closures | Functional interfaces, method refs |
-| 06 | Classes & dataclasses | POJOs / Lombok / interfaces |
-| 07 | Iteration, heapq, bisect | Iterator / PriorityQueue / TreeMap |
-| 08 | NumPy essentials | (no Java equivalent — vectorization) |
-
-Same practice flow as the questions: code in `starter.py`, check with
+The [Python track](ramp_up/python/LEARNING_POINTS.md) builds fluency through eight
+drill sets covering collections, iteration, text, functions, classes, and numerical
+work. Practice in `starter.py` with
 `PRACTICE=1 uv run pytest ramp_up/python/01_collections_and_slicing -v`.
-C++ drills compile and run via the same pytest command (needs `clang++` or `g++`).
 
-The C++ track goes deeper — it's the language of the inference hot path:
-
-| # | Drill set | Interview topic it covers |
-|---|-----------|---------------------------|
-| 01 | STL containers | vector/string/map fluency, pass-by-const-reference |
-| 02 | Ownership & RAII | unique_ptr, destructors as deterministic cleanup |
-| 03 | Move semantics & Rule of Five | why copies are silent perf killers, std::move |
-| 04 | Virtual functions & vtables | the virtual-destructor classic, dispatch cost |
-| 05 | Memory layout & cache | padding, cache lines, AoS/SoA, traversal order |
-| 06 | Threads, atomics, queues | data races, mutex vs atomic, producer/consumer |
+The [C++ track](ramp_up/cpp/README.md) is a self-paced C++20 path for the inference
+hot path: start with its concept map, work through the six modules, and use the
+reference card while practicing. C++ exercises compile and run through the same
+pytest command and require `clang++` or `g++`.
 
 Each question folder contains:
 
