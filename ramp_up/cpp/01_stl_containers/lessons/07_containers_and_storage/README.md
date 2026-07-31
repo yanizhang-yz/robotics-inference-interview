@@ -24,9 +24,11 @@ the next, and `data() + size()` is the one-past-the-end position.
 Copying a vector copies its elements into independently owned storage. Changing
 the copied frame does not change the original frame. In contrast, a pointer,
 reference, or iterator into a vector borrows access to its current elements.
-If an operation such as `push_back` grows the vector past its capacity, it may
-allocate new storage and invalidate those borrows. Read the element again from
-the vector after such growth instead of using an old pointer, reference, or
+If `push_back` makes `size() > capacity()`, the vector reallocates its storage
+and invalidates every pointer, reference, and iterator to its elements. Without
+reallocation, insertion has narrower invalidation rules, so consult the
+operation's contract before retaining a borrow. After forced growth, read the
+element again from the vector instead of using an old pointer, reference, or
 iterator.
 
 ## Application
