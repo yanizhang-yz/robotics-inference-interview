@@ -1,0 +1,29 @@
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <iostream>
+#include <vector>
+
+struct JointState {
+    std::vector<double> positions;
+};
+
+double max_abs_position(const JointState& state) {
+    // Exercise: inspect the state without changing the caller's positions.
+    (void)state;
+    return 0.0;
+}
+
+void clamp_in_place(JointState& state, double limit) {
+    // Exercise: clamp each caller-owned position to [-limit, limit].
+    (void)state;
+    (void)limit;
+}
+
+int main() {
+    JointState state{{-2.0, 0.5, 3.0}};
+    assert(max_abs_position(state) == 3.0);
+    clamp_in_place(state, 1.0);
+    assert((state.positions == std::vector<double>{-1.0, 0.5, 1.0}));
+    std::cout << "ALL TESTS PASSED\n";
+}
