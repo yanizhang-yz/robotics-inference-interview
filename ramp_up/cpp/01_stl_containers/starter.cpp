@@ -1,7 +1,7 @@
 // 01_stl_containers — YOUR attempt. Fill in the TODO bodies, then run:
 //   PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers -v
 // Or compile and run directly:
-//   clang++ -std=c++17 -Wall -o /tmp/stl starter.cpp && /tmp/stl
+//   clang++ -std=c++20 -Wall -o /tmp/stl starter.cpp && /tmp/stl
 // The stubs compile as-is but fail main()'s asserts until you implement them.
 // You're done when the last line printed is: ALL TESTS PASSED
 
@@ -18,29 +18,25 @@
 
 // reverseWords("robots move fast") -> "fast move robots"
 // Words are runs of non-whitespace; output is single-space separated.
-// JAVA: String.join(" ", reverse(Arrays.asList(text.trim().split("\\s+"))))
-// C++:  std::istringstream + `while (stream >> word)` tokenizes for free (>>
-//       skips whitespace). Collect into a vector, walk it backwards with
-//       reverse iterators (rbegin()/rend()), build the result with +=.
+// std::istringstream with `while (stream >> word)` skips whitespace while
+// tokenizing. Collect words in a vector, walk it backwards with reverse
+// iterators (rbegin()/rend()), and build the result with +=.
 std::string reverseWords(const std::string& text) {
     // TODO: implement
     return "";
 }
 
 // charFrequencies("abbccc") -> {'a':1, 'b':2, 'c':3}
-// JAVA: HashMap<Character,Integer> + merge(c, 1, Integer::sum)
-// C++:  range-based for over the string (`for (char c : text)`), then
-//       ++freq[c] — operator[] inserts a 0 for missing keys, so no
-//       getOrDefault needed.
+// Use a range-based loop over the string (`for (char c : text)`). `operator[]`
+// inserts a 0 for a missing key, so `++freq[c]` counts in one expression.
 std::unordered_map<char, int> charFrequencies(const std::string& text) {
     // TODO: implement
     return {};
 }
 
 // topKSmallest({5,1,4,2,3}, 3) -> {1,2,3}; k >= size returns everything sorted.
-// JAVA: copy = new ArrayList<>(list); Collections.sort(copy); copy.subList(0, k)
-// C++:  the parameter is BY VALUE on purpose — it IS your private copy.
-//       std::sort(values.begin(), values.end()), then resize(k) if k < size().
+// The parameter is by value on purpose: it is the private copy to sort.
+// Use std::sort(values.begin(), values.end()), then resize(k) if k < size().
 std::vector<int> topKSmallest(std::vector<int> values, std::size_t k) {
     // TODO: implement
     return {};
@@ -48,19 +44,17 @@ std::vector<int> topKSmallest(std::vector<int> values, std::size_t k) {
 
 // groupByLength({"go","rust","cpp"}) -> {2:{"go"}, 3:{"cpp"}, 4:{"rust"}}
 // Words keep their input order within each group.
-// JAVA: TreeMap + computeIfAbsent(len, x -> new ArrayList<>()).add(w)
-// C++:  std::map keeps keys sorted like TreeMap. Loop with `const auto& w`,
-//       and groups[w.size()].push_back(w) — operator[] creates the empty
-//       vector on first touch.
+// std::map keeps keys sorted. Loop with `const auto& w`, and use
+// groups[w.size()].push_back(w): operator[] creates an empty vector on first
+// touch.
 std::map<int, std::vector<std::string>> groupByLength(const std::vector<std::string>& words) {
     // TODO: implement
     return {};
 }
 
 // sumOfUnique({1,2,2,3,3}) -> 6: each DISTINCT value counted once.
-// JAVA: HashSet.add(x) returns false on duplicates; accumulate in a long.
-// C++:  seen.insert(v) returns pair<iterator,bool>; use .second as the
-//       "was it new?" boolean. Accumulate in long long (the real 64-bit type).
+// seen.insert(v) returns pair<iterator, bool>; use .second as the "was it new?"
+// boolean. Accumulate in long long, the guaranteed 64-bit integer type.
 long long sumOfUnique(const std::vector<int>& values) {
     // TODO: implement
     return 0;
@@ -79,7 +73,7 @@ int main() {
         assert(freq.size() == 3);
         assert(freq['a'] == 1 && freq['b'] == 2 && freq['c'] == 3);
         int total = 0;
-        for (const auto& [ch, count] : freq) {  // structured bindings: no Map.Entry
+        for (const auto& [ch, count] : freq) {  // structured bindings name each pair member
             (void)ch;
             total += count;
         }
@@ -99,12 +93,12 @@ int main() {
 
     // groupByLength
     {
-        auto groups = groupByLength({"go", "rust", "cpp", "java", "c"});
+        auto groups = groupByLength({"go", "rust", "cpp", "perl", "c"});
         assert(groups.size() == 4);
         assert((groups[1] == std::vector<std::string>{"c"}));
         assert((groups[2] == std::vector<std::string>{"go"}));
         assert((groups[3] == std::vector<std::string>{"cpp"}));
-        assert((groups[4] == std::vector<std::string>{"rust", "java"}));
+        assert((groups[4] == std::vector<std::string>{"rust", "perl"}));
         std::vector<int> keys;
         for (const auto& [len, group] : groups) {  // std::map iterates in key order
             (void)group;

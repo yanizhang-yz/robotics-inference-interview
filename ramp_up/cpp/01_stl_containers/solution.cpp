@@ -1,7 +1,7 @@
 // 01_stl_containers — reference solution.
 //
 // Compile & run standalone:
-//   clang++ -std=c++17 -Wall -o /tmp/stl solution.cpp && /tmp/stl
+//   clang++ -std=c++20 -Wall -o /tmp/stl solution.cpp && /tmp/stl
 // Prints ALL TESTS PASSED when every assert holds.
 
 #include <algorithm>
@@ -17,10 +17,8 @@
 
 // reverseWords("robots move fast") -> "fast move robots"
 // Words are runs of non-whitespace; output is single-space separated.
-// JAVA: String.join(" ", reverse(Arrays.asList(text.trim().split("\\s+"))))
-// C++:  istringstream's >> is the tokenizer (skips any whitespace); walk the
-//       collected words backwards with reverse iterators. Strings are mutable
-//       values here — building with += is idiomatic, no StringBuilder needed.
+// istringstream's >> tokenizes while skipping whitespace. Walk the collected
+// words backwards with reverse iterators and build the mutable result with +=.
 std::string reverseWords(const std::string& text) {
     std::istringstream stream(text);
     std::vector<std::string> words;
@@ -39,8 +37,7 @@ std::string reverseWords(const std::string& text) {
 }
 
 // charFrequencies("abbccc") -> {'a':1, 'b':2, 'c':3}
-// JAVA: HashMap<Character,Integer> + merge(c, 1, Integer::sum)
-// C++:  operator[] default-inserts 0 for a missing key, so counting is one line.
+// operator[] default-inserts 0 for a missing key, so counting is one line.
 std::unordered_map<char, int> charFrequencies(const std::string& text) {
     std::unordered_map<char, int> freq;
     for (char c : text) {
@@ -50,9 +47,8 @@ std::unordered_map<char, int> charFrequencies(const std::string& text) {
 }
 
 // topKSmallest({5,1,4,2,3}, 3) -> {1,2,3}; k >= size returns everything sorted.
-// JAVA: copy = new ArrayList<>(list); Collections.sort(copy); copy.subList(0, k)
-// C++:  the parameter is BY VALUE on purpose — we need our own copy to sort, so
-//       let the copy be the parameter. The caller's vector is untouched.
+// The parameter is by value on purpose: sorting needs a private copy, so the
+// parameter is that copy. The caller's vector is untouched.
 std::vector<int> topKSmallest(std::vector<int> values, std::size_t k) {
     std::sort(values.begin(), values.end());
     if (k < values.size()) {
@@ -63,9 +59,8 @@ std::vector<int> topKSmallest(std::vector<int> values, std::size_t k) {
 
 // groupByLength({"go","rust","cpp"}) -> {2:{"go"}, 3:{"cpp"}, 4:{"rust"}}
 // Words keep their input order within each group.
-// JAVA: TreeMap + computeIfAbsent(len, x -> new ArrayList<>()).add(w)
-// C++:  std::map IS the TreeMap (sorted keys); operator[] default-inserts an
-//       empty vector, so no computeIfAbsent dance. Loop with const auto&.
+// std::map keeps keys sorted. operator[] default-inserts an empty vector, so
+// grouping only needs a loop with const auto&.
 std::map<int, std::vector<std::string>> groupByLength(const std::vector<std::string>& words) {
     std::map<int, std::vector<std::string>> groups;
     for (const auto& w : words) {
@@ -75,9 +70,8 @@ std::map<int, std::vector<std::string>> groupByLength(const std::vector<std::str
 }
 
 // sumOfUnique({1,2,2,3,3}) -> 6: each DISTINCT value counted once.
-// JAVA: HashSet.add(x) returns false on duplicates; accumulate in a long.
-// C++:  insert() returns pair<iterator,bool> — .second is Java's boolean.
-//       long long is the guaranteed-64-bit type (plain long may be 32 bits).
+// insert() returns pair<iterator, bool>; .second reports a new value. long
+// long is the guaranteed 64-bit type (plain long may be 32 bits).
 long long sumOfUnique(const std::vector<int>& values) {
     std::unordered_set<int> seen;
     long long total = 0;
@@ -102,7 +96,7 @@ int main() {
         assert(freq.size() == 3);
         assert(freq['a'] == 1 && freq['b'] == 2 && freq['c'] == 3);
         int total = 0;
-        for (const auto& [ch, count] : freq) {  // structured bindings: no Map.Entry
+        for (const auto& [ch, count] : freq) {  // structured bindings name each pair member
             (void)ch;
             total += count;
         }
@@ -122,12 +116,12 @@ int main() {
 
     // groupByLength
     {
-        auto groups = groupByLength({"go", "rust", "cpp", "java", "c"});
+        auto groups = groupByLength({"go", "rust", "cpp", "perl", "c"});
         assert(groups.size() == 4);
         assert((groups[1] == std::vector<std::string>{"c"}));
         assert((groups[2] == std::vector<std::string>{"go"}));
         assert((groups[3] == std::vector<std::string>{"cpp"}));
-        assert((groups[4] == std::vector<std::string>{"rust", "java"}));
+        assert((groups[4] == std::vector<std::string>{"rust", "perl"}));
         std::vector<int> keys;
         for (const auto& [len, group] : groups) {  // std::map iterates in key order
             (void)group;

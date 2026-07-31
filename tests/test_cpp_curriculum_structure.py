@@ -63,3 +63,36 @@ def test_discovered_micro_lessons_follow_the_contract() -> None:
                             f"{lesson_dir.relative_to(ROOT)}: missing {heading}"
                         )
     assert violations == []
+
+
+MODULE_01 = CPP_ROOT / "01_stl_containers"
+MODULE_01_LESSONS = (
+    "01_build_compile_and_link",
+    "02_headers_and_translation_units",
+    "03_values_and_copies",
+    "04_references_and_const",
+    "05_pointer_borrows",
+    "06_optional_results",
+    "07_containers_and_storage",
+    "08_algorithms_and_iteration",
+    "09_introductory_templates",
+    "10_classes_and_member_initialization",
+)
+
+
+def test_module_01_has_the_approved_micro_lesson_inventory() -> None:
+    lessons_dir = MODULE_01 / "lessons"
+    actual = tuple(sorted(path.name for path in lessons_dir.iterdir() if path.is_dir()))
+    assert actual == MODULE_01_LESSONS
+
+
+def test_module_01_is_source_language_neutral() -> None:
+    forbidden = ("java", "java:", "arraylist", "hashmap", "treemap")
+    violations = []
+    for path in sorted(MODULE_01.rglob("*")):
+        if path.is_file() and path.suffix in {".md", ".cpp", ".py"}:
+            text = path.read_text().lower()
+            for phrase in forbidden:
+                if phrase in text:
+                    violations.append(f"{path.relative_to(ROOT)}: {phrase}")
+    assert violations == []
