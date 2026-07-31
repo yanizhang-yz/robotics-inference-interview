@@ -21,14 +21,18 @@ Use `has_value()` to test whether a value exists. After that check,
 `found->position` uses `operator->` to access a member of the contained
 `JointSample`. `std::nullopt` is the explicit spelling for an empty optional.
 
+The input vector does not need to be sorted. “Latest” means the qualifying
+sample with the greatest timestamp, regardless of where it appears in the
+vector.
+
 ## Application
 
 Robot inference often aligns sensor streams by timestamp. Before running a
 model for an image at time 25, a controller can ask for the newest joint state
-that is no later than time 25. With samples at 10, 20, and 30 nanoseconds, the
-aligned state is the sample at 20. For a timestamp before the first sample,
-there is no aligned state, so the function returns `std::nullopt` and the
-caller can wait, skip inference, or choose a fallback.
+that is no later than time 25. With samples at 10, 20, and 30 nanoseconds, in
+any vector order, the aligned state is the sample at 20. For a timestamp before
+every sample, there is no aligned state, so the function returns
+`std::nullopt` and the caller can wait, skip inference, or choose a fallback.
 
 ## Prediction
 
@@ -41,12 +45,15 @@ Before running the program, answer these questions:
 3. What does `std::nullopt` represent, and when should this function return it?
 4. Does the returned `JointSample` depend on the source vector remaining alive?
    Why is this answer different from a borrowed raw pointer?
+5. For out-of-order samples at timestamps 20 and 10, what timestamp should a
+   lookup at 25 return, and why?
 
 ## Guided implementation
 
-In `starter.cpp`, create an empty `std::optional<JointSample> result`. Scan the
-samples in order. Each sample whose timestamp is at or before the requested
-timestamp becomes the new result. Return `result` after the loop; it stays
+In `starter.cpp`, create an empty `std::optional<JointSample> result`. Scan all
+samples. Replace the result only when the sample is at or before the requested
+timestamp and either no result exists yet or the sample's timestamp is greater
+than the current result's timestamp. Return `result` after the loop; it stays
 empty when no sample qualified.
 
 ## Verification

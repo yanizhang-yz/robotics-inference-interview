@@ -25,5 +25,10 @@ int main() {
     assert(found.has_value());
     assert(found->timestamp_ns == 20);
     assert(!latest_at_or_before(samples, 5).has_value());
+
+    const std::vector<JointSample> out_of_order_samples{{20, 0.2}, {10, 0.1}};
+    const auto latest = latest_at_or_before(out_of_order_samples, 25);
+    assert(latest.has_value());
+    assert(latest->timestamp_ns == 20);
     std::cout << "ALL TESTS PASSED\n";
 }

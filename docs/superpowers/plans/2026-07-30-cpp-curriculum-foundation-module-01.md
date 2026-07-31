@@ -1152,7 +1152,8 @@ std::optional<JointSample> latest_at_or_before(
 ) {
     std::optional<JointSample> result;
     for (const JointSample& sample : samples) {
-        if (sample.timestamp_ns <= timestamp_ns) {
+        if (sample.timestamp_ns <= timestamp_ns &&
+            (!result.has_value() || sample.timestamp_ns > result->timestamp_ns)) {
             result = sample;
         }
     }
@@ -1165,6 +1166,11 @@ int main() {
     assert(found.has_value());
     assert(found->timestamp_ns == 20);
     assert(!latest_at_or_before(samples, 5).has_value());
+
+    const std::vector<JointSample> out_of_order_samples{{20, 0.2}, {10, 0.1}};
+    const auto latest = latest_at_or_before(out_of_order_samples, 25);
+    assert(latest.has_value());
+    assert(latest->timestamp_ns == 20);
     std::cout << "ALL TESTS PASSED\n";
 }
 ```
@@ -1178,7 +1184,8 @@ Teach `std::optional<T>` as an owned value that may be absent, distinct from a
 borrowed raw pointer. Use timestamp lookup for sensor alignment as the
 application. Prediction questions must cover `has_value`, `operator->`,
 `std::nullopt`, and whether the returned sample depends on the source vector's
-lifetime.
+lifetime. State that input order does not matter: the greatest qualifying
+timestamp wins.
 
 - [ ] **Step 4: Verify and commit**
 
