@@ -1,7 +1,7 @@
 // 01_stl_containers — reference solution.
 //
 // Compile & run standalone:
-//   clang++ -std=c++20 -Wall -o /tmp/stl solution.cpp && /tmp/stl
+//   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/stl solution.cpp && /tmp/stl
 // Prints ALL TESTS PASSED when every assert holds.
 
 #include <algorithm>

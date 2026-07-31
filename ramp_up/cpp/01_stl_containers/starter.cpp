@@ -1,7 +1,7 @@
 // 01_stl_containers — YOUR attempt. Fill in the TODO bodies, then run:
 //   PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers -v
 // Or compile and run directly:
-//   clang++ -std=c++20 -Wall -o /tmp/stl starter.cpp && /tmp/stl
+//   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/stl starter.cpp && /tmp/stl
 // The stubs compile as-is but fail main()'s asserts until you implement them.
 // You're done when the last line printed is: ALL TESTS PASSED
 

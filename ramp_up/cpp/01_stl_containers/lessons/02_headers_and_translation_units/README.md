@@ -58,7 +58,7 @@ PRACTICE=1 .venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/02_h
 ```
 
 The shared runner compiles `solution.cpp` or `starter.cpp` together with
-`joint_limits.cpp`, using C++20 and `-Wall -Wextra -pedantic`. The untouched
+`joint_limits.cpp`, using C++20 and `-Wall -Wextra -Werror=return-type`. The untouched
 starter is expected to fail its first safety assertion.
 
 ## Explain it

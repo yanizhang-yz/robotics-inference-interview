@@ -12,7 +12,8 @@ locality often matters more than Big-O."** By the end you will have the numbers 
 defend that sentence, measured on your own machine.
 
 Every number quoted below was measured on one machine (an Apple M4 Pro laptop,
-`clang++ -std=c++17 -O2`). Your constants will differ; the *shapes* — 5x, 20x, 400x —
+`clang++ -std=c++20 -Wall -Wextra -Werror=return-type -O2`). Your constants will
+differ; the *shapes* — 5x, 20x, 400x —
 are what transfer.
 
 ## The Java you know
@@ -125,7 +126,7 @@ struct GoodOrder {     // total: 16 bytes — same four fields, 33% smaller
     char   ready;      // offset 12
     char   flags;      // offset 13   <- 2 tail-pad bytes round 14 up to 16
 };
-// Verified with clang++ -std=c++17 -O2:
+// Verified with clang++ -std=c++20 -Wall -Wextra -Werror=return-type -O2:
 //   sizeof(BadOrder) == 24, sizeof(GoodOrder) == 16
 // Smaller demo of the same rule:
 //   struct {char a; int b; char c;}  -> 12 bytes
@@ -471,9 +472,9 @@ uv run pytest ramp_up/cpp/05_memory_layout_and_cache -v
 PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache -v
 
 # Compile and run directly — asserts + timing lines, ALL TESTS PASSED at the end:
-clang++ -std=c++17 -Wall -o /tmp/mem starter.cpp && /tmp/mem
+clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/mem starter.cpp && /tmp/mem
 
 # The tests compile without optimization (correctness only). For timing numbers
 # worth reading — like the ones quoted above — turn the optimizer on:
-clang++ -std=c++17 -O2 -Wall -o /tmp/mem solution.cpp && /tmp/mem
+clang++ -std=c++20 -Wall -Wextra -Werror=return-type -O2 -o /tmp/mem solution.cpp && /tmp/mem
 ```

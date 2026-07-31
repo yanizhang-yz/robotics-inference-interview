@@ -1,7 +1,7 @@
 // 02_ownership_and_raii — YOUR attempt. Fill in the TODO bodies, then run:
 //   PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii -v
 // Or compile and run directly:
-//   clang++ -std=c++17 -Wall -o /tmp/raii starter.cpp && /tmp/raii
+//   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/raii starter.cpp && /tmp/raii
 // The stubs compile as-is but fail main()'s asserts until you implement them.
 // You're done when the last line printed is: ALL TESTS PASSED
 

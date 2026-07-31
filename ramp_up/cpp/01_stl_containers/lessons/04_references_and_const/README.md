@@ -52,7 +52,7 @@ Run the learner starter with:
 PRACTICE=1 .venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/04_references_and_const -q
 ```
 
-The shared runner compiles with C++20 and `-Wall -Wextra -pedantic`. The
+The shared runner compiles with C++20 and `-Wall -Wextra -Werror=return-type`. The
 untouched starter is expected to fail at the maximum-position assertion before
 it reaches the clamping assertion.
 

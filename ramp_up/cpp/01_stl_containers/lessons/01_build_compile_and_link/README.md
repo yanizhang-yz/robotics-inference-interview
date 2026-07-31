@@ -45,7 +45,7 @@ manual branch chain.
 
 Run the reference with `.venv/bin/python -m pytest . -q`. To run the learner
 starter instead, use `PRACTICE=1 .venv/bin/python -m pytest . -q`. The shared
-runner compiles with C++20 and `-Wall -Wextra -pedantic` before running the
+runner compiles with C++20 and `-Wall -Wextra -Werror=return-type` before running the
 selected binary.
 
 ## Explain it

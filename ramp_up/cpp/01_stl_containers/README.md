@@ -63,7 +63,7 @@ PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers -v
 Or compile and run the starter directly:
 
 ```bash
-clang++ -std=c++20 -Wall -o /tmp/stl starter.cpp && /tmp/stl
+clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/stl starter.cpp && /tmp/stl
 ```
 
 Without `PRACTICE=1`, pytest checks the reference `solution.cpp`.

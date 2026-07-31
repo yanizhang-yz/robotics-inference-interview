@@ -1,7 +1,7 @@
 // 06_threads_atomics_queues — reference solution.
 //
 // Compile & run standalone (note the extra -pthread vs earlier lessons):
-//   clang++ -std=c++17 -Wall -pthread -o /tmp/threads solution.cpp && /tmp/threads
+//   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -pthread -o /tmp/threads solution.cpp && /tmp/threads
 // Prints ALL TESTS PASSED when every assert holds.
 
 #include <atomic>

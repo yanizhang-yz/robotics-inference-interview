@@ -1,7 +1,7 @@
 // 04_virtual_functions_and_vtables — reference solution.
 //
 // Compile & run standalone:
-//   clang++ -std=c++17 -Wall -o /tmp/vtables solution.cpp && /tmp/vtables
+//   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/vtables solution.cpp && /tmp/vtables
 // Prints ALL TESTS PASSED when every assert holds.
 
 #include <cassert>

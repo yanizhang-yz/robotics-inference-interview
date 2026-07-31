@@ -9,7 +9,7 @@ write a C++ interface (abstract base class) the way production code does it; exp
 what a vtable is in one breath; and nail the two classic interview traps — the
 non-virtual destructor and object slicing — that Java made impossible to even write.
 Every term is defined the first time it appears; every snippet's output was verified
-with `clang++ -std=c++17 -Wall`.
+with `clang++ -std=c++20 -Wall -Wextra -Werror=return-type`.
 
 ## The Java you know
 
@@ -538,7 +538,7 @@ Or compile and run directly — `main()` asserts every drill and prints
 `ALL TESTS PASSED`:
 
 ```sh
-clang++ -std=c++17 -Wall -o /tmp/vtables starter.cpp && /tmp/vtables
+clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/vtables starter.cpp && /tmp/vtables
 ```
 
 Deep dives referenced above — value vs reference semantics (§1) and undefined

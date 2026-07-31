@@ -9,7 +9,7 @@ DEFAULT_FLAGS = (
     "-std=c++20",
     "-Wall",
     "-Wextra",
-    "-pedantic",
+    "-Werror=return-type",
 )
 
 

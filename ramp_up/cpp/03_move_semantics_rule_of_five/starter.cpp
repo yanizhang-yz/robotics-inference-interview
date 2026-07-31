@@ -1,7 +1,7 @@
 // 03_move_semantics_rule_of_five — YOUR attempt. Fill in the TODO bodies, then run:
 //   PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five -v
 // Or compile and run directly:
-//   clang++ -std=c++17 -Wall -o /tmp/moves starter.cpp && /tmp/moves
+//   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/moves starter.cpp && /tmp/moves
 // The stubs compile as-is but fail main()'s asserts until you implement them.
 // You're done when the last line printed is: ALL TESTS PASSED
 

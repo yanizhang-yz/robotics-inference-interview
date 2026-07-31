@@ -67,7 +67,7 @@ Run the learner starter with:
 PRACTICE=1 .venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/08_algorithms_and_iteration -q
 ```
 
-The shared runner compiles with C++20 and `-Wall -Wextra -pedantic`. The
+The shared runner compiles with C++20 and `-Wall -Wextra -Werror=return-type`. The
 untouched starter is expected to fail for cutoff `20` because it returns no
 selected IDs.
 

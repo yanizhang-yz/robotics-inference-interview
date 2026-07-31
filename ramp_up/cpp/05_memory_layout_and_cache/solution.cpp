@@ -1,9 +1,9 @@
 // 05_memory_layout_and_cache — reference solution.
 //
 // Compile & run standalone:
-//   clang++ -std=c++17 -Wall -o /tmp/mem solution.cpp && /tmp/mem
+//   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/mem solution.cpp && /tmp/mem
 // For honest timings, let the optimizer in:
-//   clang++ -std=c++17 -O2 -Wall -o /tmp/mem solution.cpp && /tmp/mem
+//   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -O2 -o /tmp/mem solution.cpp && /tmp/mem
 // Prints ALL TESTS PASSED when every assert holds. The [timing] lines are
 // informational only — no assert ever depends on a measurement, so the tests
 // cannot flake on a slow or busy machine.

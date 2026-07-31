@@ -1,7 +1,7 @@
 // 04_virtual_functions_and_vtables — YOUR attempt. Fill in the TODO bodies, then run:
 //   PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables -v
 // Or compile and run directly:
-//   clang++ -std=c++17 -Wall -o /tmp/vtables starter.cpp && /tmp/vtables
+//   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/vtables starter.cpp && /tmp/vtables
 // The stubs compile as-is but fail main()'s asserts until you implement them.
 // You're done when the last line printed is: ALL TESTS PASSED
 

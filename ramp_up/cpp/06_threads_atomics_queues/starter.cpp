@@ -1,7 +1,7 @@
 // 06_threads_atomics_queues — YOUR attempt. Fill in the TODO bodies, then run:
 //   PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues -v
 // Or compile and run directly (note the extra -pthread vs earlier lessons):
-//   clang++ -std=c++17 -Wall -pthread -o /tmp/threads starter.cpp && /tmp/threads
+//   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -pthread -o /tmp/threads starter.cpp && /tmp/threads
 // The stubs compile as-is but fail main()'s asserts until you implement them.
 // The BoundedQueue stubs are deliberately non-blocking no-ops, so a wrong
 // answer always fails an assert fast instead of hanging the test.

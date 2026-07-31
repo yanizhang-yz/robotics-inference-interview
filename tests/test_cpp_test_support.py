@@ -54,7 +54,7 @@ def test_compile_and_run_cpp_uses_the_required_cpp20_compile_flags(
         "-std=c++20",
         "-Wall",
         "-Wextra",
-        "-pedantic",
+        "-Werror=return-type",
         str(source),
         "-o",
         str(binary),

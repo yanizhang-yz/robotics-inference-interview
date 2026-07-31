@@ -10,7 +10,7 @@ int add(int a, int b) { return a + b; }
 int main() { return add(2, 3) == 5 ? 0 : 1; }
 ```
 
-Compile with `c++ -std=c++20 -Wall -Wextra -Wpedantic demo.cpp -o demo`.
+Compile with `c++ -std=c++20 -Wall -Wextra -Werror=return-type demo.cpp -o demo`.
 Mistake: defining a non-`inline` function in a header included by multiple translation units.
 Learn it in [Module 01](01_stl_containers/).
 
@@ -125,8 +125,8 @@ warnings and sanitizers are part of normal development.
 int main() { std::array<int, 1> values{4}; return values.at(0) == 4 ? 0 : 1; }
 ```
 
-Use `c++ -std=c++20 -Wall -Wextra -Wpedantic demo.cpp` and
-`c++ -std=c++20 -fsanitize=address,undefined -g demo.cpp -o demo`.
+Use `c++ -std=c++20 -Wall -Wextra -Werror=return-type demo.cpp` and
+`c++ -std=c++20 -Wall -Wextra -Werror=return-type -fsanitize=address,undefined -g demo.cpp -o demo`.
 Mistake: treating a passing debug run as proof that undefined behavior is harmless.
 Learn it in [Module 05](05_memory_layout_and_cache/).
 

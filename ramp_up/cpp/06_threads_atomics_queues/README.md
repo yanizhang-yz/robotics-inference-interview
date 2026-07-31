@@ -8,7 +8,7 @@ That queue is also the single most important pattern of a robotics inference job
 camera thread producing frames, an inference thread consuming them, and the queue
 between them keeping the robot honest when the model can't keep up. Every term is
 defined at first use; every snippet's behavior was verified with
-`clang++ -std=c++17 -pthread` on this Mac.
+`clang++ -std=c++20 -Wall -Wextra -Werror=return-type -pthread` on this Mac.
 
 ## The Java you know
 
@@ -473,7 +473,7 @@ Or compile and run directly — `main()` asserts every drill and prints `ALL TES
 PASSED`:
 
 ```sh
-clang++ -std=c++17 -Wall -pthread -o /tmp/threads starter.cpp && /tmp/threads
+clang++ -std=c++20 -Wall -Wextra -Werror=return-type -pthread -o /tmp/threads starter.cpp && /tmp/threads
 ```
 
 Note the flag this lesson adds: `-pthread` tells the compiler and linker to build

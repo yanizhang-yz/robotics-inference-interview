@@ -5,7 +5,8 @@ that owns heap memory and frees it automatically with zero cleanup code, hand an
 from one function to another so that exactly one place is ever responsible for it, and
 build "run this cleanup at the closing brace, no matter what" utilities — the pattern
 behind every file handle, lock, and timer in production C++. Every term is defined the
-first time it appears; every snippet's output was verified with `clang++ -std=c++17`.
+first time it appears; every snippet's output was verified with
+`clang++ -std=c++20 -Wall -Wextra -Werror=return-type`.
 
 ## The Java you know
 
@@ -394,7 +395,7 @@ PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii -v
 Or compile and run it directly — `main()` asserts every drill and prints `ALL TESTS PASSED`:
 
 ```sh
-clang++ -std=c++17 -Wall -o /tmp/raii starter.cpp && /tmp/raii
+clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/raii starter.cpp && /tmp/raii
 ```
 
 Without `PRACTICE=1`, pytest checks the reference `solution.cpp` instead.

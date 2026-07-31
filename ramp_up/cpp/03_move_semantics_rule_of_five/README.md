@@ -302,7 +302,7 @@ Which is why `return std::move(local);` is an anti-pattern with a name —
 **pessimizing move**: wrapping the local in `std::move` changes the returned
 expression's type in a way that *disqualifies* it from elision, so you pay a move
 where you could have paid nothing. The compiler will tell you (verified, from
-`clang++ -Wall` on exactly this code):
+`clang++ -std=c++20 -Wall -Wextra -Werror=return-type` on exactly this code):
 
 ```text
 warning: moving a local object in a return statement prevents copy elision
@@ -421,7 +421,7 @@ uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five -v
 PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five -v
 
 # Or compile and run directly:
-clang++ -std=c++17 -Wall -o /tmp/moves starter.cpp && /tmp/moves
+clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/moves starter.cpp && /tmp/moves
 ```
 
 Deep dives referenced above: value vs reference semantics

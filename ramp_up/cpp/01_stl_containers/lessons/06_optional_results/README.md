@@ -63,7 +63,7 @@ Run the learner starter with:
 PRACTICE=1 .venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/06_optional_results -q
 ```
 
-The shared runner compiles with C++20 and `-Wall -Wextra -pedantic`. The
+The shared runner compiles with C++20 and `-Wall -Wextra -Werror=return-type`. The
 untouched starter is expected to fail because the lookup at timestamp 25 has
 no value.
 

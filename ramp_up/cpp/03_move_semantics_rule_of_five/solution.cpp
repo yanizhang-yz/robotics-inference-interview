@@ -1,7 +1,7 @@
 // 03_move_semantics_rule_of_five — reference solution.
 //
 // Compile & run standalone:
-//   clang++ -std=c++17 -Wall -o /tmp/moves solution.cpp && /tmp/moves
+//   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/moves solution.cpp && /tmp/moves
 // Prints ALL TESTS PASSED when every assert holds.
 
 #include <cassert>

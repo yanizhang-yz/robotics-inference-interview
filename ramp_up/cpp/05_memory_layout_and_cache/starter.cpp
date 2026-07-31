@@ -2,7 +2,7 @@
 // one struct's field order), then run:
 //   PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache -v
 // Or compile and run directly:
-//   clang++ -std=c++17 -Wall -o /tmp/mem starter.cpp && /tmp/mem
+//   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/mem starter.cpp && /tmp/mem
 // For honest timings, add -O2. The stubs compile as-is but fail main()'s
 // asserts until you implement them. The [timing] lines are informational only
 // — no assert depends on a measurement.

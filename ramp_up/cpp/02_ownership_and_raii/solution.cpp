@@ -1,7 +1,7 @@
 // 02_ownership_and_raii — reference solution.
 //
 // Compile & run standalone:
-//   clang++ -std=c++17 -Wall -o /tmp/raii solution.cpp && /tmp/raii
+//   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/raii solution.cpp && /tmp/raii
 // Prints ALL TESTS PASSED when every assert holds.
 
 #include <cassert>
