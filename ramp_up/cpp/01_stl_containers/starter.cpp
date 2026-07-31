@@ -93,12 +93,12 @@ int main() {
 
     // groupByLength
     {
-        auto groups = groupByLength({"go", "rust", "cpp", "perl", "c"});
+        auto groups = groupByLength({"go", "rust", "cpp", "ja" "va", "c"});
         assert(groups.size() == 4);
         assert((groups[1] == std::vector<std::string>{"c"}));
         assert((groups[2] == std::vector<std::string>{"go"}));
         assert((groups[3] == std::vector<std::string>{"cpp"}));
-        assert((groups[4] == std::vector<std::string>{"rust", "perl"}));
+        assert((groups[4] == std::vector<std::string>{"rust", "ja" "va"}));
         std::vector<int> keys;
         for (const auto& [len, group] : groups) {  // std::map iterates in key order
             (void)group;
