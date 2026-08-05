@@ -24,6 +24,12 @@ closed queue returns `std::nullopt`, so closure drains buffered work before sign
 end-of-stream. `close` sets `closed_` under the mutex and calls `notify_all`; every
 blocked consumer must reevaluate the now-true predicate.
 
+The wake-all test uses a private waiter count exposed only through a friend test probe.
+The probe locks the queue mutex, so observing all three registered consumers proves
+they have entered the empty-queue wait and released that mutex. Only then does the test
+close the queue and join all three consumers. No sleep or assumed schedule stands in
+for wait registration.
+
 ## How interviewers test this
 
 Expect questions about close-versus-push races, why queued items are checked before

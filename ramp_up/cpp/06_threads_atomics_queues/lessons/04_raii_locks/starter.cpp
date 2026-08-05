@@ -2,8 +2,7 @@
 // Concept: RAII releases a mutex on every scope exit.
 // Scenario: A sensor read throws while a timed mutex protects shared state.
 // Implement: lock_released_after_exception(std::timed_mutex&).
-// Behavior: Acquire with lock_guard, throw, catch outside the guard's scope,
-// prove try_lock succeeds afterward, and unlock the successful try_lock.
+// Behavior: After an exception, prove the same mutex is available for reuse.
 // Interview focus: Explain why manual lock/unlock leaks locks on exceptional or
 // early-return paths and how the guard's lifetime defines the critical section.
 // Tests: The same mutex can be acquired after the exception.
@@ -16,7 +15,7 @@
 #include <stdexcept>
 
 bool lock_released_after_exception(std::timed_mutex& mutex) {
-    // TODO: use lock_guard inside try, catch outside its scope, then try_lock.
+    // TODO: implement lock_released_after_exception.
     (void)mutex;
     return false;
 }

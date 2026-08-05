@@ -66,8 +66,10 @@ end-of-stream so the queue drains before returning `nullopt`.
 Reference assertions cover invariants and protocol outcomes: exact counts, ordered
 delivery, once-only delivery, capacity bounds, blocked-producer progress, post-close
 rejection, draining, and waiter exit. They do not require a particular worker order or
-a data race to visibly lose updates. Bounded polling prevents a broken progress path
-from waiting indefinitely; every lesson also has a 10-second fixture limit.
+a data race to visibly lose updates. Private friend probes observe waiter registration
+under each queue's mutex before the triggering pop or close. Bounded yield polling is
+used only to await that instrumented state; every lesson also has a 10-second fixture
+limit.
 
 The practice mailbox and queue methods return neutral values immediately until you
 implement them. That choice is intentional: an incomplete exercise fails an assertion

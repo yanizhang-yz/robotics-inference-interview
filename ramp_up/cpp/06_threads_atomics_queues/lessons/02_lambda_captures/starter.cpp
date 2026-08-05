@@ -2,9 +2,9 @@
 // Concept: Lambda capture modes determine sharing and lifetime.
 // Scenario: Offset independent sensor samples in parallel without reordering.
 // Implement: offset_samples(samples, offset), one worker per sample.
-// Behavior: Capture index and offset by value, output by reference, write one
-// disjoint output slot per worker, and join every worker before returning.
-// Interview focus: Diagnose loop-index reference capture and dangling captures.
+// Behavior: Produce one offset result per input in the same stable order.
+// Interview focus: Choose safe capture modes and diagnose loop-index or dangling
+// capture bugs without relying on a particular worker schedule.
 // Tests: The result preserves input order and handles an empty input.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/02_lambda_captures -q
 // Done when: The binary prints ALL TESTS PASSED.
@@ -16,7 +16,7 @@
 #include <vector>
 
 std::vector<int> offset_samples(const std::vector<int>& samples, int offset) {
-    // TODO: launch one worker per element with [&, i, offset], then join all.
+    // TODO: implement offset_samples.
     (void)samples;
     (void)offset;
     return {};

@@ -2,8 +2,7 @@
 // Concept: A condition variable waits for a protected state predicate.
 // Scenario: A camera producer delivers one sample to a sleeping consumer.
 // Implement: SampleMailbox<T>::put, wait_and_take, and the locked empty query.
-// Behavior: put changes optional state under the mutex then notifies; take waits
-// with a has_value predicate, moves the value out, and resets the optional.
+// Behavior: Deliver one value without busy-waiting and leave the mailbox empty.
 // Interview focus: Identify the mutex, predicate, state transition, notification,
 // and why predicate waits tolerate spurious wakeups.
 // Tests: A producer/consumer handoff delivers 42 and leaves the mailbox empty.
@@ -22,7 +21,7 @@ template <typename T>
 class SampleMailbox {
 public:
     void put(T value) {
-        // TODO: store under mutex_, then notify ready_.
+        // TODO: implement put.
         (void)value;
         (void)mutex_;
         (void)ready_;
@@ -30,12 +29,12 @@ public:
     }
 
     T wait_and_take() {
-        // TODO: wait with a value_.has_value() predicate, then move and reset.
+        // TODO: implement wait_and_take.
         return T{};  // Neutral on purpose: incomplete practice fails, never hangs.
     }
 
     bool empty() const {
-        // TODO: lock mutex_ and inspect value_.
+        // TODO: implement empty.
         return true;
     }
 

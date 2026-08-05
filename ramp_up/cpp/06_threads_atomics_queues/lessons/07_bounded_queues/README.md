@@ -20,10 +20,12 @@ Capacity zero is rejected with `std::invalid_argument("capacity must be positive
 Without that validation, the not-full predicate could never become true. `size()` also
 locks because an observation of shared container state is still a shared access.
 
-The backpressure test uses a capacity of two and an atomic progress counter. It waits
-with bounded polling for two completed pushes, verifies the third has not completed,
-pops one item, and then observes the third complete. It asserts state transitions,
-not a fragile elapsed-time ratio or a required scheduling order.
+The backpressure test fills a capacity-two queue before starting a third push. A
+test-only friend probe reads a private waiter count while holding the queue mutex; the
+probe is not part of the public queue interface. Once the probe observes the producer,
+that producer has registered and released the mutex inside the wait. The test proves
+the push is incomplete, pops one item, and then proves the push completes. Bounded
+yield polling awaits instrumented state without inferring behavior from elapsed time.
 
 ## How interviewers test this
 

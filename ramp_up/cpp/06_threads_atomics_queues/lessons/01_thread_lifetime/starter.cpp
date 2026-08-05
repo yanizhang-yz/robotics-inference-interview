@@ -2,7 +2,7 @@
 // Concept: std::thread lifetime and explicit ownership of the join boundary.
 // Scenario: Sum two disjoint halves of an inference batch concurrently.
 // Implement: parallel_sum(std::span<const int>) with two worker threads.
-// Behavior: Split once, write separate partial sums, join both, then combine.
+// Behavior: Two workers process disjoint portions and return the exact total.
 // Interview focus: Explain when construction starts work and why every joinable
 // thread must be joined or have its ownership transferred before destruction.
 // Tests: Empty input is 0; positive and mixed-sign inputs have exact sums.
@@ -17,7 +17,7 @@
 #include <vector>
 
 long long parallel_sum(std::span<const int> values) {
-    // TODO: split values, start two threads, join both, and combine their sums.
+    // TODO: implement parallel_sum.
     (void)values;
     return 0;
 }

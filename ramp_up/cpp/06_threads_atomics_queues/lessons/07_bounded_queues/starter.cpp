@@ -2,21 +2,20 @@
 // Concept: A bounded blocking FIFO applies backpressure with two predicates.
 // Scenario: A camera must stop producing while inference has filled the queue.
 // Implement: BoundedQueue<T> constructor, push, pop, and locked size.
-// Behavior: Reject zero capacity; push waits for space and notifies not_empty;
-// pop waits for data and notifies not_full; both preserve FIFO and capacity.
+// Behavior: Reject zero capacity; block at full/empty boundaries; preserve FIFO,
+// the capacity bound, and exact delivery.
 // Interview focus: Derive the not-full/not-empty predicates and notifications,
 // and explain why bounded capacity prevents unbounded latency and memory growth.
-// Tests: Zero capacity, FIFO, capacity, producer blocking, and exact delivery.
+// Tests: Zero capacity, FIFO, capacity, exact delivery, and a private probe that
+// observes one producer registered in the blocking wait.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/07_bounded_queues -q
 // Done when: The binary prints ALL TESTS PASSED.
 
 #include <atomic>
 #include <cassert>
-#include <chrono>
 #include <condition_variable>
 #include <cstddef>
 #include <deque>
-#include <initializer_list>
 #include <iostream>
 #include <mutex>
 #include <stdexcept>
@@ -24,34 +23,51 @@
 #include <utility>
 
 template <typename T>
+class BoundedQueue;
+
+// Test-only observability: this friend probe reads wait registration while holding
+// the queue mutex. It is not part of BoundedQueue's public teaching interface.
+template <typename T>
+struct BoundedQueueWaitProbe {
+    static std::size_t blocked_producers(const BoundedQueue<T>& queue) {
+        std::lock_guard<std::mutex> lock(queue.mutex_);
+        return queue.waiting_producers_;
+    }
+};
+
+template <typename T>
 class BoundedQueue {
 public:
     explicit BoundedQueue(std::size_t capacity) : capacity_(capacity) {
-        // TODO: reject zero with invalid_argument("capacity must be positive").
+        // TODO: implement constructor validation.
         (void)capacity_;
     }
 
     void push(T value) {
-        // TODO: wait for items_.size() < capacity_, enqueue, notify not_empty_.
+        // TODO: implement push.
         (void)value;  // Neutral on purpose: incomplete practice never blocks.
     }
 
     T pop() {
-        // TODO: wait for !items_.empty(), dequeue FIFO, notify not_full_.
+        // TODO: implement pop.
         return T{};  // Neutral on purpose: incomplete practice never blocks.
     }
 
     std::size_t size() const {
-        // TODO: lock mutex_ and return items_.size().
+        // TODO: implement size.
         return 0;
     }
 
 private:
+    friend struct BoundedQueueWaitProbe<T>;
+
     std::size_t capacity_;
     mutable std::mutex mutex_;
     std::condition_variable not_full_;
     std::condition_variable not_empty_;
     std::deque<T> items_;
+    // Test-only count of producers currently registered in the blocking wait.
+    std::size_t waiting_producers_ = 0;
 };
 
 int main() {
@@ -75,32 +91,29 @@ int main() {
 
     {
         BoundedQueue<int> queue(2);
-        std::atomic<int> progress{0};
+        queue.push(10);
+        queue.push(20);
+        std::atomic<bool> third_push_completed{false};
         std::thread producer([&] {
-            queue.push(10);
-            progress.store(1);
-            queue.push(20);
-            progress.store(2);
-            progress.store(3);  // The third push is about to be attempted.
             queue.push(30);
-            progress.store(4);  // The third push completed.
+            third_push_completed.store(true);
         });
 
-        for (int poll = 0; poll < 1000 && progress.load() < 3; ++poll) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        bool producer_is_blocked = false;
+        for (int poll = 0; poll < 100000 && !producer_is_blocked; ++poll) {
+            producer_is_blocked =
+                BoundedQueueWaitProbe<int>::blocked_producers(queue) == 1;
+            std::this_thread::yield();
         }
-        assert(progress.load() == 3);
-        for (int poll = 0; poll < 20 && progress.load() == 3; ++poll) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-        assert(progress.load() == 3);
+        assert(producer_is_blocked);
+        assert(!third_push_completed.load());
         assert(queue.size() == 2);
 
         assert(queue.pop() == 10);
-        for (int poll = 0; poll < 1000 && progress.load() < 4; ++poll) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        for (int poll = 0; poll < 100000 && !third_push_completed.load(); ++poll) {
+            std::this_thread::yield();
         }
-        assert(progress.load() == 4);
+        assert(third_push_completed.load());
         producer.join();
 
         assert(queue.size() == 2);

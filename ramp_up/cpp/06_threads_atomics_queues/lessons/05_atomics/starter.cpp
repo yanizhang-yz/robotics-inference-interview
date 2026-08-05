@@ -2,8 +2,7 @@
 // Concept: Compare-and-swap elects exactly one winner for one state transition.
 // Scenario: Many inference workers race to publish one shared result.
 // Implement: elect_publisher(threads) with atomic<bool>::compare_exchange_strong.
-// Behavior: Each worker starts with expected=false; exactly one changes claimed
-// to true and increments the atomic winner count; all workers are joined.
+// Behavior: Exactly one worker wins for any positive worker count.
 // Interview focus: Explain CAS expected-value updates and when a mutex is clearer
 // for invariants spanning more than one field.
 // Tests: One worker and eight workers both elect exactly one publisher.
@@ -17,7 +16,7 @@
 #include <vector>
 
 int elect_publisher(int threads) {
-    // TODO: race workers through compare_exchange_strong and count one winner.
+    // TODO: implement elect_publisher.
     (void)threads;
     return 0;
 }

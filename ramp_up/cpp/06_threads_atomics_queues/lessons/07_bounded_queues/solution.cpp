@@ -1,15 +1,26 @@
 #include <atomic>
 #include <cassert>
-#include <chrono>
 #include <condition_variable>
 #include <cstddef>
 #include <deque>
-#include <initializer_list>
 #include <iostream>
 #include <mutex>
 #include <stdexcept>
 #include <thread>
 #include <utility>
+
+template <typename T>
+class BoundedQueue;
+
+// Test-only observability: this friend probe reads wait registration while holding
+// the queue mutex. It is not part of BoundedQueue's public teaching interface.
+template <typename T>
+struct BoundedQueueWaitProbe {
+    static std::size_t blocked_producers(const BoundedQueue<T>& queue) {
+        std::lock_guard<std::mutex> lock(queue.mutex_);
+        return queue.waiting_producers_;
+    }
+};
 
 template <typename T>
 class BoundedQueue {
@@ -22,7 +33,11 @@ public:
 
     void push(T value) {
         std::unique_lock<std::mutex> lock(mutex_);
-        not_full_.wait(lock, [this] { return items_.size() < capacity_; });
+        if (items_.size() >= capacity_) {
+            ++waiting_producers_;
+            not_full_.wait(lock, [this] { return items_.size() < capacity_; });
+            --waiting_producers_;
+        }
         items_.push_back(std::move(value));
         not_empty_.notify_one();
     }
@@ -42,11 +57,15 @@ public:
     }
 
 private:
+    friend struct BoundedQueueWaitProbe<T>;
+
     std::size_t capacity_;
     mutable std::mutex mutex_;
     std::condition_variable not_full_;
     std::condition_variable not_empty_;
     std::deque<T> items_;
+    // Test-only count of producers currently registered in the blocking wait.
+    std::size_t waiting_producers_ = 0;
 };
 
 int main() {
@@ -70,32 +89,29 @@ int main() {
 
     {
         BoundedQueue<int> queue(2);
-        std::atomic<int> progress{0};
+        queue.push(10);
+        queue.push(20);
+        std::atomic<bool> third_push_completed{false};
         std::thread producer([&] {
-            queue.push(10);
-            progress.store(1);
-            queue.push(20);
-            progress.store(2);
-            progress.store(3);  // The third push is about to be attempted.
             queue.push(30);
-            progress.store(4);  // The third push completed.
+            third_push_completed.store(true);
         });
 
-        for (int poll = 0; poll < 1000 && progress.load() < 3; ++poll) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        bool producer_is_blocked = false;
+        for (int poll = 0; poll < 100000 && !producer_is_blocked; ++poll) {
+            producer_is_blocked =
+                BoundedQueueWaitProbe<int>::blocked_producers(queue) == 1;
+            std::this_thread::yield();
         }
-        assert(progress.load() == 3);
-        for (int poll = 0; poll < 20 && progress.load() == 3; ++poll) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }
-        assert(progress.load() == 3);
+        assert(producer_is_blocked);
+        assert(!third_push_completed.load());
         assert(queue.size() == 2);
 
         assert(queue.pop() == 10);
-        for (int poll = 0; poll < 1000 && progress.load() < 4; ++poll) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        for (int poll = 0; poll < 100000 && !third_push_completed.load(); ++poll) {
+            std::this_thread::yield();
         }
-        assert(progress.load() == 4);
+        assert(third_push_completed.load());
         producer.join();
 
         assert(queue.size() == 2);
