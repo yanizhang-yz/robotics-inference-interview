@@ -2,7 +2,7 @@
 // Concept: Reuse one template to select the newest sample of several value types.
 // Scenario: Read the latest joint measurement or operating mode without copying either sample.
 // Implement: latest_sample.
-// Behavior: latest_sample({{10, 0.1}, {20, 0.2}}) returns value 0.2; latest_sample({{15, "idle"}}) returns "idle"; an empty int sample vector returns nullptr.
+// Behavior: for std::vector<TimedSample<double>> joints{{10, 0.1}, {20, 0.2}}, latest_sample(joints)->value == 0.2; for std::vector<TimedSample<std::string>> modes{{15, "idle"}}, latest_sample(modes)->value == "idle"; latest_sample(std::vector<TimedSample<int>>{}) == nullptr.
 // Interview focus: Find the latest typed sample.
 // Tests: main instantiates the template for double, std::string, and int data.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers/lessons/09_introductory_templates -q
