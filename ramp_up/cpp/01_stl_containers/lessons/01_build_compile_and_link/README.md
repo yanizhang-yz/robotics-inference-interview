@@ -23,8 +23,12 @@ apart, the wall of text collapses into one useful sentence.
 
 ### One command builds one program
 
-A C++ **compiler** turns source text into an executable file. On this repo's
-toolchain that is `clang++` (or `g++` — same flags, same behavior here):
+In Python the gap between "file" and "running program" is one step:
+`python file.py`. C++ splits it in two — *build*, then *run* — and the build
+is where a whole class of mistakes gets caught before the program ever
+starts. A C++ **compiler** turns source text into an executable file. On this
+repo's toolchain that is `clang++` (or `g++` — same flags, same behavior
+here):
 
 ```bash
 clang++ -std=c++20 -Wall -Wextra -Werror=return-type starter.cpp -o program

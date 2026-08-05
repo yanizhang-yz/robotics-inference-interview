@@ -40,6 +40,12 @@ The `&` reads differently by position, which trips everyone once: in a
 position (`&x`, lesson 05), it takes an address. Same character, two
 meanings.
 
+If you did the Python ramp, you have seen aliasing before — in Python,
+`v = u` aliases *by default* and you ask for a copy explicitly (`list(u)`).
+C++ flips the default: assignment and plain parameters **copy** (lesson 03),
+and aliasing is what you opt into, with `&`. Same two behaviors, opposite
+defaults — most C++/Python confusion is exactly this flip.
+
 ### The three parameter forms, side by side
 
 Wrap the same operation in the three signatures and watch the caller's
