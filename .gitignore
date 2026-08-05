@@ -9,8 +9,5 @@ dist/
 # Editor (local practice settings stay out of the public repo)
 .vscode/
 
-# Per-learner drill runner state (progress, archived attempts)
-.drill/
-
 # macOS
 .DS_Store

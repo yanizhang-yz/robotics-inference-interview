@@ -6,9 +6,6 @@ layout, concurrency, and performance in robotics and inference systems.
 
 ## Choose a route
 
-- Play it: run `./drill` from the repo root — module 01 as an interactive
-  card → predict → code loop with instant compile feedback and a staged
-  capstone. Start here if you learn by doing.
 - Concept tour: read [CONCEPT_MAP.md](CONCEPT_MAP.md) before implementing.
 - Guided path: complete micro-lessons in order, then the module capstone.
 - Fast path: attempt a module capstone directly and return to any lesson it

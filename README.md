@@ -86,9 +86,7 @@ Same practice flow as the questions: code in `starter.py`, check with
 The [C++ track](ramp_up/cpp/README.md) is a self-paced C++20 path for the inference
 hot path: start with its concept map, work through the six modules, and use the
 reference card while practicing. C++ exercises compile and run through the same
-pytest command and require `clang++` or `g++`. Module 01 plays as an
-interactive game — run `./drill` from the repo root for a card → predict →
-code loop with instant compile feedback and a staged capstone.
+pytest command and require `clang++` or `g++`.
 
 Each question folder contains:
 

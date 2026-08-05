@@ -1,33 +1,16 @@
 # Module 01 — C++ values and standard containers
 
 This module builds the everyday C++ habits needed to read and write ordinary
-values and standard containers — and it plays like a game, not a textbook.
-
-## Play it
-
-From the repo root:
-
-```bash
-./drill
-```
-
-Each rep is seconds of reading, then coding: an ~8-line concept card, one
-prediction question, then a drill in real C++ that recompiles on every save
-of `starter.cpp`. Wrong answers get escalating help — first the failing
-assertion, then a deeper explanation, then (only if you ask) the solution
-diff. Pass all ten lessons and the capstone unlocks: a whole program you
-build from scratch, stage by stage.
-
-Useful moves: `./drill 7` jumps to a lesson, `./drill status` shows your
-streak and progress, `./drill review` re-serves a few passed drills to keep
-them sharp, and `./drill doctor` checks your setup.
+values and standard containers. Work through the lessons in order — each is a
+short read followed by a hands-on drill — then combine everything in the
+telemetry capstone.
 
 ## Prerequisites
 
 General programming experience and a C++ compiler (`clang++` or `g++`). No
 prior C++ needed.
 
-## Lesson map
+## Lesson path
 
 | Lesson | Concept | Application |
 | --- | --- | --- |
@@ -42,9 +25,6 @@ prior C++ needed.
 | [09 — Introductory templates](lessons/09_introductory_templates/) | Type-parameterized code and instantiation | Reuse one algorithm for several value types. |
 | [10 — Classes and member initialization](lessons/10_classes_and_member_initialization/) | Object construction and member-initializer lists | Trace how a small value type is initialized. |
 
-Every lesson README is card-first: the short card and prediction question on
-top, a deep dive below for when you want the full story.
-
 ## Already know some C++?
 
 If you can explain — without guessing — how a compile error differs from a
@@ -53,27 +33,26 @@ modified, when a parameter should be `const T&` versus `T&`, what makes a
 returned raw pointer dangle, how a null pointer differs from an empty
 `std::optional`, which container keeps bytes contiguous, what template
 instantiation does, and in what order class members initialize — jump
-straight to `./drill capstone` and return to any lesson the work exposes.
+straight to the capstone and return to any lesson the work exposes.
 
 ## Capstone — Telemetry Triage
 
-The finale is [capstone/](capstone/): a joint-telemetry triage CLI you write
-from a near-empty `starter.cpp`, with staged tests that unlock progressively
-— parse the stream, clamp and group per joint, then produce the triage
-report. It integrates the ten lessons and introduces `std::string` parsing,
-`std::map`, and `std::set` in real use. `./drill capstone` runs it (the rail
-gets you there automatically after lesson 10).
+The module ends with [capstone/](capstone/): a joint-telemetry triage CLI
+written from a near-empty `starter.cpp` in three graded stages — parse the
+stream, clamp and group per joint, then produce the triage report. It
+integrates the ten lessons and introduces `std::string` parsing, `std::map`,
+and `std::set` in real use.
 
-## Without the runner
+## How to practice
 
-Everything also works as plain files and pytest:
+Write your attempt in a lesson's `starter.cpp`, then run the tests against it:
 
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers/lessons/04_references_and_const -q
 ```
 
-Without `PRACTICE=1`, pytest checks the reference `solution.cpp` instead of
-your starter. The whole module: `uv run pytest ramp_up/cpp/01_stl_containers -v`.
+Drop the `PRACTICE=1` to run the tests against the reference `solution.cpp`.
+The whole module: `uv run pytest ramp_up/cpp/01_stl_containers -v`.
 
 Return to the [C++ curriculum](../README.md) or continue to
 [Module 02 — Ownership and RAII](../02_ownership_and_raii/).
