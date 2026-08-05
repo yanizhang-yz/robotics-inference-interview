@@ -1,3 +1,13 @@
+// DRILL BRIEF
+// Concept: Copy/move selection, moved-from invariants, copy elision, and Rule of Five.
+// Scenario: Move grayscale frames through capture, inference, consumption, and swapping.
+// Implement: FrameBuffer's copy/move operations, make_frame, consume, and swap_frames.
+// Behavior: Copies are deep; moves preserve buffer addresses and empty their sources.
+// Interview focus: Trace value categories and costs, then explain noexcept and elision.
+// Tests: Existing main assertions cover construction, handoffs, factories, sinks, and swap.
+// Run: PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five -q
+// Done when: Every existing assertion passes and the program prints ALL TESTS PASSED.
+
 // 03_move_semantics_rule_of_five — YOUR attempt. Fill in the TODO bodies, then run:
 //   PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five -v
 // Or compile and run directly:
