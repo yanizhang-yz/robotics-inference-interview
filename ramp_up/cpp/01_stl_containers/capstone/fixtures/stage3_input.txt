@@ -1,0 +1,6 @@
+head_pan 0.10 40.0
+head_tilt 0.20 40.0
+arm_elbow 0.30 41.5
+head_pan -0.20 42.0
+gripper 0.00 39.9
+arm_elbow 0.50 38.5

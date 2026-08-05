@@ -1,0 +1,8 @@
+arm_shoulder 0.42 36.5
+arm_elbow -1.90 41.2
+oops
+arm_wrist 0.10 35.0
+arm_elbow 0.80 43.8
+arm_shoulder 1.75 39.0
+lidar_mount abc 30.0
+base_yaw -0.30 38.2

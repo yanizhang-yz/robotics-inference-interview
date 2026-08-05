@@ -1,0 +1,1 @@
+joints=4 hottest=head_pan,arm_elbow
