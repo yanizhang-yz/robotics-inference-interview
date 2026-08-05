@@ -1,98 +1,74 @@
 # 07 — Containers and Contiguous Storage
 
-## Problem
+## Card
 
-Build one grayscale camera frame whose pixels all begin with the same value, then
-compute its checksum. A 4-by-3 frame filled with `7` has 12 pixels and a
-checksum of 84.
+`std::vector<T>` is a value that **owns a contiguous sequence** of elements.
 
-## Mental model
-
-`std::vector<T>` is a **value that owns a contiguous sequence of `T` elements**.
-For this lesson, `T` is `std::uint8_t`, so every element is one grayscale pixel.
-The vector object itself is a small container value; its pixel elements live in
-the storage the vector manages. `frame` is not an array of pixels embedded in
-the variable named `frame`: it is an owner that knows where its element storage
-is, how many elements it contains, and how much storage it can use before it
-must grow.
-
-`size()` is the number of elements, not the number of bytes. `data()` gives a
-pointer to the first element's storage when the vector is non-empty. Because
-the elements are contiguous, incrementing that pointer walks from one pixel to
-the next, and `data() + size()` is the one-past-the-end position.
-
-Copying a vector copies its elements into independently owned storage. Changing
-the copied frame does not change the original frame. In contrast, a pointer,
-reference, or iterator into a vector borrows access to its current elements.
-If `push_back` makes `size() > capacity()`, the vector reallocates its storage
-and invalidates every pointer, reference, and iterator to its elements. Without
-reallocation, insertion has narrower invalidation rules, so consult the
-operation's contract before retaining a borrow. After forced growth, read the
-element again from the vector instead of using an old pointer, reference, or
-iterator.
-
-## Application
-
-Inference code often represents a grayscale camera image as a flat frame: row
-0 comes first, then row 1, and so on. The element for `(row, column)` is at
-`row * width + column`. A contiguous `std::vector<std::uint8_t>` makes that
-layout explicit and supplies one owned value that can be passed between a
-camera adapter, preprocessing stage, and inference request.
-
-`make_gray_frame` creates the initial image buffer. `checksum` reads the frame
-through a `const` reference, so it neither copies the pixels nor changes them.
-
-## Prediction
-
-Before running the program, answer these questions:
-
-1. For `make_gray_frame(4, 3, 7)`, what does `size()` return? Is that count in
-   pixels, bytes, rows, or columns?
-2. What does `frame.data()` point to for this non-empty frame? Why does
-   `frame.data() + frame.size()` name the position immediately after the final
-   pixel?
-3. What is the type of one element in `std::vector<std::uint8_t>`? What range
-   of grayscale values can that element represent?
-4. If `auto copy = frame;` is followed by `copy[0] = 0`, what happens to
-   `frame[0]`? Which vector owns the changed element storage?
-5. If you save an iterator or reference to `frame[0]` and then `push_back`
-   forces the vector to grow, may you use that saved iterator or reference?
-   Why must the answer account for the vector's storage moving?
-
-## Guided implementation
-
-In `starter.cpp`, return a vector with `width * height` elements, all initialized
-to `fill`. Then iterate over the supplied pixels, add each `std::uint8_t` value
-to a `long long` total, and return that total.
-
-## Verification
-
-Run the reference with:
-
-```bash
-.venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/07_containers_and_storage -q
+```cpp
+std::vector<std::uint8_t> frame(width * height, fill);  // owned pixels
 ```
 
-Run the learner starter with:
+`size()` counts elements, not bytes; `data()` points at the first element,
+so `data() + size()` is one past the last pixel. Copying a vector copies
+the elements into independently owned storage. But if `push_back` pushes
+`size()` past `capacity()`, the vector reallocates — and every pointer,
+reference, and iterator into the old elements is invalidated.
 
-```bash
-PRACTICE=1 .venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/07_containers_and_storage -q
-```
+## Predict
 
-The shared runner compiles with C++20 and `-Wall -Wextra -Werror=return-type`. The
-untouched starter is expected to fail at `frame.size() == 12`.
+You save a pointer to `frame[0]`, then a `push_back` pushes `size()` past
+`capacity()`. Can you still use that pointer?
 
-## Explain it
+- A) Yes — the vector updates saved pointers to its new storage
+- B) No — the vector reallocated, so the pointer aims at the old storage
+- C) Only if you had saved a reference or iterator instead of a pointer
 
-- `std::vector<std::uint8_t>` owns the frame's contiguous pixel elements.
-- `size()` counts elements; `data()` exposes the first element's address for a
-  non-empty frame.
-- A vector copy gets its own elements and storage.
-- Growth can move storage, invalidating pointers, references, and iterators
-  into the old elements.
+<!-- predict
+answer: B
+why-A: Nothing tracks raw pointers; the elements move to new storage and the pointer keeps the stale address.
+why-B: Right — forced growth reallocates the element storage, invalidating every pointer into the old buffer.
+why-C: References and iterators are invalidated by the same reallocation; re-read the element from the vector instead.
+-->
 
-## Next connection
+## Drill
 
-Use a vector when an inference stage needs an owned, resizable sequence of
-same-typed values. Keep borrowed access short-lived when the owner might grow
-or otherwise change its storage.
+In `starter.cpp`, implement `make_gray_frame` to return a vector of
+`width * height` pixels all initialized to `fill`, then implement
+`checksum` to add every pixel into a `long long` total through the
+read-only reference.
+
+Manual check: `PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers/lessons/07_containers_and_storage -q`
+
+## Takeaway
+
+- `std::vector<std::uint8_t>` owns the frame's contiguous pixel elements;
+  `size()` counts elements and `data()` names the first element's address.
+- A vector copy gets its own elements in independently owned storage.
+- Growth can move storage, invalidating pointers, references, and
+  iterators into the old elements.
+
+## Deep dive
+
+A `std::vector<std::uint8_t>` frame is an owner, not an array embedded in
+the variable: the vector object itself is small and knows where its
+element storage lives, how many pixels it holds, and how much capacity
+remains before it must grow. Because the elements are contiguous,
+incrementing a pointer from `data()` walks pixel to pixel, and
+`data() + size()` names the one-past-the-end position. Inference code
+leans on that layout: a grayscale image becomes a flat frame, row 0 first,
+with the pixel for `(row, column)` at `row * width + column` — one owned
+value passed between a camera adapter, a preprocessing stage, and an
+inference request.
+
+Ownership is what makes copies and borrows behave differently. Copying a
+vector copies its elements into independently owned storage, so editing
+the copy leaves the original frame alone. A pointer, reference, or
+iterator merely borrows access to the current elements: if `push_back`
+makes `size()` exceed `capacity()`, the vector reallocates and every such
+borrow dangles. Insertion without reallocation has narrower invalidation
+rules, so consult the operation's contract before retaining a borrow —
+and after forced growth, read the element again from the vector rather
+than trusting an old pointer. The habit to carry forward: reach for a
+vector when a stage needs an owned, resizable sequence of same-typed
+values, and keep borrowed access short-lived whenever the owner might
+grow or otherwise change its storage.

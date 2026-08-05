@@ -1,107 +1,78 @@
 # 10 — Classes and Member Initialization
 
-## Problem
+## Card
 
-Camera metadata and pixel storage must describe the same image from the moment
-a frame is created. How can construction guarantee that the recorded width and
-height match an initialized pixel buffer, without exposing those members for
-downstream code to change independently?
-
-## Mental model
-
-A class names a new kind of value. Its `private` section holds implementation
-details; only the class's own member functions may access those members. Its
-`public` section is the interface that callers can use. Here, the constructor
-establishes a valid frame and the four `const` accessors inspect it. A `const`
-member function promises not to modify the object, so it can be called on the
-`const CameraFrame frame` in `main`.
-
-The constructor's member-initializer list is the part after `:`:
+A class names a new kind of value: `private` members hold the state, and
+the `public` interface is the only way callers touch it.
 
 ```cpp
 CameraFrame(std::size_t width, std::size_t height, std::uint8_t fill)
-    : width_(width),
-      height_(height),
-      pixels_(width * height, fill) {}
+    : width_(width), height_(height), pixels_(width * height, fill) {}
 ```
 
-It constructs each member directly. `pixels_(width * height, fill)` invokes
-the `std::vector` constructor that creates that many pixels, each initialized
-to `fill`; it is not an assignment after an empty vector has been made.
+The list after `:` constructs each member directly — no empty-then-assign.
+**Members initialize in declaration order, not the order written in the
+list.** A `const` member function promises not to modify the object, so
+it can be called on a `const CameraFrame`.
 
-**Actual initialization order is declaration order, not the written order of
-the member-initializer list.** In this class, `width_` is declared first,
-`height_` second, and `pixels_` third, so that is the order in which they are
-initialized. Reordering the list's lines does not change it. Keep the list in
-declaration order so readers and compiler diagnostics agree, and never rely on
-one member being initialized earlier just because its initializer appears
-earlier in the list.
+## Predict
 
-`std::vector` owns its dynamic pixel storage and releases it automatically
-when the `CameraFrame` is destroyed. This class therefore needs no destructor,
-copy constructor, or copy-assignment operator: it is an early example of the
-Rule of Zero.
+The initializer list is rewritten to name `pixels_` first, then `width_`
+and `height_`. Which member is initialized first?
 
-## Application
+- A) `pixels_`, because its initializer now appears first in the list
+- B) `width_`, because members initialize in declaration order
+- C) Whichever the compiler picks — the order is unspecified
 
-An image sensor gives a pipeline a frame width, height, and one initial pixel
-value. Build a `CameraFrame` object that keeps those facts together and
-constructs a `width * height` pixel buffer filled with that value. Downstream
-code may inspect the frame, but it must not be able to replace its dimensions
-or pixel storage directly.
+<!-- predict
+answer: B
+why-A: The list's spelling never controls order; reordering its lines changes nothing about what runs first.
+why-B: Right — construction always follows the member declarations: `width_`, then `height_`, then `pixels_`.
+why-C: The order is fully specified — always the declaration order of the members, on every compiler.
+-->
 
-## Prediction
+## Drill
 
-Before running the program, answer these questions:
+In `starter.cpp`, repair only the `CameraFrame` constructor's
+member-initializer list so the three arguments initialize `width_`,
+`height_`, and `pixels_` — the pixel buffer gets `width * height`
+elements filled with `fill`. Keep the member declarations and their order
+unchanged.
 
-1. For `CameraFrame frame(4, 3, 7)`, how many elements should `pixels_`
-   contain, and what should the checksum be?
-2. Why can `main` call `width()` on a `const CameraFrame`?
-3. Can code outside `CameraFrame` write `frame.width_`? Which part of the
-   class makes the answer true?
-4. If the initializer list wrote `pixels_` before `width_`, which member would
-   still be initialized first, and why?
-5. Which object owns the pixel allocation, and why does that mean this class
-   does not manually `delete` anything?
+Manual check: `PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers/lessons/10_classes_and_member_initialization -q`
 
-## Guided implementation
+## Takeaway
 
-In `starter.cpp`, repair only the constructor's member-initializer list. Use
-the three constructor arguments to initialize `width_`, `height_`, and
-`pixels_`. Keep the member declarations and their order unchanged. The
-accessors and checksum loop already expose the behavior that verifies your
-frame construction.
+- The member-initializer list constructs each member directly into its
+  valid state.
+- Member declarations control real initialization order; the list's
+  spelling does not.
+- `std::vector` owns the buffer lifetime, so `CameraFrame` follows the
+  Rule of Zero — no destructor or copy functions needed.
 
-## Verification
+## Deep dive
 
-Run the reference program with:
+An image sensor hands a pipeline a frame width, height, and one initial
+pixel value; the class's job is to guarantee those facts describe the
+same image from the moment a frame exists. The constructor is where that
+guarantee is made: the member-initializer list after `:` constructs each
+member directly, and `pixels_(width * height, fill)` invokes the
+`std::vector` constructor that creates that many pixels already set to
+`fill` — not an assignment into a vector that was first made empty.
+Because `width_`, `height_`, and `pixels_` are `private`, downstream code
+cannot replace the dimensions or pixel storage independently; it inspects
+the frame through `const` accessors, which promise not to modify the
+object and therefore work on the `const CameraFrame` in `main`.
 
-```bash
-.venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/10_classes_and_member_initialization -q
-```
+The subtle rule is ordering: members are initialized in declaration order
+— `width_`, then `height_`, then `pixels_` — no matter how the
+initializer list is spelled. Keep the list in declaration order so
+readers and compiler diagnostics agree, and never rely on one member
+being ready just because its initializer is written earlier in the list.
 
-Run the learner starter with:
-
-```bash
-PRACTICE=1 .venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/10_classes_and_member_initialization -q
-```
-
-The shared runner compiles with C++20 and `-Wall -Wextra -Werror=return-type`. The
-untouched starter is expected to fail at `frame.width() == 4`.
-
-## Explain it
-
-- `CameraFrame` bundles related state behind a small public interface.
-- The constructor uses a member-initializer list to construct the stored
-  dimensions and pixel buffer in their valid state.
-- Member declarations control real initialization order; initializer-list
-  spelling does not override that order.
-- `const` accessors let callers observe a frame without granting mutation.
-- `std::vector` manages the buffer lifetime, allowing `CameraFrame` to follow
-  the Rule of Zero.
-
-## Next connection
-
-The earlier container and algorithm lessons used bare vectors of samples. A
-class gives a pipeline a way to state what those samples mean and which values
-must agree, while still relying on the same standard-library ownership model.
+Ownership completes the picture. `std::vector` owns the dynamic pixel
+storage and releases it when the frame is destroyed, so the class needs
+no destructor, copy constructor, or copy-assignment operator — an early
+example of the Rule of Zero. Earlier lessons passed bare vectors of
+samples; a class states what those values mean and which of them must
+agree.
