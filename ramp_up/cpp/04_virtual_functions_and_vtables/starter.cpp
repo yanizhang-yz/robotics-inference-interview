@@ -1,3 +1,12 @@
+// DRILL BRIEF
+// Concept: Combine dynamic dispatch, override checking, polymorphic cleanup, and static dispatch.
+// Scenario: Complete a mixed camera/lidar polling backend and diagnose forgotten virtual dispatch.
+// Implement: Sensor cleanup, both backends, pollAll, describe, and brokenDispatchDemo.
+// Behavior: Poll mixed sensors, describe through references, clean up in order, and expose static dispatch.
+// Interview focus: Explain which type selects each call and why base destruction must be virtual.
+// Tests: main checks the existing dispatch, formatting, destruction, and broken-dispatch assertions.
+// Run: PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables -q
+// Done when: The test passes and the program prints ALL TESTS PASSED.
 // 04_virtual_functions_and_vtables — YOUR attempt. Fill in the TODO bodies, then run:
 //   PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables -v
 // Or compile and run directly:

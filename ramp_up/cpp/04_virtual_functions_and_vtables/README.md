@@ -1,599 +1,67 @@
-# 04 — Virtual Functions and Vtables: inheritance, `override`, and the virtual destructor
+# 04 — Virtual Functions and Vtables
 
-After this lesson you will be able to: predict exactly which function body runs for
-any call through a pointer, a reference, or a plain value; write a C++ interface
-(abstract base class) the way production code does it; explain what a vtable is in
-one breath; and nail the two classic interview traps — the non-virtual destructor and
-object slicing — that compile cleanly and misbehave at runtime. Every term is defined
-the first time it appears; every snippet's output was verified with
-`clang++ -std=c++20 -Wall -Wextra -Werror=return-type`.
+Runtime polymorphism lets one robotics pipeline choose among camera, lidar, and
+inference backends at runtime while the calling code depends on one interface.
+This module turns that broad topic into six small programs before returning to
+the existing capstone.
 
-## The problem: one list, many sensor types
+## What this module consumes and produces
 
-Your robot has a camera polling at 30 Hz and a lidar at 10 Hz. Next month it grows an
-IMU, then a depth camera. The main loop you *want* to write looks like this:
+You will reuse Module 02's `std::unique_ptr` ownership and Module 03's reasoning
+about move-only values. This module produces a safe interface-and-dispatch model
+for backend abstractions: how to call, own, destroy, and batch runtime-selected
+implementations.
 
-```cpp
-for (const auto& s : sensors) {
-    log(s->name(), s->read());   // one loop; it neither knows nor cares which is which
-}
+## Lesson path
+
+1. [Interfaces and dynamic dispatch](lessons/01_interfaces_and_dynamic_dispatch/README.md)
+   separates a common contract from concrete sensors.
+2. [`virtual` and `override`](lessons/02_virtual_and_override/README.md) makes
+   runtime selection intentional and signature mistakes compile-time errors.
+3. [Virtual destructors](lessons/03_virtual_destructors/README.md) proves safe
+   derived-to-base cleanup through an interface owner.
+4. [Polymorphic ownership](lessons/04_polymorphic_ownership/README.md) combines
+   heterogeneous pointees with a homogeneous vector of `unique_ptr<Sensor>`.
+5. [Object slicing](lessons/05_object_slicing/README.md) contrasts a lossy base
+   value with a polymorphic base reference.
+6. [Dispatch cost](lessons/06_dispatch_cost/README.md) places one virtual call
+   around coarse batch work and verifies the boundary with counters.
+
+## Diagnostic model
+
+Use this sequence when polymorphic code returns the wrong answer or cleans up
+incorrectly:
+
+1. Identify the static type at the call site and the dynamic type of the object.
+   A base reference or pointer can preserve the dynamic type; a copied base value
+   cannot.
+2. Check that the base operation is `virtual`. Without it, the static type chooses
+   the function and a derived member merely hides the base member.
+3. Check that every derived implementation says `override`. A missing `const` or
+   parameter mismatch should fail compilation instead of silently creating a new
+   function.
+4. Check the destruction boundary. Anything deleted through a polymorphic base
+   needs a virtual base destructor, including deletion performed by
+   `std::unique_ptr<Base>`.
+5. Check for slicing. Passing or storing a derived object as a base value removes
+   the derived part before dispatch occurs.
+6. Check dispatch granularity. Virtual selection has a small per-call cost and may
+   inhibit inlining, so select a backend once around a frame or batch rather than
+   once per inner-loop element. Measure call shape with counters before reaching
+   for timing claims.
+
+## Capstone drill
+
+The module-root `starter.cpp` keeps the original `Sensor`, `Camera`, `Lidar`,
+`pollAll`, `describe`, destructor-order, and forgotten-`virtual` drills. Complete
+its TODOs after the micro-lessons:
+
+```bash
+PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables -q
 ```
 
-One list, one loop, and adding a sensor type never touches the loop.
+The reference suite, including all six lessons and the capstone, runs with:
 
-You have already written this program — in Python. The `describe()` drill in Python
-set 06 did exactly this: `Dog` and `Robot` shared no base class, and `describe(obj)`
-called `obj.speak()` on whatever arrived. It worked because a Python method call
-*always* looks up the method on the object's real type, at runtime, every single
-call. Duck typing made the loop free; there was nothing to opt into.
-
-C++ will give you the same loop — but not by default, because of a ground rule the
-whole language is built on: **the compiler decides everything it can at compile
-time.** Runtime machinery — anything that costs cycles or bytes while the program
-runs — is never added silently; you must ask for it. (You'll hear this called the
-**zero-overhead principle**: you don't pay for what you don't use.) For the loop
-above, three things must be asked for. One list has to be able to hold different
-types. The call `s->read()` has to run the *right* `read` for whatever `s` really
-is. And when a sensor is destroyed through that list, the right cleanup has to run.
-This lesson is the story of asking correctly — and of the three quiet bugs that
-appear when you forget.
-
-## The lesson
-
-### 1. A base-class pointer can point at a derived object
-
-Start with the first requirement: one list holding many types. A Python list holds
-anything, because every element is just a reference to some object. A `std::vector`
-holds exactly one type — so C++ needs a single type that can stand for "camera, or
-lidar, or whatever we add next month". Inheritance provides it.
-
-First, the syntax. `struct Robot : Machine` declares that every `Robot` contains a
-complete `Machine` — its fields, its functions — plus whatever `Robot` adds. We say
-`Robot` **derives from** the **base class** `Machine`, and that a `Robot` *is a*
-`Machine`. (With the `class` keyword you write `class Robot : public Machine` —
-members and base classes default to `private` in a `class` and `public` in a
-`struct`; that is the only difference between the two keywords.)
-
-The mechanism is concrete: the compiler lays out each `Robot` object with its
-`Machine` part at the front. So inside every `Robot` there literally *is* a
-`Machine`, sitting at the same address. Which makes this legal:
-
-```cpp
-Robot r;
-Machine* p = &r;     // fine: points at the Machine that lives inside r
-Machine& ref = r;    // references work the same way
+```bash
+uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables -q
 ```
-
-This is called an **upcast** — viewing a derived object through a base-class handle.
-And it solves the container problem: a `std::vector<Machine*>` can hold pointers to
-robots, drills, and conveyors in one container, and code written against `Machine*`
-works for all of them. One list, many types. That much, C++ gives you for free.
-
-The question that matters is what happens when you *call* something through that
-pointer.
-
-### 2. The surprise: the pointer's type picks the function
-
-Here is the most natural-looking inheritance code possible — and it does the wrong
-thing. Read it, predict the three outputs, then check:
-
-```cpp
-#include <iostream>
-#include <string>
-
-struct Machine {
-    std::string name() const { return "Machine"; }
-};
-struct Robot : Machine {
-    std::string name() const { return "Robot"; }
-};
-
-int main() {
-    Robot r;
-    std::cout << r.name() << "\n";     // -> Robot     fine so far
-
-    Machine* p = &r;                   // the upcast from step 1
-    std::cout << p->name() << "\n";    // -> Machine   (!!) the object IS a Robot
-
-    Machine& ref = r;
-    std::cout << ref.name() << "\n";   // -> Machine   references: same story
-}
-```
-
-All three outputs verified. The object never stops being a `Robot` — yet through a
-`Machine*`, `Machine::name` runs.
-
-If your instincts are Python instincts, this is disorienting: in Python, `p.name()`
-asks the *object* — "what does this object's class define?" — at the moment of the
-call, so the answer would be `Robot`, every time. C++'s default asks a different
-question entirely. Apply the ground rule and the surprise dissolves: the compiler
-decides everything it can at compile time — and it *can* decide this call. It looks
-at the **declared type** of the expression: `p` is declared `Machine*`, therefore
-`p->name()` is hard-wired to call `Machine::name` before the program ever runs. The
-object's real class is never consulted. This is called **static dispatch**: the
-function is chosen statically, at compile time, from the type written in the source.
-The payoff is speed — a static call compiles to a direct jump, or disappears
-entirely when the compiler pastes the function body into the call site. The cost is
-what you just saw.
-
-One more name for what happened: `Robot::name` above does not override anything. It
-**hides** `Machine::name` — the two are unrelated functions that happen to share a
-name, and which one runs depends entirely on the declared type you call through. No
-error, no exception. Just the wrong answer, quietly.
-
-### 3. `virtual` opts in to runtime dispatch
-
-What we want for sensors is the Python rule: *decide at runtime, from the object's
-real type.* That is called **dynamic dispatch**, and one keyword on the base-class
-function switches it on:
-
-```cpp
-struct Machine {
-    virtual std::string name() const { return "Machine"; }   // opt in HERE
-};
-struct Robot : Machine {
-    std::string name() const override { return "Robot"; }    // override: next step
-};
-
-Robot r;
-Machine* p = &r;
-std::cout << p->name() << "\n";    // -> Robot    verified: the OBJECT's type decides
-Machine& ref = r;
-std::cout << ref.name() << "\n";   // -> Robot
-```
-
-`virtual` on `Machine::name` says: calls to `name` through a `Machine*` or
-`Machine&` are resolved at runtime from the object's real class — the behavior
-Python gives every call, now switched on for this one function. Virtual-ness is
-inherited — once a function is virtual in the base, every derived function with the
-same signature is automatically virtual too, all the way down, whether or not the
-derived class repeats the keyword.
-
-#### The mechanism: the vtable
-
-How can a call possibly be resolved at runtime? You already know one way: Python
-does it with a dictionary lookup — `obj.speak()` searches the object's class (and
-its parent classes) *by name*, on every call. C++ compiles that idea down to
-something far cheaper, and interviewers ask for the machinery by name. A **vtable**
-(virtual table) is a hidden per-*class* table of function addresses — one slot per
-virtual function, filled with the most-derived version for that class. `Machine`'s
-table has `Machine::name` in the slot; `Robot`'s table has `Robot::name`. Every
-*object* of a class with at least one virtual function carries one hidden pointer —
-the **vptr** — to its class's table, planted by the constructor. A virtual call
-compiles to: follow the object's vptr, index the slot, call whatever address is
-there. Where Python hashes a method name at every call, C++ turned the name into a
-fixed slot number at compile time — what remains at runtime is one indexed load. The
-pointer you called through no longer matters; the object brought its own dispatch
-table.
-
-The vptr is real, and you can see it — objects get bigger:
-
-```cpp
-struct Plain    { int x; std::string tag() const { return "plain"; } };
-struct WithVptr { int x; virtual std::string tag() const { return "virt"; } };
-
-sizeof(Plain)      // -> 4   just the int
-sizeof(WithVptr)   // -> 16  int + hidden 8-byte vptr + alignment padding
-                   //        (verified with clang on a 64-bit machine)
-```
-
-#### Why C++ makes this opt-in
-
-Now the design question: why isn't every function virtual? Python answers "every
-call is dynamic" and simply always pays — it is part of why a Python method call
-costs what it costs. C++ counts the cost first. Every object grows by a pointer —
-for a class of one `int`, that was 4 bytes becoming 16, a 4× size increase, which
-matters enormously when you have a million small objects marching through a cache.
-Every call becomes two memory loads plus an indirect jump. The loads are nearly
-free; the real price is that a target unknown until runtime **blocks inlining** —
-the compiler cannot paste the function body into the call site, so it also cannot
-constant-fold, vectorize, or otherwise optimize across the call boundary. That lost
-optimization is often 10× the cost of the indirection itself.
-
-The zero-overhead principle then dictates the answer: C++ refuses to make everyone
-pay for what only some need. Functions dispatch statically — free — until you write
-`virtual` on the ones where you genuinely need runtime flexibility. You pay exactly
-where you chose to.
-
-One rule to carry out of this step: dynamic dispatch needs **both** halves —
-`virtual` on the function, *and* a pointer or reference at the call site. Keep that
-second half in mind; step 7 shows what happens when you lose it.
-
-### 4. `override`: the typo-catcher
-
-Step 2 showed that a derived function with a merely *similar* signature silently
-hides instead of overriding. That makes overriding fragile: one typo and your
-function is never called. Python has this exact failure mode, and you have met its
-cousin: just as assigning to a misspelled attribute silently creates a new attribute
-(the `m.rmp = 90` gotcha from Python set 06), misspelling a method name in a
-subclass silently defines a brand-new method that nothing ever calls. Python offers
-no seatbelt there. C++ does — but you have to wear it. First, watch a one-character
-bug:
-
-```cpp
-struct Machine {
-    virtual std::string name() const { return "Machine"; }
-};
-struct Robot : Machine {
-    std::string name() { return "Robot"; }   // forgot const!
-};
-
-Robot r;
-Machine* p = &r;
-std::cout << p->name() << "\n";   // -> Machine   verified
-```
-
-`name() const` and `name()` are *different signatures*, so the derived function is a
-brand-new function that hides the base one — the virtual slot still holds
-`Machine::name`, and every call through a base pointer quietly runs the base
-version. (Clang with `-Wall` does flag this one — verified:
-`warning: 'Robot::name' hides overloaded virtual function [-Woverloaded-virtual]` —
-but it is a warning, the program still builds and still answers wrong; gcc says
-nothing without extra flags.) Same trap for a misspelled name, a `float` parameter
-where the base says `double`, and every other near-miss.
-
-The fix is the keyword `override`, written after the parameter list. It tells the
-compiler: "I intend this to override a base-class virtual — fail the build if it
-doesn't." The near-miss becomes a hard error at the exact line (verified, clang):
-
-```cpp
-struct Robot : Machine {
-    std::string name() override { return "Robot"; }
-    // error: non-virtual member function marked 'override' hides virtual
-    //        member function
-    // note:  different qualifiers ('const' vs unqualified)
-};
-```
-
-Rule: **every** overriding function gets `override`, no exceptions — it upgrades
-"silently wrong" to "does not compile." Style note: in the derived class write
-`override` *instead of* repeating `virtual` (`override` already implies it); the
-drills follow that convention.
-
-### 5. The classic: the virtual destructor
-
-You met destructors in lesson 02: a destructor is the function that runs, at a
-deterministic line, when an object dies — and in RAII code it is where files close,
-locks release, and memory frees. Inheritance adds a sharp question: *when an object
-dies through a base-class pointer, which destructor runs?* In Python this question
-never comes up — cleanup finds the object's real type automatically, like every
-other method call. In C++ a destructor is a member function, and you have just seen
-what member functions do by default.
-
-Set the stage with the correct, everyday case — a stack object dies at its brace and
-tears down completely:
-
-```cpp
-#include <iostream>
-#include <memory>
-
-struct GpuBuffer {
-    ~GpuBuffer() { std::cout << "GPU memory freed\n"; }
-};
-
-struct Model {
-    ~Model() { std::cout << "~Model\n"; }        // NOT virtual — the bug, wait for it
-};
-struct TrtModel : Model {                        // a TensorRT-backed model
-    std::unique_ptr<GpuBuffer> buf = std::make_unique<GpuBuffer>();
-    ~TrtModel() { std::cout << "~TrtModel\n"; }
-};
-
-int main() {
-    {
-        TrtModel m;
-    }   // prints: ~TrtModel
-        //         GPU memory freed
-        //         ~Model
-}
-```
-
-Note the order (verified): derived destructor body first, then the derived class's
-*members*, then the base — the exact reverse of construction. All good. Now the same
-class used polymorphically, the way every plugin registry and model zoo uses it:
-
-```cpp
-Model* p = new TrtModel;   // or handed to you by a factory
-delete p;                  // prints: ~Model
-                           // ...and NOTHING else. ~TrtModel never ran.
-                           // buf's destructor never ran. GPU memory LEAKED.
-```
-
-Why: this destructor is not virtual — so `delete p` static-dispatches on the
-pointer's type (step 2, one more time) and runs *only* `Model::~Model`. The derived
-half of the object is never torn down. Honesty about the fine print: the C++
-standard formally declares this **undefined behavior** — deleting a derived object
-through a base pointer whose destructor is non-virtual means the program is allowed
-to do anything at all. What clang and gcc actually do is what you see above
-(verified): base destructor only, leak included, no diagnostic.
-
-The fix is one word, in one place — the base:
-
-```cpp
-struct Model {
-    virtual ~Model() { std::cout << "~Model\n"; }
-};
-
-Model* p = new TrtModel;
-delete p;                  // prints: ~TrtModel
-                           //         GPU memory freed
-                           //         ~Model      — full teardown, derived-then-base
-```
-
-With the destructor virtual, `delete p` dynamically dispatches to the *object's*
-destructor, which then runs the chain in reverse-construction order (verified).
-
-Memorize the rule as an interview sound bite: **any class with virtual functions
-gets a virtual destructor** — if code deletes derived objects through base pointers,
-it is mandatory. When the base has no cleanup of its own, write
-`virtual ~Model() = default;` (that is `= default` from lesson 02: "generate the
-usual body"). And the follow-up interviewers love: `std::unique_ptr<Model>` does
-**not** save you — at scope end it performs `delete` on a `Model*`, exactly the
-broken call above. Smart pointer, same rule.
-
-### 6. Pure virtual functions and abstract classes: a class that is only a promise
-
-Sometimes the base version of a function has no sensible body — what would a generic
-`Sensor::read()` even return? C++ lets you declare the slot and refuse to fill it. A
-**pure virtual function** is a virtual function marked `= 0`, meaning "no body here;
-deriving classes must provide one." A class with at least one pure virtual function
-is an **abstract class** — a class that is only a promise — and the compiler refuses
-to instantiate it (verified error text):
-
-```cpp
-struct Sensor {
-    virtual ~Sensor() = default;             // step 5's rule, applied on reflex
-    virtual std::string name() const = 0;    // = 0 makes it pure virtual
-    virtual double read() = 0;
-};
-
-Sensor s;   // error: variable type 'Sensor' is an abstract class
-            // note:  unimplemented pure virtual method 'name' in 'Sensor'
-```
-
-An abstract class whose every function is pure virtual is what other contexts call
-an *interface*: no data, no behavior, just a contract — and it is the
-compile-checked version of the deal duck typing gave you in Python set 06. There,
-the contract was never written down: any object with `speak()` passed, and a wrong
-one — `describe(Cat())` on a speechless `Cat` — failed only when the call actually
-ran, with a runtime `AttributeError`. The pure-virtual base writes the same contract
-into a type the compiler enforces: derive without implementing and your class cannot
-be instantiated; pass the wrong type and the code does not compile. (Python's
-`typing.Protocol`, mentioned at the end of that lesson, points the same direction;
-in C++ this is simply how interfaces are done.) There is no separate `interface`
-keyword — plain inheritance is the single mechanism, and a class may inherit from
-several bases at once when it needs to satisfy several contracts (the sharp edges of
-multiple inheritance are a story for another lesson).
-
-A derived class must override *every* pure virtual function or it remains abstract
-itself. Once `Camera` overrides both `name()` and `read()`, it is **concrete** —
-instantiable — and the idiomatic way to use the family combines this lesson with
-lesson 02:
-
-```cpp
-std::unique_ptr<Sensor> s = std::make_unique<Camera>();   // interface + ownership
-s->read();                                                // dynamic dispatch
-// scope end: ~Camera runs, then ~Sensor — because ~Sensor is virtual
-```
-
-### 7. Object slicing: when the object doesn't fit
-
-Step 3 left a warning hanging: dynamic dispatch needs a pointer or reference at the
-call site. Here is what happens without one — and fair warning: this trap has *no*
-Python analog. In Python a variable is a name, and a name fits any object, so
-nothing in your Python experience predicts what comes next. That is exactly why it
-surprises everyone.
-
-Recall lesson 01's rule one final time: a variable *is* its object, and assignment
-copies the whole thing. Now combine that with inheritance and ask: copy *into what*?
-A `Machine` variable is a box exactly big enough for a `Machine`. So:
-
-```cpp
-Robot r;                           // the virtual Machine/Robot from step 3
-Machine m = r;                     // compiles fine! copies ONLY the Machine part
-std::cout << m.name() << "\n";     // -> Machine   verified... though name() is virtual
-```
-
-This is **object slicing**: initializing or assigning a base-class *value* from a
-derived object copies just the base sub-object (the front of the box, from step 1)
-and throws the derived part away. The `Robot`-ness didn't come along and get
-suppressed — it was never copied. `m` is a genuine, complete `Machine`; its vptr
-points at `Machine`'s vtable; dynamic dispatch is working perfectly, on the wrong
-object. `virtual` cannot help here. There is nothing left to dispatch to.
-
-The version that gets people in interviews (and code review) is the by-value
-parameter, because it *looks* polymorphic:
-
-```cpp
-std::string describe(Machine m)         { return m.name(); }  // by VALUE: slices
-std::string describe2(const Machine& m) { return m.name(); }  // by REFERENCE: dispatches
-
-Robot r;
-describe(r);    // -> "Machine"   verified: r was sliced into the parameter
-describe2(r);   // -> "Robot"     verified: a reference to the real object
-```
-
-Same trap one more way: `std::vector<Machine>` stores `Machine` *values*, so
-`v.push_back(r)` slices — `v[0].name()` returns `"Machine"` (verified). A
-heterogeneous collection must hold pointers, which is why the drills (and all
-production code) use `std::vector<std::unique_ptr<Sensor>>`.
-
-Rule: **polymorphic types travel by pointer or by reference — never by value.** And
-a pleasant bonus of step 6: if the base class is abstract, by-value parameters and
-`vector<Base>` *don't compile* (you can't instantiate an abstract class), so a
-pure-virtual interface turns this whole silent-trap step into loud compile errors.
-One more reason real codebases keep their base classes abstract.
-
-## Muscle memory
-
-Type these until they require no thought:
-
-```cpp
-struct Camera : Sensor { ... };                    // ": Sensor" = derives from Sensor
-virtual std::string name() const = 0;              // pure virtual: an interface method
-virtual ~Sensor() = default;                       // EVERY polymorphic base, on reflex
-std::string name() const override { ... }          // every override says override
-std::unique_ptr<Sensor> s = std::make_unique<Camera>();  // interface + ownership
-void use(const Sensor& s);                         // polymorphic param: by reference
-std::vector<std::unique_ptr<Sensor>> all;          // heterogeneous collection: pointers,
-                                                   // never vector<Sensor> (slices)
-```
-
-## The drills
-
-Open `starter.cpp`; each stub restates its own hints in comments. `destructionLog()`
-— a shared `vector<std::string>` that destructors append their class name to — is
-provided plumbing so `main()` can assert *which* destructors ran and in what order.
-
-### Drill 1 — `Sensor`: the interface
-
-Task: complete the abstract base class — the two pure virtual declarations are
-given; make the virtual destructor append `"Sensor"` to `destructionLog()`.
-
-```cpp
-class Sensor {
-public:
-    virtual ~Sensor() { destructionLog().push_back("Sensor"); }
-    virtual std::string name() const = 0;
-    virtual double read() = 0;
-};
-// Sensor s;                          -> compile error: abstract class
-// std::unique_ptr<Sensor> ok = std::make_unique<Camera>();   // the intended use
-```
-
-Gotcha: the destructor is the only member here with a body — an interface with pure
-virtual methods still needs a *virtual, implemented* destructor, because destructors
-are the one thing a derived class can never fully take over.
-
-**Where you'll see it:** "design a base class for X" is the C++ OOP interview
-archetype, and the hidden scoring criterion is whether the virtual destructor
-appears *unprompted* — many interviewers admit it is the first thing they look for.
-In real inference code this class is the `Detector` / `InferenceBackend` interface
-with TensorRT, ONNX Runtime, and CPU implementations behind it, and in robotics
-middleware it is the hardware-abstraction seam (ROS 2 hardware interfaces, camera
-driver plugins) that lets the same stack run in sim and on the robot.
-
-### Drill 2 — `Camera` and `Lidar`: two concrete backends
-
-Task: implement both classes — `name()` returns `"camera"` / `"lidar"`, `read()`
-returns `30.0` / `10.0` (pretend rates in Hz), and each destructor logs its own
-class name before `~Sensor` logs `"Sensor"`.
-
-```cpp
-{
-    std::unique_ptr<Sensor> s = std::make_unique<Camera>();
-}   // destructionLog() -> {"Camera", "Sensor"}: derived ran FIRST, base second.
-    // With a non-virtual ~Sensor it would log just {"Sensor"} — the leak bug,
-    // caught by an assert instead of a GPU out-of-memory at 2 a.m.
-```
-
-Gotcha: write `override` on all six members, including the destructors — and note
-that the destructors *log in the order they run*, which is what turns "trust me,
-derived runs first" into an assertable fact.
-
-**Where you'll see it:** the follow-up to every interface question is "implement
-one, and tell me what happens when it's destroyed through the base pointer" — the
-non-virtual-destructor question is a genuine top-5 C++ interview classic, asked at
-every level. The camera + lidar pair is the canonical heterogeneous-sensor setup in
-AV/robotics stacks, where each driver holds real resources (USB handles, DMA
-buffers) that must be released by *its own* destructor.
-
-### Drill 3 — `pollAll(sensors)`: one loop, zero type checks
-
-Task: `pollAll(const std::vector<std::unique_ptr<Sensor>>&)` returns a
-`std::vector<std::string>`, one `"name=value"` line per sensor, via
-`std::ostringstream`.
-
-```cpp
-// sensors = {Camera, Lidar, Camera}
-pollAll(sensors)   // -> {"camera=30", "lidar=10", "camera=30"}
-// ostringstream prints 30.0 as "30" — default formatting drops the ".0".
-// The loop body mentions ONLY Sensor. No casts, no type switches:
-// each s->name() / s->read() lands in the right class via the vtable.
-```
-
-Gotcha: loop with `const auto& s` — `unique_ptr` cannot be copied (lesson 02), so
-`for (auto s : sensors)` does not compile.
-
-**Where you'll see it:** "process a heterogeneous collection without checking
-types" is the standard polymorphism exercise, and interviewers read a
-`dynamic_cast`-free loop as the pass signal. It is also the actual main loop of a
-robot: iterate registered sensors, poll each through the interface — and inside an
-inference engine, the same shape runs a network as `for (op : graph) op->execute()`
-at operator granularity (where "The road ahead" below says virtual is the right
-tool).
-
-### Drill 4 — `describe(const Sensor&)`: polymorphism by reference
-
-Task: return `"Sensor[" + name + "]"` for any sensor, taking the parameter by
-`const Sensor&`. (This is `describe()` from Python set 06, ported — the duck-typed
-contract, now declared.)
-
-```cpp
-Camera cam;
-describe(cam)              // -> "Sensor[camera]"
-const Sensor& asBase = cam;
-describe(asBase)           // -> "Sensor[camera]"  still the Camera underneath
-// By VALUE — std::string describe(Sensor s) — this exact code would not even
-// compile: Sensor is abstract, and a by-value parameter IS an instantiation.
-// With a concrete base it would compile and slice (§7). Reference = correct always.
-```
-
-**Where you'll see it:** interviewers hand you `void print(Shape s)` plus a
-surprising output and ask what went wrong — slicing is *the* "spot the bug" staple
-for C++ OOP rounds, and by-value parameters are its favorite hiding place. In real
-code this function is every logger, telemetry formatter, and debug-dump helper that
-accepts "any sensor / any model" — all written against `const Base&`.
-
-### Drill 5 — `brokenDispatchDemo()`: the forgotten `virtual`
-
-Task: `BrokenBase` / `BrokenDerived` are given, with a deliberately non-virtual
-`id()`. Construct a `BrokenDerived`, view it through a `const BrokenBase*`, return
-`p->id()` — and *predict the result before you run it*.
-
-```cpp
-BrokenDerived d;
-const BrokenBase* p = &d;
-p->id()   // -> "BrokenBase". The object is a BrokenDerived; the POINTER type
-          // decided at compile time. No virtual, no vtable, no runtime look-up.
-```
-
-Gotcha: nothing here is wrong to the compiler — the assert enshrines behavior that
-builds cleanly everywhere and surprises almost everyone the first time they meet it.
-
-**Where you'll see it:** "what does this program print?" with a non-virtual method
-called through a base pointer is, alongside the destructor question, the most
-recycled C++ screener in existence — often both in one snippet. In practice it is a
-classic first-week bug in driver-interface code: the program runs, nothing crashes,
-and every backend silently executes the base-class stub.
-
-## How to practice
-
-```sh
-# Against the reference solution (should pass out of the box):
-uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables -v
-
-# Against YOUR implementation in starter.cpp:
-PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables -v
-```
-
-Or compile and run directly — `main()` asserts every drill and prints
-`ALL TESTS PASSED`:
-
-```sh
-clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/vtables starter.cpp && /tmp/vtables
-```
-
-## The road ahead
-
-Carry one cost model forward: a virtual call is two loads, an indirect jump, and —
-the part that matters — a blocked inliner. That price is invisible when you pay it
-rarely and ruinous when you pay it per element. Real inference engines draw the line
-exactly where step 3 predicts: the graph executor calls `op->execute()` through an
-interface — one virtual call per layer per frame, nothing — while *inside* each
-operator, the million-iteration loops over pixels and activations are plain
-functions and templates the compiler can inline and vectorize. When we reach CUDA,
-the same shape reappears even more starkly: the host picks which kernel to launch
-(the flexible, dispatch-y part), and inside the kernel there is no dispatch at all —
-just straight-line arithmetic over thousands of threads. Design rule, and interview
-sound bite, in four words: **virtual per-layer, never per-pixel.**
