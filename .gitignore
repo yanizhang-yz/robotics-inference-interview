@@ -9,5 +9,8 @@ dist/
 # Editor (local practice settings stay out of the public repo)
 .vscode/
 
+# Isolated implementation worktrees
+.worktrees/
+
 # macOS
 .DS_Store
