@@ -1323,12 +1323,18 @@ Expected: PASS with no regression outside the C++ ramp-up.
 - [ ] **Step 5: Verify the question bank and learner work boundaries**
 
 ```bash
-git diff --name-only 4cda9b2 -- questions
-git diff 3bf9924 -- ramp_up/cpp/01_stl_containers/lessons/01_build_compile_and_link/starter.cpp ramp_up/cpp/01_stl_containers/lessons/02_headers_and_translation_units/starter.cpp ramp_up/cpp/01_stl_containers/lessons/03_values_and_copies/starter.cpp
+git diff --name-only c34f6d1 -- questions
+git diff c34f6d1 -- ramp_up/cpp/01_stl_containers/lessons/01_build_compile_and_link/starter.cpp ramp_up/cpp/01_stl_containers/lessons/02_headers_and_translation_units/starter.cpp ramp_up/cpp/01_stl_containers/lessons/03_values_and_copies/starter.cpp
 git status --short
 ```
 
-Expected: no `questions/` paths; the three learner implementations are still present together with only the added drill briefs; `.drill/` remains untracked and unchanged.
+Expected in the isolated worktree: no `questions/` paths; the three lesson
+diffs contain only added drill-brief comments and retain the committed exercise
+stubs; worktree status is clean. Then inspect the protected primary checkout at
+`/Users/yanizhang/Documents/projects/robotics-inference-interview`: its status
+still lists the learner's three modified starters and untracked `.drill/`, and
+its function bodies still contain `std::clamp`, the inclusive bounds check, and
+the frame-ID assignment.
 
 - [ ] **Step 6: Commit any verification-only corrections**
 
