@@ -4,7 +4,13 @@
 
 **Repository:** `robotics-inference-interview`
 
-**Status:** Approved design
+**Status:** Retired 2026-08-05 — play-testing rejected the format. The
+concept cards read as disconnected from the exercises, the terminal/editor
+split divided attention, and the loop stayed concept-first. The `./drill`
+runner was removed; lesson content was rebuilt instead on the proven
+`ramp_up/python` lesson formula (see the module 01 lesson READMEs). The
+staged telemetry capstone from this design survives as
+`ramp_up/cpp/01_stl_containers/capstone/`.
 
 **Supersedes in part:** the lesson-delivery format of
 `2026-07-30-cpp-ramp-up-curriculum-design.md`. The concept sequence and

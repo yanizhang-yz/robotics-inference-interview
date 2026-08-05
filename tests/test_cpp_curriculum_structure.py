@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import importlib.machinery
-import importlib.util
 from pathlib import Path
 
 
@@ -19,23 +17,17 @@ CONTRACT_FILES = (
     "solution.cpp",
     "test_solution.py",
 )
-# The drill-runner lesson contract (docs/superpowers/specs/2026-08-04-cpp-drill-runner.md):
-# card-first READMEs that ./drill can parse and serve.
+# The lesson content contract mirrors the proven ramp_up/python lesson
+# structure: promise, problem, tool-by-tool lesson, muscle memory, a
+# drills section that maps one-to-one onto starter.cpp, and the practice
+# command.
 CONTRACT_HEADINGS = (
-    "## Card",
-    "## Predict",
-    "## Drill",
-    "## Takeaway",
-    "## Deep dive",
+    "## The problem this lesson solves",
+    "## The lesson",
+    "## Muscle memory",
+    "## The drills",
+    "## How to practice",
 )
-
-
-def _load_drill_runner():
-    loader = importlib.machinery.SourceFileLoader("drill_runner", str(ROOT / "drill"))
-    spec = importlib.util.spec_from_loader("drill_runner", loader)
-    module = importlib.util.module_from_spec(spec)
-    loader.exec_module(module)
-    return module
 
 
 def _level_two_sections(text: str) -> list[tuple[str, str]]:
@@ -94,23 +86,6 @@ def test_discovered_micro_lessons_follow_the_contract() -> None:
                         violations.append(
                             f"{lesson_dir.relative_to(ROOT)}: empty {heading}"
                         )
-    assert violations == []
-
-
-def test_discovered_micro_lessons_parse_in_the_drill_runner() -> None:
-    """The runner's parser is the authoritative contract: every micro-lesson
-    must load as a servable Lesson (choices A-C, a valid answer key, per-choice
-    why lines, starter and solution present)."""
-    drill = _load_drill_runner()
-    violations = []
-    for lessons_dir in sorted(CPP_ROOT.glob("[0-9][0-9]_*/lessons")):
-        for index, lesson_dir in enumerate(
-            sorted(path for path in lessons_dir.iterdir() if path.is_dir())
-        ):
-            try:
-                drill.Lesson(lesson_dir, index + 1)
-            except drill.LessonFormatError as error:
-                violations.append(str(error))
     assert violations == []
 
 
