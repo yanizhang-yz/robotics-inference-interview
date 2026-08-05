@@ -1,4 +1,20 @@
 // 06_threads_atomics_queues — YOUR attempt. Fill in the TODO bodies, then run:
+// DRILL BRIEF
+// Concept: Integrate thread lifetime, mutex/atomic synchronization, and bounded
+// producer/consumer backpressure in one camera-to-inference capstone.
+// Scenario: Workers count completed inference jobs while a bounded FIFO carries
+// camera samples to a slower consumer.
+// Implement: Retain and complete racy_increment_demo, safe_count_mutex,
+// safe_count_atomic, and BoundedQueue without changing the assertions.
+// Behavior: Both safe counters are exact; the queue is FIFO, bounded, blocking,
+// and delivers every item. The racy result is observed and printed but NEVER
+// asserted because a data race is undefined behavior and need not manifest.
+// Interview focus: Identify thread ownership, shared invariants, mutex versus
+// atomic scope, the not-full/not-empty predicates, and their notifications.
+// Tests: Safe counts, FIFO delivery, once-only delivery, and producer backpressure.
+// Run: PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues -q
+// Done when: The final output line is ALL TESTS PASSED.
+//
 //   PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues -v
 // Or compile and run directly (note the extra -pthread vs earlier lessons):
 //   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -pthread -o /tmp/threads starter.cpp && /tmp/threads
