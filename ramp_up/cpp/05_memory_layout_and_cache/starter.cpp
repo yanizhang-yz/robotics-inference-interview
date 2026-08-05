@@ -1,3 +1,13 @@
+// DRILL BRIEF
+// Concept: Integrate layout, traversal, container, AoS/SoA, and growth reasoning.
+// Scenario: Review the memory behavior of an inference data path end to end.
+// Implement: The existing five drill groups in this file.
+// Behavior: Preserve exact results while making each memory decision explicit.
+// Interview focus: Derive structural behavior; timing lines are informational.
+// Tests: main retains its existing result and invariant assertions unchanged.
+// Run: PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache -q
+// Done when: The last line printed is ALL TESTS PASSED.
+
 // 05_memory_layout_and_cache — YOUR attempt. Fill in the TODO bodies (and fix
 // one struct's field order), then run:
 //   PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache -v
