@@ -1,12 +1,33 @@
 # Module 01 — C++ values and standard containers
 
-This module builds the everyday C++ habits needed to read and write ordinary values and standard containers. Work through the lessons in order, then use the capstone to combine the ideas in one small, testable program.
+This module builds the everyday C++ habits needed to read and write ordinary
+values and standard containers — and it plays like a game, not a textbook.
+
+## Play it
+
+From the repo root:
+
+```bash
+./drill
+```
+
+Each rep is seconds of reading, then coding: an ~8-line concept card, one
+prediction question, then a drill in real C++ that recompiles on every save
+of `starter.cpp`. Wrong answers get escalating help — first the failing
+assertion, then a deeper explanation, then (only if you ask) the solution
+diff. Pass all ten lessons and the capstone unlocks: a whole program you
+build from scratch, stage by stage.
+
+Useful moves: `./drill 7` jumps to a lesson, `./drill status` shows your
+streak and progress, `./drill review` re-serves a few passed drills to keep
+them sharp, and `./drill doctor` checks your setup.
 
 ## Prerequisites
 
-General programming experience is enough. You do not need prior C++ experience.
+General programming experience and a C++ compiler (`clang++` or `g++`). No
+prior C++ needed.
 
-## Lesson path
+## Lesson map
 
 | Lesson | Concept | Application |
 | --- | --- | --- |
@@ -21,52 +42,38 @@ General programming experience is enough. You do not need prior C++ experience.
 | [09 — Introductory templates](lessons/09_introductory_templates/) | Type-parameterized code and instantiation | Reuse one algorithm for several value types. |
 | [10 — Classes and member initialization](lessons/10_classes_and_member_initialization/) | Object construction and member-initializer lists | Trace how a small value type is initialized. |
 
-## Diagnostic
+Every lesson README is card-first: the short card and prediction question on
+top, a deep dive below for when you want the full story.
 
-Before beginning, answer these questions in your own words:
+## Already know some C++?
 
-1. How does a compile error differ from a link error?
-2. What changes when a `std::vector<int>` is passed by value and then modified?
-3. When should a parameter be `const T&`, and when should it be `T&`?
-4. What determines whether a raw pointer returned from a function is still valid?
-5. How does a nullable pointer differ from an absent `std::optional` value?
-6. Which container keeps frame bytes contiguously in memory?
-7. What does the compiler do when a function template is instantiated for a concrete type?
-8. In what order are members initialized from a class member-initializer list?
+If you can explain — without guessing — how a compile error differs from a
+link error, what changes when a `std::vector<int>` is passed by value and
+modified, when a parameter should be `const T&` versus `T&`, what makes a
+returned raw pointer dangle, how a null pointer differs from an empty
+`std::optional`, which container keeps bytes contiguous, what template
+instantiation does, and in what order class members initialize — jump
+straight to `./drill capstone` and return to any lesson the work exposes.
 
-If you can explain every answer without guessing, take the fast path: attempt the root capstone now, then return to any lesson exposed by the work.
+## Capstone — Telemetry Triage
 
-## Root capstone
+The finale is [capstone/](capstone/): a joint-telemetry triage CLI you write
+from a near-empty `starter.cpp`, with staged tests that unlock progressively
+— parse the stream, clamp and group per joint, then produce the triage
+report. It integrates the ten lessons and introduces `std::string` parsing,
+`std::map`, and `std::set` in real use. `./drill capstone` runs it (the rail
+gets you there automatically after lesson 10).
 
-The capstone preserves six contracts in `starter.cpp`. Implement them without changing their signatures. Its exercises apply strings, maps, and sets alongside vectors and standard algorithms.
+## Without the runner
 
-| Function | Contract | Expected complexity |
-| --- | --- | --- |
-| `reverseWords` | Return whitespace-separated words in reverse order, with one space between output words. | O(n) time, O(n) space |
-| `charFrequencies` | Count each character in an `std::unordered_map<char, int>`. | O(n) average time, O(u) space |
-| `topKSmallest` | Sort a by-value input and return its smallest `k` values without changing the caller’s vector. | O(n log n) time, O(n) input copy space |
-| `groupByLength` | Group words by length while preserving order inside each group and sorted length keys. | O(n) time plus map insertion costs, O(n) space |
-| `sumOfUnique` | Add each distinct integer exactly once using a `long long` result. | O(n) average time, O(u) space |
-| `appendDoubled` | Append doubled copies of the original elements without retaining invalidated vector iterators or references. | O(n) time, amortized O(n) growth space |
-
-Run the reference capstone:
+Everything also works as plain files and pytest:
 
 ```bash
-uv run pytest ramp_up/cpp/01_stl_containers -v
+PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers/lessons/04_references_and_const -q
 ```
 
-Practice against your implementation:
+Without `PRACTICE=1`, pytest checks the reference `solution.cpp` instead of
+your starter. The whole module: `uv run pytest ramp_up/cpp/01_stl_containers -v`.
 
-```bash
-PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers -v
-```
-
-Or compile and run the starter directly:
-
-```bash
-clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/stl starter.cpp && /tmp/stl
-```
-
-Without `PRACTICE=1`, pytest checks the reference `solution.cpp`.
-
-Return to the [C++ curriculum](../../README.md) or continue to [Module 02 — Ownership and RAII](../02_ownership_and_raii/).
+Return to the [C++ curriculum](../README.md) or continue to
+[Module 02 — Ownership and RAII](../02_ownership_and_raii/).
