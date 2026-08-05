@@ -1,88 +1,77 @@
 # 06 — Optional Results
 
-## Problem
+## Card
 
-Find the most recent joint-position sample at or before an inference timestamp,
-without pretending a sample always exists.
+`std::optional<T>` is an **owned value that may be absent** — it
+contains a complete `T` or no value at all.
 
-## Mental model
-
-`std::optional<T>` is an **owned value that may be absent**. It either contains
-a complete `T` or contains no value. Here, `std::optional<JointSample>` owns a
-copy of the matching `JointSample`; it does not point into `samples`.
-
-This differs from the raw pointer in the previous lesson. A pointer such as
-`const JointSample*` is borrowed access to an object owned elsewhere, so its
-validity depends on that owner's lifetime. An optional result is independent:
-after `latest_at_or_before` returns, its `JointSample` remains available even
-if the source vector is changed or destroyed.
-
-Use `has_value()` to test whether a value exists. After that check,
-`found->position` uses `operator->` to access a member of the contained
-`JointSample`. `std::nullopt` is the explicit spelling for an empty optional.
-
-The input vector does not need to be sorted. “Latest” means the qualifying
-sample with the greatest timestamp, regardless of where it appears in the
-vector.
-
-## Application
-
-Robot inference often aligns sensor streams by timestamp. Before running a
-model for an image at time 25, a controller can ask for the newest joint state
-that is no later than time 25. With samples at 10, 20, and 30 nanoseconds, in
-any vector order, the aligned state is the sample at 20. For a timestamp before
-every sample, there is no aligned state, so the function returns
-`std::nullopt` and the caller can wait, skip inference, or choose a fallback.
-
-## Prediction
-
-Before running the program, answer these questions:
-
-1. What does `found.has_value()` report for a lookup at timestamp 25? What
-   about a lookup at timestamp 5?
-2. Why is `found->timestamp_ns` valid only after `found.has_value()` is true?
-   What does `operator->` access in this expression?
-3. What does `std::nullopt` represent, and when should this function return it?
-4. Does the returned `JointSample` depend on the source vector remaining alive?
-   Why is this answer different from a borrowed raw pointer?
-5. For out-of-order samples at timestamps 20 and 10, what timestamp should a
-   lookup at 25 return, and why?
-
-## Guided implementation
-
-In `starter.cpp`, create an empty `std::optional<JointSample> result`. Scan all
-samples. Replace the result only when the sample is at or before the requested
-timestamp and either no result exists yet or the sample's timestamp is greater
-than the current result's timestamp. Return `result` after the loop; it stays
-empty when no sample qualified.
-
-## Verification
-
-Run the reference with:
-
-```bash
-.venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/06_optional_results -q
+```cpp
+std::optional<JointSample> latest_at_or_before(
+    const std::vector<JointSample>& samples, std::int64_t timestamp_ns);
 ```
 
-Run the learner starter with:
+The result owns a copy of the matching sample; it does not point into
+`samples`. `has_value()` tests presence, `found->position` then reads
+the contained value, and `std::nullopt` spells "empty" on purpose.
+Unlike a borrowed pointer, this result outlives the source vector.
 
-```bash
-PRACTICE=1 .venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/06_optional_results -q
-```
+## Predict
 
-The shared runner compiles with C++20 and `-Wall -Wextra -Werror=return-type`. The
-untouched starter is expected to fail because the lookup at timestamp 25 has
-no value.
+`latest_at_or_before` returns a populated optional, then the source
+vector is destroyed. Is the sample inside the optional still safe to
+read?
 
-## Explain it
+- A) Yes — the optional owns its own copy of the sample
+- B) No — like a borrowed pointer, it referred into the vector's storage
+- C) Only after calling `has_value()` again to re-validate it
 
-- `std::optional<JointSample>` communicates “a sample, if one exists.”
-- `std::nullopt` communicates an intentionally absent result.
+<!-- predict
+answer: A
+why-A: Right — the optional contains a complete `JointSample` by value, so its lifetime is independent of the vector's.
+why-B: That is the raw-pointer contract from the previous lesson; an optional stores the `T` inside itself instead of pointing elsewhere.
+why-C: `has_value()` reports whether the optional is populated — it has no link to the vector to re-validate.
+-->
+
+## Drill
+
+In `starter.cpp`, implement `latest_at_or_before`: start from an empty
+`std::optional<JointSample> result`, scan every sample, and replace
+`result` whenever a sample is at or before the requested timestamp and
+newer than the current result (or no result exists yet). Samples may be
+out of order — "latest" means greatest timestamp, not last position.
+
+Manual check: `PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers/lessons/06_optional_results -q`
+
+## Takeaway
+
+- `std::optional<JointSample>` communicates "a sample, if one exists";
+  `std::nullopt` is the intentional absence.
 - `has_value()` proves a value is present before `operator->` reads it.
-- The returned sample is owned by the optional, not borrowed from the vector.
+- The returned sample is owned by the optional, not borrowed from the
+  vector.
 
-## Next connection
+## Deep dive
 
-Use an optional value when a computation may legitimately have no result and
-the caller should receive an independent value. Use a raw pointer only when an
-API needs nullable, non-owning access to an object someone else owns.
+`std::optional<T>` either contains a complete `T` or contains no value.
+Here `std::optional<JointSample>` owns a copy of the matching sample
+rather than pointing into `samples`, which is the deliberate contrast
+with the previous lesson: a `const JointSample*` would be borrowed
+access whose validity depends on the vector's lifetime, while an
+optional result is independent — after `latest_at_or_before` returns,
+its sample remains available even if the source vector is changed or
+destroyed. `has_value()` tests whether a value exists; only after that
+check does `found->position` use `operator->` to reach a member of the
+contained sample, and `std::nullopt` is the explicit spelling for the
+empty case. The input need not be sorted: "latest" means the qualifying
+sample with the greatest timestamp, wherever it appears in the vector.
+
+The scenario is stream alignment, a constant of robot inference. Before
+running a model on an image captured at time 25, a controller asks for
+the newest joint state no later than 25; with samples at 10, 20, and 30
+nanoseconds, in any order, the aligned state is the sample at 20. For a
+timestamp earlier than every sample there is no aligned state, so the
+function returns `std::nullopt` and the caller decides — wait, skip
+inference, or choose a fallback. Use an optional when a computation may
+legitimately have no result and the caller should receive an independent
+value; keep raw pointers for nullable, non-owning access to objects
+owned elsewhere.

@@ -1,85 +1,77 @@
 # 02 — Headers and Translation Units
 
-## Problem
+## Card
 
-Share a robotics joint-limit interface between independently compiled source
-files, then link those pieces into one executable.
+A **declaration** names something for the compiler; a **definition** is
+the thing itself. Headers hold what every translation unit must see;
+each non-inline definition lives in exactly one `.cpp` file.
 
-## Mental model
+```cpp
+// joint_limits.hpp — pasted textually into every file that includes it
+struct JointLimits { double lower; double upper; };
+double clamp_to_limits(double command, const JointLimits& limits);
+```
 
-A **declaration** tells the compiler a name, its type, and how it may be used.
-A **definition** provides the thing itself: storage for a variable, the body
-of a function, or the full layout of a class or struct. Headers expose the
-declarations and definitions that every translation unit needs to see, such as
-class definitions, inline functions, constants, and templates.
-`joint_limits.hpp` defines `JointLimits` and declares `clamp_to_limits`;
-`joint_limits.cpp` contains the one non-inline definition of
-`clamp_to_limits`.
-
-`#include` is textual inclusion: before compilation, the preprocessor replaces
-the include line with the header's contents. `#pragma once` prevents that
-header from being included more than once in a single translation unit.
-
-Each `.cpp` file is compiled independently after its includes are expanded.
-That resulting source is a **translation unit**. The compiler can check a call
-to `clamp_to_limits` from its declaration, while the linker later combines the
-translation units and connects that call to the definition in
+`#include` is textual pasting (`#pragma once` blocks double pastes). Each
+expanded `.cpp` compiles independently as a **translation unit**; the
+linker then joins them, wiring every call to the single definition in
 `joint_limits.cpp`.
 
-## Application
+## Predict
 
-A joint controller needs a common description of physical travel limits.
-`JointLimits` lets command-validation code ask whether a requested command is
-safe while a shared clamp function supplies the bounded command that reaches
-the actuator layer. Both pieces use the same declaration without copying it.
+You edit only `solution.cpp`, leaving the header and `joint_limits.cpp`
+untouched. What must be recompiled before the next link?
 
-## Prediction
+- A) Only `solution.cpp`
+- B) Both `solution.cpp` and `joint_limits.cpp`
+- C) Nothing — the linker picks up source edits by itself
 
-If you change only `solution.cpp`, which file must be recompiled before
-linking? Predict first: only `solution.cpp` needs recompilation; the unchanged
-`joint_limits.cpp` object can be linked again. (Changing the header would make
-both dependent translation units candidates for recompilation.)
+<!-- predict
+answer: A
+why-A: Right — translation units compile independently, so the unchanged `joint_limits.cpp` object is simply linked again.
+why-B: `joint_limits.cpp` never saw the edit; only a change to the shared header would make both translation units candidates.
+why-C: The linker only joins object files — turning edited source into a fresh object file is the compiler's job.
+-->
 
-## Guided implementation
+## Drill
 
-Implement `command_is_safe(double command, const JointLimits& limits)` in
-`starter.cpp`. It should return whether `command` lies in the inclusive range
-from `limits.lower` through `limits.upper`. Do not alter the shared header or
-the clamp definition.
+In `starter.cpp`, implement `command_is_safe` so it reports whether the
+requested command lies in the inclusive range `limits.lower` through
+`limits.upper`. Leave the shared header and the clamp definition alone.
 
-## Verification
+Manual check: `PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers/lessons/02_headers_and_translation_units -q`
 
-Run the reference with:
+## Takeaway
 
-```bash
-.venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/02_headers_and_translation_units -q
-```
+- A header shares declarations plus the definitions every translation
+  unit must see: struct layouts, inline functions, constants, templates.
+- The non-inline `clamp_to_limits` definition lives in exactly one
+  `.cpp` file — the One Definition Rule.
+- The linker resolves references between independently compiled
+  translation units to form the executable.
 
-Run the learner starter with:
+## Deep dive
 
-```bash
-PRACTICE=1 .venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/02_headers_and_translation_units -q
-```
+A declaration tells the compiler a name, its type, and how it may be
+used; a definition provides the thing itself — storage for a variable,
+the body of a function, the full layout of a struct. `joint_limits.hpp`
+defines `JointLimits` and declares `clamp_to_limits`;
+`joint_limits.cpp` holds the one non-inline definition of that function.
 
-The shared runner compiles `solution.cpp` or `starter.cpp` together with
-`joint_limits.cpp`, using C++20 and `-Wall -Wextra -Werror=return-type`. The untouched
-starter is expected to fail its first safety assertion.
+`#include` is textual inclusion: before compilation, the preprocessor
+replaces the include line with the header's contents, and `#pragma once`
+keeps a header from being pasted twice into the same file. Each `.cpp`
+file, once its includes are expanded, is compiled independently — that
+expanded source is a translation unit. The compiler can check a call to
+`clamp_to_limits` from the declaration alone; the linker later combines
+the translation units and connects that call to its single definition.
 
-## Explain it
-
-- A header shares declarations and the definitions that must be visible in
-  each translation unit, including class definitions, inline functions,
-  constants, and templates.
-- This lesson keeps the non-inline `clamp_to_limits` definition in exactly one
-  `.cpp` file, satisfying the One Definition Rule (ODR).
-- Textual inclusion makes a header's declarations and needed definitions
-  visible in each translation unit.
-- The linker resolves references between independently compiled translation
-  units to form the executable.
-
-## Next connection
-
-As a robotics codebase grows, headers can describe reusable messages, sensor
-interfaces, and control contracts while source files keep their implementations
-separate. This boundary lets one executable link the particular components a
+The payoff is a shared contract. A joint controller needs one common
+description of physical travel limits, and `JointLimits` lets
+command-validation code ask whether a request is safe while the shared
+clamp function supplies the bounded command that reaches the actuator
+layer — both against the same declaration, copied nowhere. As a robotics
+codebase grows, headers describe reusable messages, sensor interfaces,
+and control contracts while source files keep their implementations
+separate, so one executable can link exactly the components a particular
 robot needs.

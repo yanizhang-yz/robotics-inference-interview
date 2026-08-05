@@ -1,95 +1,76 @@
 # 05 — Pointer Borrows
 
-## Problem
+## Card
 
-Find a named sensor in a robotics registry without copying it, while still
-representing that a requested sensor might not exist.
+A raw pointer, in its one narrow modern-C++ role, is **nullable,
+non-owning access** to an object someone else owns.
 
-## Mental model
+```cpp
+const Sensor* find_sensor(const std::vector<Sensor>& sensors,
+                          const std::string& name);  // nullptr = not found
+```
 
-A raw pointer in this narrow modern-C++ role is **nullable, non-owning access**
-to an object someone else owns. `find_sensor` does not create a `Sensor`,
-destroy one, or transfer ownership. It either borrows access to a matching
-`Sensor` already stored in the vector or returns `nullptr` to say “not found.”
+`const Sensor` lets callers inspect but never modify through the
+pointer; `*` says the result may be `nullptr` and must be checked first.
+`&sensor` borrows the address of an existing element, and
+`camera->rate_hz` is shorthand for `(*camera).rate_hz`. Nothing is
+created, freed, or owned.
 
-`const Sensor*` makes both parts visible:
+## Predict
 
-- `const Sensor` means callers may inspect the borrowed sensor but not modify it
-  through this pointer.
-- `*` means the result is a pointer, so it may be `nullptr` and must be checked
-  before it is used.
+The loop finds a match and returns `&sensor`. What does the returned
+pointer point to?
 
-When a match is found, `&sensor` takes the address of the `Sensor` currently
-being visited. The caller uses `camera->rate_hz` to access a member through the
-pointer; `camera->rate_hz` is shorthand for `(*camera).rate_hz`.
+- A) A fresh copy of the matching `Sensor`
+- B) The `Sensor` element stored inside the vector
+- C) The vector itself, positioned at the match
 
-This is not an ownership mechanism. Prefer values, references, and smart
-pointers for their respective roles; use a raw pointer here because “may be
-absent, and is owned elsewhere” is exactly the information the API needs to
-communicate.
+<!-- predict
+answer: B
+why-A: `&sensor` takes the address of an object that already exists — no `Sensor` is constructed, which is the whole point of borrowing.
+why-B: Right — the loop reference aliases the element in place, so the caller borrows the vector's own storage and owns nothing.
+why-C: The type is `const Sensor*`: it designates one element, not the container that owns it.
+-->
 
-## Application
+## Drill
+
+In `starter.cpp`, implement `find_sensor`: scan `sensors` with a
+`const Sensor&` loop, return `&sensor` when the name matches, and return
+`nullptr` when the loop ends without a match.
+
+Manual check: `PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers/lessons/05_pointer_borrows -q`
+
+## Takeaway
+
+- `nullptr` is the explicit "no borrowed object" result; `&sensor`
+  borrows the address of the matching element.
+- `->` reads a member through a pointer already proven non-null.
+- The pointer owns nothing: vector destruction or reallocation ends the
+  borrow's validity.
+
+## Deep dive
+
+In this narrow role, a raw pointer is nullable, non-owning access to an
+object someone else owns. `find_sensor` creates no `Sensor`, destroys
+none, and transfers no ownership: it either borrows access to a matching
+element already stored in the vector or returns `nullptr` to say "not
+found." Both halves of `const Sensor*` carry information — `const`
+promises callers may inspect but not modify through the pointer, and `*`
+warns that the result can be null and must be checked before
+`camera->rate_hz` (shorthand for `(*camera).rate_hz`) is evaluated.
+
+The borrow has a validity boundary. The pointer stays good only while
+the vector exists and is not reallocated: destroy the vector and the
+pointer dangles; let a later operation such as `push_back` grow the
+storage and the elements move, leaving pointers to the old elements
+dangling too. Do not retain the borrow across such a change — look the
+sensor up again after the registry is updated.
 
 An inference service for a robot may keep its camera and joint-encoder
-configuration in one sensor registry. A lookup for `"wrist-camera"` returns a
-borrowed view of its update rate. A lookup for an optional sensor returns
-`nullptr`, allowing the caller to choose a fallback rather than assuming the
-hardware is present.
-
-## Validity boundary
-
-The returned pointer remains valid only while the vector exists **and is not
-reallocated**. If the vector is destroyed, the pointer dangles. If a later
-operation such as `push_back` grows the vector and reallocates its storage, the
-elements move and pointers to its old elements dangle too. Do not retain this
-borrow across such a change; look it up again after the registry is updated.
-
-## Prediction
-
-Before running the program, answer these questions:
-
-1. What should `find_sensor(sensors, "missing")` return: a `Sensor`, a
-   `nullptr`, or an empty string?
-2. Why must `camera != nullptr` be checked before evaluating
-   `camera->rate_hz`? What does `->` mean here?
-3. When the loop finds a match, what object does `&sensor` point to: a new
-   copy, the `Sensor` in the vector, or the vector itself?
-4. If you save `camera`, then a non-const registry grows and its vector
-   reallocates, may you still dereference `camera`? Why or why not?
-
-## Guided implementation
-
-In `starter.cpp`, scan `sensors` with `const Sensor& sensor`. If the current
-sensor has the requested name, return `&sensor`. If the loop ends without a
-match, return `nullptr`.
-
-## Verification
-
-Run the reference with:
-
-```bash
-.venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/05_pointer_borrows -q
-```
-
-Run the learner starter with:
-
-```bash
-PRACTICE=1 .venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/05_pointer_borrows -q
-```
-
-The shared runner compiles with C++20 and `-Wall -Wextra -Werror=return-type`. The
-untouched starter is expected to fail at `camera != nullptr`.
-
-## Explain it
-
-- `nullptr` is the explicit “no borrowed object” result.
-- `&sensor` borrows the address of the matching vector element.
-- `->` accesses a member through a non-null pointer.
-- The pointer owns nothing, and vector destruction or reallocation ends this
-  borrow’s validity.
-
-## Next connection
-
-Use a nullable borrowed pointer for a lookup that may miss. When an operation
-requires a sensor to exist, check the pointer at that boundary, then work with
-the proven non-null result.
+configuration in one sensor registry. A lookup for `"wrist-camera"`
+yields a borrowed view of its update rate; a lookup for optional
+hardware yields `nullptr`, and the caller chooses a fallback instead of
+assuming presence. Prefer values, references, and smart pointers for
+their own roles — reach for a raw pointer exactly when "may be absent,
+owned elsewhere" is the message the API needs, and check it at the
+boundary where existence becomes required.
