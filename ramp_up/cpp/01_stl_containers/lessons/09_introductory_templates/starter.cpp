@@ -1,3 +1,13 @@
+// DRILL BRIEF
+// Concept: Reuse one template to select the newest sample of several value types.
+// Scenario: Read the latest joint measurement or operating mode without copying either sample.
+// Implement: latest_sample.
+// Behavior: latest_sample({{10, 0.1}, {20, 0.2}}) returns value 0.2; latest_sample({{15, "idle"}}) returns "idle"; an empty int sample vector returns nullptr.
+// Interview focus: Find the latest typed sample.
+// Tests: main instantiates the template for double, std::string, and int data.
+// Run: PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers/lessons/09_introductory_templates -q
+// Done when: The test run passes and the program prints ALL TESTS PASSED.
+
 #include <cassert>
 #include <cstdint>
 #include <iostream>

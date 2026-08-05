@@ -138,6 +138,12 @@ This is also why `checksum` takes `const std::vector<std::uint8_t>&`
 (lesson 04): copying a megapixel frame on every call is real, measurable
 cost, and the reference makes it free.
 
+## How interviewers test this
+
+- **Prediction probe:** Predict a vector's size and the relationships among addresses returned by `data`, `front`, and `back`.
+- **Implementation probe:** Allocate a frame and compute its checksum.
+- **Follow-up probe:** Explain contiguous storage and how reallocation invalidates pointers and iterators.
+
 ## Muscle memory
 
 Type these until they come out without thinking:

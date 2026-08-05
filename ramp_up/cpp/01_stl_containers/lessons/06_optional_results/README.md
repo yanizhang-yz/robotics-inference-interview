@@ -130,6 +130,12 @@ right and stops at the first `true`, so `result->timestamp_ns` only runs
 when a value is present. The check-then-read discipline, packed into one
 condition.
 
+## How interviewers test this
+
+- **Prediction probe:** Distinguish an absent sample from a present sample whose value happens to look like a sentinel.
+- **Implementation probe:** Return the latest eligible sample from `latest_at_or_before`.
+- **Follow-up probe:** Compare `optional<T>` with `T*` in ownership and lifetime terms.
+
 ## Muscle memory
 
 Type these until they come out without thinking:

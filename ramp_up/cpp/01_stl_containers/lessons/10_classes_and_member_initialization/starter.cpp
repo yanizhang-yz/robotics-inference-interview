@@ -1,3 +1,13 @@
+// DRILL BRIEF
+// Concept: Initialize class members into a valid, internally consistent frame.
+// Scenario: Construct a filled camera frame for an image-processing stage.
+// Implement: CameraFrame constructor.
+// Behavior: CameraFrame(4, 3, 7) has width 4, height 3, pixel_count 12, and checksum 84.
+// Interview focus: Build a valid camera frame in its constructor.
+// Tests: main checks dimensions, derived pixel count, and the filled-frame checksum.
+// Run: PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers/lessons/10_classes_and_member_initialization -q
+// Done when: The test run passes and the program prints ALL TESTS PASSED.
+
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

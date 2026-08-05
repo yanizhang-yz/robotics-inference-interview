@@ -133,6 +133,12 @@ calling it on an empty vector is undefined behavior, not an exception, which
 is why the emptiness guard always comes first. `&samples.back()` takes the
 last element's address: lesson 05's borrow.
 
+## How interviewers test this
+
+- **Prediction probe:** Identify the concrete types instantiated for each call to `latest_sample`.
+- **Implementation probe:** Find the latest typed sample.
+- **Follow-up probe:** Explain compile-time reuse and how template errors expand at an instantiation site.
+
 ## Muscle memory
 
 Type these until they come out without thinking:

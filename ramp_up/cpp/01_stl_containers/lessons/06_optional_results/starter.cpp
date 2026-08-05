@@ -1,3 +1,13 @@
+// DRILL BRIEF
+// Concept: Represent an eligible sample that may be absent with std::optional.
+// Scenario: Find the newest joint sample available at a requested time.
+// Implement: latest_at_or_before.
+// Behavior: samples at 10, 20, and 30 return timestamp 20 for cutoff 25 and no value for cutoff 5; out-of-order {20, 10} still returns 20 for cutoff 25.
+// Interview focus: Return the latest eligible sample from latest_at_or_before.
+// Tests: main covers a match, absence, and an out-of-order input sequence.
+// Run: PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers/lessons/06_optional_results -q
+// Done when: The test run passes and the program prints ALL TESTS PASSED.
+
 #include <cassert>
 #include <cstdint>
 #include <iostream>

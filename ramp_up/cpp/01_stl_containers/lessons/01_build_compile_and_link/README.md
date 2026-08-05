@@ -164,6 +164,12 @@ the argument order `(value, low, high)` is a convention every C++ reader
 already knows. The one trap: *you* must pass `lo <= hi`; `clamp(x, 1.5, -1.5)`
 is a bug the library does not catch for you.
 
+## How interviewers test this
+
+- **Prediction probe:** Given a build failure, classify it as a compiler failure or a linker failure from its file-and-line versus missing-symbol clues.
+- **Implementation probe:** Repair `clamp_joint_command` so it constrains a requested joint command to its inclusive limits.
+- **Follow-up probe:** Explain which build stage reports each kind of failure and what information it can report.
+
 ## Muscle memory
 
 Type these until they come out without thinking:

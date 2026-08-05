@@ -157,6 +157,12 @@ struct — this time a *compile* error, with file and line:
 already pasted into this translation unit, skip it". Put it at the top of
 every header you ever write; `joint_limits.hpp` starts with it.
 
+## How interviewers test this
+
+- **Prediction probe:** Predict whether a missing definition or a definition copied into multiple translation units produces missing or duplicate symbols.
+- **Implementation probe:** Implement inclusive limit checking in `command_is_safe`.
+- **Follow-up probe:** Explain where declarations, definitions, and One Definition Rule-sensitive code belong.
+
 ## Muscle memory
 
 Type these until they come out without thinking:

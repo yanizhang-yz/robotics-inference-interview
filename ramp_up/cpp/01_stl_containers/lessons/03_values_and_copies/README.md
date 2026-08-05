@@ -123,6 +123,12 @@ lesson's default is not the whole story: lesson 04 adds `const T&`
 three together form the parameter convention you will use everywhere. The
 rule of this lesson stands regardless: plain `T` means copy, always.
 
+## How interviewers test this
+
+- **Prediction probe:** Predict which object changes when a metadata record is passed by value and a revised record is returned.
+- **Implementation probe:** Return revised metadata by value from `with_frame_id`.
+- **Follow-up probe:** Explain copy cost and when value semantics make code easier to reason about.
+
 ## Muscle memory
 
 Type these until they come out without thinking:

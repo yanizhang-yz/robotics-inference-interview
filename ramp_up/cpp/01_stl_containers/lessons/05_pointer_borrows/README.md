@@ -137,6 +137,12 @@ camera->rate_hz         // -> 30.0
 camera == &sensors[0]   // -> true   the vector's own element, borrowed
 ```
 
+## How interviewers test this
+
+- **Prediction probe:** Identify a result pointer that dangles after the object it points into is destroyed.
+- **Implementation probe:** Return the matching sensor from `find_sensor`, or `nullptr` when none matches.
+- **Follow-up probe:** State the lifetime the returned pointer's pointee must have.
+
 ## Muscle memory
 
 Type these until they come out without thinking:

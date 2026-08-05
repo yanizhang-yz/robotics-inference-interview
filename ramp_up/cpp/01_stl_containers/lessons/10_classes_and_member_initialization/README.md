@@ -154,6 +154,12 @@ own resources, `CameraFrame` needs no destructor and no hand-written copy
 code. That design guideline has a name — the **Rule of Zero**: build classes
 out of self-managing members and write zero cleanup lines.
 
+## How interviewers test this
+
+- **Prediction probe:** Predict member initialization order for a `CameraFrame`.
+- **Implementation probe:** Build a valid camera frame in its constructor.
+- **Follow-up probe:** Explain why declaration order, rather than initializer-list order, controls member initialization.
+
 ## Muscle memory
 
 Type these until they come out without thinking:

@@ -144,6 +144,12 @@ vectors compare element-wise with plain `==`:
 ids == std::vector<int>{2, 3}    // -> true
 ```
 
+## How interviewers test this
+
+- **Prediction probe:** Trace half-open ranges and the mutation produced by sorting.
+- **Implementation probe:** Filter then sort frame IDs in `fresh_frame_ids`.
+- **Follow-up probe:** Give the complexity of the operations and explain comparator requirements.
+
 ## Muscle memory
 
 Type these until they come out without thinking:

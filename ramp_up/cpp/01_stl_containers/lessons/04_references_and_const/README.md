@@ -112,6 +112,12 @@ No comments needed — the parameter forms *are* the documentation. That is
 the payoff of the convention: in review, in an interview, in six months, the
 signature alone answers "can this call change my data?"
 
+## How interviewers test this
+
+- **Prediction probe:** Predict whether an operation makes a copy or aliases the caller's `JointState`.
+- **Implementation probe:** Read by `const&` in `max_abs_position` and mutate by `&` in `clamp_in_place`.
+- **Follow-up probe:** Justify a parameter signature in terms of mutation, copying, and caller ownership.
+
 ## Muscle memory
 
 Type these until they come out without thinking:

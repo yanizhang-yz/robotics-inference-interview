@@ -1,3 +1,13 @@
+// DRILL BRIEF
+// Concept: Store a grayscale frame in contiguous vector memory.
+// Scenario: Allocate pixels for a camera frame and calculate a checksum.
+// Implement: make_gray_frame and checksum.
+// Behavior: make_gray_frame(4, 3, 7) has size 12 with front and back 7, checksum 84, and data() + size() == &back() + 1.
+// Interview focus: Allocate a frame and compute its checksum.
+// Tests: main checks dimensions, fill, checksum, and the contiguous-address relationship.
+// Run: PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers/lessons/07_containers_and_storage -q
+// Done when: The test run passes and the program prints ALL TESTS PASSED.
+
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
