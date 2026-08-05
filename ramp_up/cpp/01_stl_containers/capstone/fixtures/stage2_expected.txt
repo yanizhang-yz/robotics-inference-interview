@@ -1,0 +1,4 @@
+arm_elbow max_pos=1.57 clamped=1
+arm_shoulder max_pos=1.57 clamped=1
+arm_wrist max_pos=0.10 clamped=0
+base_yaw max_pos=0.30 clamped=0

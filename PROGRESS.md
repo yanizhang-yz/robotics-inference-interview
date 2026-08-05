@@ -25,7 +25,7 @@ Track which questions you've attempted, your notes, and what to study next.
 
 ### C++
 - [ ] Read `ramp_up/cpp/LEARNING_POINTS.md`
-- [ ] 01 STL containers
+- [ ] 01 STL containers — play it with `./drill` (10 micro-lessons + capstone; `./drill status` tracks itself)
 - [ ] 02 Ownership & RAII
 - [ ] 03 Move semantics & Rule of Five
 - [ ] 04 Virtual functions & vtables

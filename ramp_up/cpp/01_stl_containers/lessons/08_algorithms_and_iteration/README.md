@@ -1,86 +1,75 @@
 # 08 — Algorithms and Iteration
 
-## Problem
+## Card
 
-A camera adapter has recorded frames in arrival order. Select the IDs of frames
-whose timestamps are at or after a cutoff, then return those IDs in ascending
-numeric order. For frames `{3, 30}`, `{1, 10}`, and `{2, 20}`, a cutoff of
-`20` produces `{2, 3}`.
+A container holds values; an algorithm operates over a **range** described
+by an iterator pair. They are separate tools.
 
-## Mental model
-
-A container holds values. An algorithm operates over a range of those values.
-They are separate tools: the vector owns the `CameraFrame` values, while
-`std::sort` receives the vector's iterator pair, `ids.begin()` and `ids.end()`,
-to describe the range it should reorder.
-
-Range-based iteration visits every element in a container without manually
-advancing an iterator. Write `for (const CameraFrame& frame : frames)` when
-you only need to inspect each frame. `const` prevents accidental changes, and
-`&` means `frame` is a borrowed view of the existing element rather than a new
-copy. The loop builds a separate vector of selected IDs, so its later sort does
-not change `frames`.
-
-## Application
-
-An inference pipeline may receive camera frames in timing or transport order,
-but a downstream batch builder can require a stable ID order. First select the
-frames fresh enough for the batch. Then sort only the compact list of IDs that
-will be handed to the next stage. This keeps the original capture records
-available in their original order for logging, diagnostics, or another policy.
-
-`fresh_frame_ids` takes a read-only frame collection and a timestamp cutoff. It
-returns a new collection containing only qualifying IDs, sorted in ascending
-order.
-
-## Prediction
-
-Before running the program, answer these questions:
-
-1. What is the input order of the frame IDs in `frames`: `3, 1, 2` or `1, 2, 3`?
-2. With cutoff `20`, which frames pass the timestamp check, and in what order
-   are their IDs appended before sorting?
-3. What is the final result order after `std::sort(ids.begin(), ids.end())`?
-4. Does sorting `ids` change the order of the original `frames` vector? Why or
-   why not?
-5. Why is `const CameraFrame&` a good loop-variable type here instead of a
-   copied `CameraFrame`?
-
-## Guided implementation
-
-In `starter.cpp`, create an empty `std::vector<int>` named `ids`. Iterate over
-`frames` using `const CameraFrame&`. For every frame whose `timestamp_ns` is at
-least `cutoff_ns`, append `frame.frame_id` to `ids`. Finally, call
-`std::sort(ids.begin(), ids.end())` and return `ids`.
-
-## Verification
-
-Run the reference with:
-
-```bash
-.venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/08_algorithms_and_iteration -q
+```cpp
+for (const CameraFrame& frame : frames) { /* borrowed read-only view */ }
+std::sort(ids.begin(), ids.end());        // reorders only this range
 ```
 
-Run the learner starter with:
+Range-based `for` visits every element without manually advancing an
+iterator; `const ... &` means no copy and no mutation. `std::sort`
+reorders exactly the range it is handed — build selected IDs into their
+own vector, and sorting them leaves the input frames untouched.
 
-```bash
-PRACTICE=1 .venv/bin/python -m pytest ramp_up/cpp/01_stl_containers/lessons/08_algorithms_and_iteration -q
-```
+## Predict
 
-The shared runner compiles with C++20 and `-Wall -Wextra -Werror=return-type`. The
-untouched starter is expected to fail for cutoff `20` because it returns no
-selected IDs.
+`fresh_frame_ids` sorts the `ids` vector it built from the input. What
+happens to the order of `frames`?
 
-## Explain it
+- A) `frames` is reordered too, since `ids` was built from it
+- B) Nothing — `std::sort` reorders only the range `ids.begin()` to `ids.end()`
+- C) The sort fails to compile because `frames` is `const`
 
-- The frame vector owns the input records; the ID vector owns a new result.
-- Range-based iteration reads each frame once, and `const T&` avoids copies and
-  mutation.
-- `begin()` and `end()` specify the range for a generic algorithm such as sort.
-- Sorting the result container leaves the original input container unchanged.
+<!-- predict
+answer: B
+why-A: `ids` owns copied int IDs in a separate vector; no link back to `frames` exists for the sort to follow.
+why-B: Right — an algorithm touches exactly the iterator range it receives, and that range names elements of `ids`.
+why-C: `frames` being `const` is irrelevant here: the iterators handed to `std::sort` come from the non-const `ids`.
+-->
 
-## Next connection
+## Drill
 
-Selection and ordering are separate pipeline decisions. Keep the input records
-when later stages need their metadata, and create a new ordered result whenever
-the next stage needs a different representation.
+In `starter.cpp`, implement `fresh_frame_ids`: iterate `frames` with
+`const CameraFrame&`, append `frame_id` to a new `std::vector<int>` for
+every frame whose `timestamp_ns` is at least `cutoff_ns`, then sort the
+IDs with `std::sort(ids.begin(), ids.end())` and return them.
+
+Manual check: `PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers/lessons/08_algorithms_and_iteration -q`
+
+## Takeaway
+
+- Containers own values; algorithms operate on the iterator range
+  `begin()` to `end()`.
+- `const CameraFrame&` iteration reads each frame once with no copies and
+  no mutation.
+- Sorting the result vector leaves the input container in its original
+  order.
+
+## Deep dive
+
+Containers and algorithms are separate tools that meet at an iterator
+pair. The vector owns the `CameraFrame` records; `std::sort` never sees a
+container at all — it receives `ids.begin()` and `ids.end()` and reorders
+exactly that range. Range-based iteration is the reading half of the same
+idea: `for (const CameraFrame& frame : frames)` visits every element
+without manually advancing an iterator, and `const` plus `&` together say
+each `frame` is a borrowed, read-only view of the existing element rather
+than a fresh copy.
+
+The drill mirrors a real pipeline decision. An inference pipeline may
+receive camera frames in timing or transport order, but a downstream
+batch builder can require a stable ID order. Selection and ordering are
+therefore separate steps: first pick the frames fresh enough for the
+batch, then sort only the compact list of IDs handed to the next stage.
+Building the IDs into their own vector is what keeps the original capture
+records untouched — still in arrival order for logging, diagnostics, or
+another policy that needs their metadata.
+
+That separation generalizes. Keep the input records whenever later stages
+need them, and create a new ordered result whenever the next stage needs
+a different representation. The `begin()`/`end()` convention is what lets
+one generic algorithm reorder any range a container can describe.
