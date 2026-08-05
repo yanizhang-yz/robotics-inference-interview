@@ -1330,8 +1330,9 @@ git status --short
 
 Expected in the isolated worktree: no `questions/` paths; the three lesson
 diffs contain only added drill-brief comments and retain the committed exercise
-stubs; worktree status is clean. Then inspect the protected primary checkout at
-`/Users/yanizhang/Documents/projects/robotics-inference-interview`: its status
+stubs; worktree status is clean. Then run `git worktree list --porcelain`,
+identify the first `worktree` entry as the protected primary checkout, and
+perform the following read-only preservation checks from that path: its status
 still lists the learner's three modified starters and untracked `.drill/`, and
 its function bodies still contain `std::clamp`, the inclusive bounds check, and
 the frame-ID assignment.
