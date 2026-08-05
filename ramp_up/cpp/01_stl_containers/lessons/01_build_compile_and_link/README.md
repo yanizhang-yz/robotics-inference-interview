@@ -1,71 +1,218 @@
 # 01 — Build, Compile, and Link
 
-## Card
+This lesson gets you from a `.cpp` file to a running program with one command,
+and — more importantly — teaches you to read the two kinds of build failure
+without panic: the compile error (points at a file and line) and the link
+error (points at a missing symbol). After it, you will build and run every
+drill in this track yourself, and you will write your first real function: the
+bounds clamp that robotics code runs before any command reaches hardware.
+Every output shown in a comment was run and verified.
 
-A C++ build is three stages, and each stage reports different mistakes:
+## The problem this lesson solves
 
-1. **Preprocess** — expand `#include`s into one translation unit.
-2. **Compile** — check syntax and types; emit an object file whose calls
-   into other files are left as unresolved references.
-3. **Link** — resolve those references across object files and libraries;
-   emit the executable.
+Coming from an interpreted language, the build step is the first wall: you
+cannot "just run the file", and the first mistake you make greets you with a
+half-screen of compiler output. Beginners read none of it and guess. The
+skill is knowing that C++ has exactly two failure stages, that each produces a
+recognizably different message, and that each tells you *where to look* — a
+compile error means "this line of this file is wrong", a link error means "a
+definition is missing somewhere in the whole program". Once you can tell them
+apart, the wall of text collapses into one useful sentence.
 
-A missing semicolon dies in stage 2. A declared-but-undefined function
-survives stage 2 and dies in stage 3.
+## The lesson
 
-## Predict
+### One command builds one program
 
-`double f(double);` is declared and called in `main`, but no definition
-exists anywhere. What happens?
+A C++ **compiler** turns source text into an executable file. On this repo's
+toolchain that is `clang++` (or `g++` — same flags, same behavior here):
 
-- A) It fails to compile — the compiler needs the body to check the call
-- B) It compiles, then the linker fails to resolve `f`
-- C) It builds, then crashes at runtime when `f` is called
+```bash
+clang++ -std=c++20 -Wall -Wextra -Werror=return-type starter.cpp -o program
+./program
+```
 
-<!-- predict
-answer: B
-why-A: The declaration alone lets the compiler type-check the call; bodies routinely live in other translation units.
-why-B: Right — compilation trusts the declaration, and the linker is what must find exactly one definition.
-why-C: The build never finishes: an unresolved reference stops the linker before any binary exists to run.
--->
+Reading the flags once, left to right: `-std=c++20` selects the 2020 edition
+of the language (the one this track targets); `-Wall -Wextra` turn on the
+useful **warnings** — messages about legal-but-suspicious code that cost
+nothing to heed; `-Werror=return-type` upgrades one especially deadly warning
+(a function that promises a return value but can exit without one) into a hard
+error; `-o program` names the output file. Without `-o` you get a file
+literally named `a.out`. There is no separate "run" tool: the output *is* a
+program your operating system executes directly — that is what `./program`
+does.
 
-## Drill
+### The three stages inside that one command
 
-In `starter.cpp`, implement `clamp_joint_command` so the requested command
-is constrained to the inclusive `[lower, upper]` range. Use `std::clamp`
-from the existing `<algorithm>` include, not a chain of branches.
+The single command above actually runs a pipeline, and each stage can reject
+your code differently:
 
-Manual check: `PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers/lessons/01_build_compile_and_link -q`
+1. **Preprocessing** — lines starting with `#`, like `#include <algorithm>`,
+   are handled first. `#include` literally pastes in the named file, so the
+   compiler sees one big self-contained unit of text (a **translation
+   unit**).
+2. **Compilation** — the compiler checks that translation unit's syntax and
+   types, then turns it into an **object file**: machine code, plus a list of
+   IOUs — names it *used* but that are defined elsewhere.
+3. **Linking** — the **linker** gathers object files and libraries, pays off
+   every IOU by finding exactly one definition for each name, and writes the
+   executable.
 
-## Takeaway
+You do not see the stages on success. You meet them the first time something
+fails, because *which stage* failed is the first thing every error message
+tells you — if you know how to look.
 
-- Compiler errors are local to one source file; linker errors are about
-  definitions missing across the whole program.
-- An object file is machine code plus unresolved references.
-- The linker resolves every reference to exactly one definition, or the
-  executable is never produced.
+### Compile errors: a file and a line
 
-## Deep dive
+Delete a semicolon and the **compiler** objects while reading that one file:
 
-Building is a sequence, not one opaque action. Preprocessing textually
-expands `#include` directives and conditional compilation, producing one
-self-contained translation unit. Compilation checks that unit's syntax and
-types and lowers it to an object file — machine code in which any function
-defined elsewhere is recorded only as a named, unresolved reference.
-Linking combines object files and libraries, resolves each reference to
-exactly one definition, and writes the executable the operating system
-runs.
+```cpp
+int x = 1        // <- missing semicolon
+return x;
+```
 
-That is why the two failure kinds feel so different. A syntax or type
-mistake stops the compiler while a single file is being translated, and
-the message points at a file and line. An undefined function passes
-compilation wherever a declaration is visible and only fails at the end,
-when the linker searches every object file and finds no definition —
-which is also why linker messages name symbols rather than lines.
+```text
+semi.cpp:2:14: error: expected ';' at end of declaration
+    2 |     int x = 1
+      |              ^
+      |              ;
+```
 
-The drill itself is real robotics code in miniature: before a position,
-velocity, or torque command reaches hardware, control code clamps it into
-the joint's safe range — one small piece of the safety envelope around a
-physical robot. Robot programs also rarely live in one file: drivers,
-control logic, and the executable wire-up compile separately into object
-files and only meet at link time, which is the next lesson.
+Read it like an address, left to right: *file* `semi.cpp`, *line* 2, *column*
+14, then the category (`error:`) and the complaint. The caret points at the
+exact spot, and here clang even prints the fix. Two habits worth forming on
+day one: **always fix the first error first** (one real mistake often
+cascades into dozens of follow-on errors — the fifteen errors below the first
+one usually vanish when you fix it), and read the line number *before* the
+prose.
+
+### Link errors: a symbol, not a line
+
+Now the other failure. This file *declares* a function — announces its name
+and types, promising a definition exists — calls it, but never defines it:
+
+```cpp
+double f(double);                              // declaration: a promise
+int main() { return static_cast<int>(f(1.0)); }
+```
+
+Compilation succeeds — the declaration gave the compiler everything it needed
+to type-check the call. The **linker** then tries to pay the IOU and finds no
+definition anywhere:
+
+```text
+Undefined symbols for architecture arm64:
+  "f(double)", referenced from:
+      _main in undef-654ecf.o
+ld: symbol(s) not found for architecture arm64
+```
+
+Note what is *missing*: no file, no line, no caret. Link errors name a
+**symbol** — the function or variable that has no definition — because the
+linker works on compiled object files, after line numbers are gone. (`ld` is
+the linker's own name; the exact wording varies by platform, but "undefined
+symbol/reference" is the universal tell.) The diagnosis is always the same
+question: *who was supposed to define this?* A typo'd name, a file you forgot
+to compile in, a library you forgot to link. That is the whole trick: **file
+and line → fix that code; symbol → find the missing definition.**
+
+### The drill file, top to bottom
+
+Open `starter.cpp` and read it as three parts:
+
+```cpp
+#include <algorithm>   // pastes in the standard algorithms (std::clamp lives here)
+#include <cassert>     // assert
+#include <iostream>    // std::cout printing
+
+double clamp_joint_command(double command, double lower, double upper) { ... }
+
+int main() {
+    assert(clamp_joint_command(0.4, -1.5, 1.5) == 0.4);
+    // ...
+    std::cout << "ALL TESTS PASSED\n";
+}
+```
+
+`main` is the program's fixed entry point — execution starts there.
+**`assert(cond)`** is the simplest test tool in the language: if `cond` is
+false it prints the failing expression with its file and line, and stops the
+program on the spot; if true, it costs nothing and execution continues. So
+the file is its own test: reach the final line and every assertion above it
+held. That `ALL TESTS PASSED` line is this track's contract — the pytest
+harness looks for it.
+
+### `std::clamp`: bounds in one word
+
+The drill itself needs one library tool. **`std::clamp(v, lo, hi)`** (from
+`<algorithm>`) returns `v` pulled into the inclusive range `[lo, hi]` — it
+returns the answer, it never modifies its arguments:
+
+```cpp
+std::clamp(0.4, -1.5, 1.5)    // -> 0.4    already in range: unchanged
+std::clamp(2.0, -1.5, 1.5)    // -> 1.5    too high: pulled down to hi
+std::clamp(-9.0, -1.5, 1.5)   // -> -1.5   too low: pulled up to lo
+```
+
+You could write the same thing as an `if`/`else if` chain, and it would work.
+Prefer `clamp` anyway: it states the *intent* in one word, it cannot get a
+boundary comparison backwards, and — the part that matters in a code review —
+the argument order `(value, low, high)` is a convention every C++ reader
+already knows. The one trap: *you* must pass `lo <= hi`; `clamp(x, 1.5, -1.5)`
+is a bug the library does not catch for you.
+
+## Muscle memory
+
+Type these until they come out without thinking:
+
+```bash
+clang++ -std=c++20 -Wall -Wextra -Werror=return-type file.cpp -o program && ./program
+```
+
+```cpp
+std::clamp(value, lo, hi)   // bounds in one word — value first, then the range
+assert(f(x) == expected);   // the poor man's test — file:line on failure
+// compile error -> file:line:col, fix the FIRST one
+// link error    -> undefined symbol, find the missing definition
+```
+
+## The drills
+
+Work through `starter.cpp`. One function here — the point of this lesson is
+the build loop around it as much as the code inside it.
+
+### `clamp_joint_command(command, lower, upper)`
+
+Return `command` constrained to the inclusive `[lower, upper]` range.
+
+```cpp
+clamp_joint_command(0.4, -1.5, 1.5)    // -> 0.4    in range already
+clamp_joint_command(2.0, -1.5, 1.5)    // -> 1.5    the request exceeded the joint's limit
+clamp_joint_command(-2.0, -1.5, 1.5)   // -> -1.5
+```
+
+This is `std::clamp` wearing a domain name. The starter already includes
+`<algorithm>`; resist the `if` chain. While you are here, break the build on
+purpose twice — delete a semicolon (compile error: file and line), then
+misspell `clamp_joint_command` in one place (watch which stage catches it) —
+and read both messages with the two-question habit from the lesson.
+
+**Where you'll see it:** every robotics stack clamps commands into a joint's
+safe envelope before they reach hardware — this exact function sits between
+"the planner asked for 2.0 rad" and "the motor is rated for ±1.5 rad". The
+same one-liner saturates pixel values in image processing, clips actions to
+an environment's bounds in RL, and clips gradients in training loops. In
+interviews it appears inside nearly every array problem as the "keep the
+index in bounds" line — and writing `std::clamp` instead of a hand-rolled
+`if` chain reads as fluency.
+
+## How to practice
+
+Write your attempt in `starter.cpp`, then run the tests against it:
+
+```bash
+PRACTICE=1 uv run pytest ramp_up/cpp/01_stl_containers/lessons/01_build_compile_and_link -q
+```
+
+Drop the `PRACTICE=1` to run them against the reference `solution.cpp`. Or
+skip the harness entirely and use the one-command build loop from the lesson —
+that habit is half of what this lesson is for.
