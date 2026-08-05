@@ -1,9 +1,12 @@
-// 02_ownership_and_raii — YOUR attempt. Fill in the TODO bodies, then run:
-//   PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii -v
-// Or compile and run directly:
-//   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/raii starter.cpp && /tmp/raii
-// The stubs compile as-is but fail main()'s asserts until you implement them.
-// You're done when the last line printed is: ALL TESTS PASSED
+// DRILL BRIEF
+// Concept: Combine exclusive ownership, ownership transfer, and RAII cleanup.
+// Scenario: Manage an owned integer buffer and trace nested scoped logging.
+// Implement: Buffer, makeBuffer, moveBuffer, and ScopedLogger TODO bodies.
+// Behavior: Buffers size/fill/sum correctly; moves consume owners; scopes log enter/exit.
+// Interview focus: Explain who owns each allocation and when each cleanup runs.
+// Tests: main asserts buffer state, factory ownership, moved-from nullness, and log order.
+// Run: PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii -q
+// Done when: The test run passes and the program prints ALL TESTS PASSED.
 
 #include <cassert>
 #include <cstddef>
