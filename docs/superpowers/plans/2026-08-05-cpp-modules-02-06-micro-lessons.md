@@ -21,7 +21,10 @@
 - Every `starter.cpp` begins with the labels `DRILL BRIEF`, `Concept:`, `Scenario:`, `Implement:`, `Behavior:`, `Interview focus:`, `Tests:`, `Run:`, and `Done when:`.
 - Starter comments specify observable behavior and edge cases without containing a completed algorithm or copy-pasteable solution.
 - Starter stubs compile and fail an assertion quickly; concurrency starters must never wait indefinitely when incomplete.
-- Preserve the learner's existing implementations in module-01 lesson starters 01–03 and the untracked `.drill/` state.
+- Preserve the learner's existing implementations in module-01 lesson starters
+  01–03 and the untracked `.drill/` state by working only in the isolated
+  worktree. In the isolated branch, leave all ten starter function bodies
+  unchanged from their committed baseline and edit only comments.
 - The module-01 capstone stays in `01_stl_containers/capstone/`; module 02–06 capstones stay at their existing module roots.
 - Memory-layout correctness tests never depend on timing ratios.
 - Concurrency tests use deterministic invariants and bounded execution rather than requiring a particular thread schedule or a data race to manifest.
@@ -250,7 +253,7 @@ git commit -m "test: define complete C++ micro-lesson contract"
 - Consumes: the existing ten lesson drills, current learner edits in lesson starters 01–03, and the drill-brief fields from Task 1.
 - Produces: the canonical editor-first experience that all new lessons follow.
 
-- [ ] **Step 1: Record the learner-owned diff before editing**
+- [ ] **Step 1: Record the isolated branch's starter bodies before editing**
 
 Run:
 
@@ -258,7 +261,9 @@ Run:
 git diff -- ramp_up/cpp/01_stl_containers/lessons/01_build_compile_and_link/starter.cpp ramp_up/cpp/01_stl_containers/lessons/02_headers_and_translation_units/starter.cpp ramp_up/cpp/01_stl_containers/lessons/03_values_and_copies/starter.cpp
 ```
 
-Expected: lesson 01 uses `std::clamp`, lesson 02 performs the inclusive bounds check, and lesson 03 assigns `metadata.frame_id`. Save these facts in the task notes and do not change those function bodies.
+Expected: the isolated branch has the committed exercise stubs, while the
+learner's answers remain only in the protected primary checkout. Save the
+three isolated function bodies in the task report and do not change them.
 
 - [ ] **Step 2: Add the dedicated interview section to all ten READMEs**
 
@@ -285,9 +290,12 @@ Use the existing function names and assertions as the authoritative behavior. Th
 
 At the top of `capstone/starter.cpp`, describe the three telemetry stages, exact fixture-driven input/output contract, malformed-line behavior, stage selection through `argv[1]`, the capstone practice command, and the final success signal. Do not change the capstone implementation or fixtures.
 
-- [ ] **Step 5: Verify learner bodies remained unchanged**
+- [ ] **Step 5: Verify the isolated starter bodies remained unchanged**
 
-Run the same `git diff` command from Step 1. Expected: the three prior body edits are still present verbatim; the only additional changes are comment blocks.
+Run `git diff --word-diff=porcelain` for the ten lesson starters and inspect
+every hunk. Expected: only comment blocks changed; no include, declaration,
+function body, or assertion changed. Separately verify the primary checkout
+still contains the learner's three answers and `.drill/` state.
 
 - [ ] **Step 6: Run module-01 reference and structural tests**
 
@@ -300,16 +308,14 @@ uv run pytest tests/test_cpp_curriculum_structure.py -q
 
 Expected: all module-01 reference tests PASS. The structural suite still FAILS only for absent modules 02–06 and their capstone briefs.
 
-- [ ] **Step 7: Commit the separable module-01 retrofit files**
+- [ ] **Step 7: Commit the module-01 retrofit files**
 
-Stage the README files, capstone starter, and lesson starters 04–10. Leave
-lesson starters 01–03 unstaged because their comment additions share files
-with the learner's pre-existing answers; those three files remain safely in
-the worktree for handoff.
+Because this branch is isolated from the primary checkout's learner answers,
+stage all ten README and starter comment changes plus the capstone starter.
 
 ```bash
 git add ramp_up/cpp/01_stl_containers/lessons/*/README.md ramp_up/cpp/01_stl_containers/capstone/starter.cpp
-git add ramp_up/cpp/01_stl_containers/lessons/04_references_and_const/starter.cpp ramp_up/cpp/01_stl_containers/lessons/05_pointer_borrows/starter.cpp ramp_up/cpp/01_stl_containers/lessons/06_optional_results/starter.cpp ramp_up/cpp/01_stl_containers/lessons/07_containers_and_storage/starter.cpp ramp_up/cpp/01_stl_containers/lessons/08_algorithms_and_iteration/starter.cpp ramp_up/cpp/01_stl_containers/lessons/09_introductory_templates/starter.cpp ramp_up/cpp/01_stl_containers/lessons/10_classes_and_member_initialization/starter.cpp
+git add ramp_up/cpp/01_stl_containers/lessons/*/starter.cpp
 git commit -m "docs: make module 01 drills editor-first"
 ```
 
@@ -456,13 +462,22 @@ Run:
 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons -q
 ```
 
-Expected: FAIL because each lesson lacks `solution.cpp`; compiler discovery must succeed or skip cleanly.
+Expected: collection reaches each test and reports missing `solution.cpp`.
+This is only a wiring check, not the TDD red state.
 
-- [ ] **Step 3: Implement lessons 01–03**
+- [ ] **Step 3: Add minimal compilable reference skeletons and verify behavioral RED**
+
+Create each `solution.cpp` with the required declarations and `main()`
+assertions but neutral implementations: empty vectors/owners, zero numeric
+results, `nullptr` borrows, and omitted state changes. Run the seven lesson
+tests again. Expected: every program compiles and fails its first behavioral
+assertion; there are no missing-file or compiler errors.
+
+- [ ] **Step 4: Implement lessons 01–03**
 
 For each lesson, write the six required README sections, the self-contained starter brief and fast-failing stubs, and the complete reference program matching the exact interface/assertions table. Keep each drill under roughly 100 lines of C++ and each README focused on its single concept.
 
-- [ ] **Step 4: Verify lessons 01–03**
+- [ ] **Step 5: Verify lessons 01–03**
 
 ```bash
 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/01_scope_and_lifetime ramp_up/cpp/02_ownership_and_raii/lessons/02_construction_and_destruction ramp_up/cpp/02_ownership_and_raii/lessons/03_owners_and_borrowers -q
@@ -470,11 +485,11 @@ uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/01_scope_and_lifetime ra
 
 Expected: 3 PASS.
 
-- [ ] **Step 5: Implement lessons 04–07**
+- [ ] **Step 6: Implement lessons 04–07**
 
 Write all four contract files per lesson using the exact interfaces and assertions above. Include `<memory>` for lessons 04–05, `<span>` for lesson 06, and `<stdexcept>` for lesson 07. Stubs return empty owners, neutral numeric values, or omit state changes so practice tests fail assertions rather than crash.
 
-- [ ] **Step 6: Verify lessons 04–07**
+- [ ] **Step 7: Verify lessons 04–07**
 
 ```bash
 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/04_unique_ptr ramp_up/cpp/02_ownership_and_raii/lessons/05_ownership_transfer ramp_up/cpp/02_ownership_and_raii/lessons/06_span_views ramp_up/cpp/02_ownership_and_raii/lessons/07_raii_resources -q
@@ -482,15 +497,15 @@ uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/04_unique_ptr ramp_up/cp
 
 Expected: 4 PASS.
 
-- [ ] **Step 7: Replace the monolithic module README with the index and diagnostic**
+- [ ] **Step 8: Replace the monolithic module README with the index and diagnostic**
 
 The lesson table uses the seven lesson names and applications above. The fast-path questions require the learner to predict destruction order, identify owner versus borrower, trace a `unique_ptr` move, state a span's lifetime requirement, and explain exception cleanup. Retain the module-root capstone command and link forward to module 03.
 
-- [ ] **Step 8: Add the module-02 capstone drill brief without changing capstone code**
+- [ ] **Step 9: Add the module-02 capstone drill brief without changing capstone code**
 
 Name the existing `Buffer`, `makeBuffer`, `moveBuffer`, and `ScopedLogger` work; state their asserted ownership and cleanup behavior; retain `PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii -q`.
 
-- [ ] **Step 9: Run the module and contract tests**
+- [ ] **Step 10: Run the module and contract tests**
 
 ```bash
 uv run pytest ramp_up/cpp/02_ownership_and_raii -q
@@ -499,7 +514,7 @@ uv run pytest tests/test_cpp_curriculum_structure.py -q
 
 Expected: module 02 has 8 PASS (7 lessons plus capstone). Structural failures now concern only modules 03–06.
 
-- [ ] **Step 10: Commit module 02**
+- [ ] **Step 11: Commit module 02**
 
 ```bash
 git add ramp_up/cpp/02_ownership_and_raii tests/test_cpp_curriculum_structure.py
@@ -628,9 +643,18 @@ increments `live_allocations` only when it allocates a non-empty buffer.
 
 - [ ] **Step 1: Add eight lesson test files and run the red test**
 
-Use test names derived exactly from the directory names and the normal fixture shape. Run `uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/lessons -q`; expect missing `solution.cpp` failures.
+Use test names derived exactly from the directory names and the normal fixture
+shape. Run `uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/lessons
+-q`; expect missing `solution.cpp` failures as a wiring check.
 
-- [ ] **Step 2: Implement and verify lessons 01–04**
+- [ ] **Step 2: Add compilable reference skeletons and verify behavioral RED**
+
+Add required declarations, neutral bodies, and the specified `main()`
+assertions to all eight `solution.cpp` files. Run the lesson directory again.
+Expected: every source compiles and fails an assertion for missing behavior;
+there are no missing-file or compiler errors.
+
+- [ ] **Step 3: Implement and verify lessons 01–04**
 
 Write the four-file contracts and run:
 
@@ -640,7 +664,7 @@ uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/lessons/01_observing_co
 
 Expected: 4 PASS. Counter assertions must reset immediately before the behavior being measured.
 
-- [ ] **Step 3: Implement and verify lessons 05–08**
+- [ ] **Step 4: Implement and verify lessons 05–08**
 
 Write the four-file contracts and run:
 
@@ -650,11 +674,11 @@ uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/lessons/05_copy_elision
 
 Expected: 4 PASS. Lesson 08 uses `new[]`/`delete[]` only because manual resource wrapping is its explicit subject; every other lesson uses standard containers or smart pointers.
 
-- [ ] **Step 4: Replace the module README and add the capstone drill brief**
+- [ ] **Step 5: Replace the module README and add the capstone drill brief**
 
 The diagnostic asks the learner to distinguish lvalues/rvalues, trace buffer addresses through a move, state the moved-from guarantee, explain copy elision and `noexcept`, and choose Rule of Zero versus Rule of Five. The capstone brief names `FrameBuffer`, `make_frame`, `consume`, and `swap_frames` and preserves every existing assertion.
 
-- [ ] **Step 5: Run module 03 and structural tests**
+- [ ] **Step 6: Run module 03 and structural tests**
 
 ```bash
 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five -q
@@ -663,7 +687,7 @@ uv run pytest tests/test_cpp_curriculum_structure.py -q
 
 Expected: module 03 has 9 PASS. Structural failures remain only for modules 04–06.
 
-- [ ] **Step 6: Commit module 03**
+- [ ] **Step 7: Commit module 03**
 
 ```bash
 git add ramp_up/cpp/03_move_semantics_rule_of_five
@@ -760,9 +784,17 @@ benchmark.
 
 - [ ] **Step 1: Add six lesson test files and run the red test**
 
-Create fixture tests named after each lesson and run `uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons -q`; expect missing-solution failures.
+Create fixture tests named after each lesson and run `uv run pytest
+ramp_up/cpp/04_virtual_functions_and_vtables/lessons -q`; expect
+missing-solution failures as a wiring check.
 
-- [ ] **Step 2: Implement and verify lessons 01–03**
+- [ ] **Step 2: Add compilable reference skeletons and verify behavioral RED**
+
+Add the required abstract/concrete declarations, neutral method bodies, and
+the specified assertions. Run all six lesson tests. Expected: compilation
+succeeds and each binary fails an assertion for absent behavior.
+
+- [ ] **Step 3: Implement and verify lessons 01–03**
 
 ```bash
 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/01_interfaces_and_dynamic_dispatch ramp_up/cpp/04_virtual_functions_and_vtables/lessons/02_virtual_and_override ramp_up/cpp/04_virtual_functions_and_vtables/lessons/03_virtual_destructors -q
@@ -770,7 +802,7 @@ uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/01_interfaces
 
 Expected: 3 PASS. The base in lesson 03 has `virtual ~Sensor()` from the first reference implementation; do not include an unsafe runnable deletion demo.
 
-- [ ] **Step 3: Implement and verify lessons 04–06**
+- [ ] **Step 4: Implement and verify lessons 04–06**
 
 ```bash
 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/04_polymorphic_ownership ramp_up/cpp/04_virtual_functions_and_vtables/lessons/05_object_slicing ramp_up/cpp/04_virtual_functions_and_vtables/lessons/06_dispatch_cost -q
@@ -778,11 +810,11 @@ uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/04_polymorphi
 
 Expected: 3 PASS. Lesson 06 includes `<span>` and asserts call count rather than timing.
 
-- [ ] **Step 4: Replace the module README and add the capstone drill brief**
+- [ ] **Step 5: Replace the module README and add the capstone drill brief**
 
 The diagnostic covers static versus dynamic type, forgotten `virtual`, override checking, base destruction, slicing, and dispatch boundary cost. The capstone brief retains the existing `Sensor`, `Camera`, `Lidar`, `pollAll`, `describe`, and broken-dispatch drill behavior.
 
-- [ ] **Step 5: Run module 04 and structural tests**
+- [ ] **Step 6: Run module 04 and structural tests**
 
 ```bash
 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables -q
@@ -791,7 +823,7 @@ uv run pytest tests/test_cpp_curriculum_structure.py -q
 
 Expected: module 04 has 7 PASS. Structural failures remain only for modules 05–06.
 
-- [ ] **Step 6: Commit module 04**
+- [ ] **Step 7: Commit module 04**
 
 ```bash
 git add ramp_up/cpp/04_virtual_functions_and_vtables
@@ -930,9 +962,17 @@ loads every byte.
 
 - [ ] **Step 1: Add six lesson test files and run the red test**
 
-Create normal fixture tests named after each directory and run `uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons -q`; expect missing-solution failures.
+Create normal fixture tests named after each directory and run `uv run pytest
+ramp_up/cpp/05_memory_layout_and_cache/lessons -q`; expect missing-solution
+failures as a wiring check.
 
-- [ ] **Step 2: Implement and verify lessons 01–03**
+- [ ] **Step 2: Add compilable reference skeletons and verify behavioral RED**
+
+Add the required structs/functions with neutral results plus the specified
+assertions. Run all six lesson tests. Expected: compilation succeeds and each
+binary fails an assertion for absent behavior.
+
+- [ ] **Step 3: Implement and verify lessons 01–03**
 
 ```bash
 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons/01_storage_and_object_layout ramp_up/cpp/05_memory_layout_and_cache/lessons/02_alignment_and_padding ramp_up/cpp/05_memory_layout_and_cache/lessons/03_cache_lines_and_locality -q
@@ -940,7 +980,7 @@ uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons/01_storage_and_obje
 
 Expected: 3 PASS. Lesson 03 computes unique line indices arithmetically; it does not allocate a benchmark-sized buffer.
 
-- [ ] **Step 3: Implement and verify lessons 04–06**
+- [ ] **Step 4: Implement and verify lessons 04–06**
 
 ```bash
 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons/04_traversal_and_contiguous_storage ramp_up/cpp/05_memory_layout_and_cache/lessons/05_aos_and_soa ramp_up/cpp/05_memory_layout_and_cache/lessons/06_allocation_and_reserve -q
@@ -948,11 +988,11 @@ uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons/04_traversal_and_co
 
 Expected: 3 PASS. Lesson 05 uses `std::optional<int>` for the empty result rather than a magic ID.
 
-- [ ] **Step 4: Replace the module README and add the capstone drill brief**
+- [ ] **Step 5: Replace the module README and add the capstone drill brief**
 
 The diagnostic asks the learner to distinguish object from payload storage, calculate padding, count cache lines, trace row-major offsets, choose AoS/SoA, and explain iterator invalidation after growth. The capstone brief retains the existing five drill groups and states that timing lines are informational.
 
-- [ ] **Step 5: Run module 05 and structural tests**
+- [ ] **Step 6: Run module 05 and structural tests**
 
 ```bash
 uv run pytest ramp_up/cpp/05_memory_layout_and_cache -q
@@ -961,7 +1001,7 @@ uv run pytest tests/test_cpp_curriculum_structure.py -q
 
 Expected: module 05 has 7 PASS. Structural failures remain only for module 06.
 
-- [ ] **Step 6: Commit module 05**
+- [ ] **Step 7: Commit module 05**
 
 ```bash
 git add ramp_up/cpp/05_memory_layout_and_cache
@@ -1164,9 +1204,20 @@ so notifying `not_empty_` is the complete shutdown wake-up set for that class.
 
 - [ ] **Step 1: Add eight pthread lesson tests and run the red test**
 
-Every `test_solution.py` calls `run_cpp_lesson(HERE, extra_flags=("-pthread",), timeout=10)`. Use test names derived from the directory names. Run `uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons -q`; expect missing-solution failures rather than hangs.
+Every `test_solution.py` calls `run_cpp_lesson(HERE,
+extra_flags=("-pthread",), timeout=10)`. Use test names derived from the
+directory names. Run `uv run pytest
+ramp_up/cpp/06_threads_atomics_queues/lessons -q`; expect missing-solution
+failures as a wiring check rather than hangs.
 
-- [ ] **Step 2: Implement and verify lessons 01–04**
+- [ ] **Step 2: Add compilable reference skeletons and verify behavioral RED**
+
+Add required types/functions and specified assertions. Neutral queue and
+mailbox methods return immediately rather than waiting. Run all eight lesson
+tests. Expected: sources compile and fail assertions without any fixture
+timeout.
+
+- [ ] **Step 3: Implement and verify lessons 01–04**
 
 ```bash
 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/01_thread_lifetime ramp_up/cpp/06_threads_atomics_queues/lessons/02_lambda_captures ramp_up/cpp/06_threads_atomics_queues/lessons/03_data_races_and_mutexes ramp_up/cpp/06_threads_atomics_queues/lessons/04_raii_locks -q
@@ -1174,7 +1225,7 @@ uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/01_thread_lifetime r
 
 Expected: 4 PASS within 10 seconds each. All shared writes are protected or provably disjoint.
 
-- [ ] **Step 3: Implement and verify lessons 05–06**
+- [ ] **Step 4: Implement and verify lessons 05–06**
 
 ```bash
 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/05_atomics ramp_up/cpp/06_threads_atomics_queues/lessons/06_condition_variables -q
@@ -1182,11 +1233,11 @@ uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/05_atomics ramp_up/c
 
 Expected: 2 PASS. The condition-variable starter returns a neutral value without waiting so an incomplete practice run fails quickly.
 
-- [ ] **Step 4: Implement and verify lesson 07**
+- [ ] **Step 5: Implement and verify lesson 07**
 
 Use a capacity-2 queue and atomic progress counter to prove a third producer push remains blocked until one item is popped. Poll progress with a bounded loop; never assert a narrow elapsed-time ratio. Run its pytest directory and expect 1 PASS within 10 seconds.
 
-- [ ] **Step 5: Implement and verify lesson 08**
+- [ ] **Step 6: Implement and verify lesson 08**
 
 The `pop()` predicate is `closed_ || !items_.empty()`. After wake-up, return
 `nullopt` only when the queue is empty; otherwise drain the oldest item.
@@ -1195,7 +1246,7 @@ The `pop()` predicate is `closed_ || !items_.empty()`. After wake-up, return
 No producer condition variable exists because this lesson's closable queue is
 unbounded. Run its pytest directory and expect 1 PASS within 10 seconds.
 
-- [ ] **Step 6: Prove incomplete queue starters fail quickly**
+- [ ] **Step 7: Prove incomplete queue starters fail quickly**
 
 Run:
 
@@ -1205,11 +1256,11 @@ PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/06_condit
 
 Expected: FAIL on assertions within the 10-second fixture timeout; no pytest case reports `exceeded the 10-second runtime limit`.
 
-- [ ] **Step 7: Replace the module README and add the capstone drill brief**
+- [ ] **Step 8: Replace the module README and add the capstone drill brief**
 
 The diagnostic covers joinability, capture lifetimes, the data-race definition, lock scope, atomic suitability, wait predicates, backpressure, and shutdown wake-ups. The capstone brief retains `racy_increment_demo`, both safe counters, and `BoundedQueue`; it clearly states that the racy result is observed but never asserted.
 
-- [ ] **Step 8: Run module 06 and structural tests**
+- [ ] **Step 9: Run module 06 and structural tests**
 
 ```bash
 uv run pytest ramp_up/cpp/06_threads_atomics_queues -q
@@ -1218,7 +1269,7 @@ uv run pytest tests/test_cpp_curriculum_structure.py -q
 
 Expected: module 06 has 9 PASS. The structural suite now PASSES completely.
 
-- [ ] **Step 9: Commit module 06**
+- [ ] **Step 10: Commit module 06**
 
 ```bash
 git add ramp_up/cpp/06_threads_atomics_queues
