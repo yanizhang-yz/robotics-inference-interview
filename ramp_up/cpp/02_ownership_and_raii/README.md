@@ -49,17 +49,17 @@ cleanup.
 ## How to practice
 
 Write attempts in each lesson's `starter.cpp`, then run its `PRACTICE=1`
-command. Run every reference lesson plus the capstone with:
+command. Run only the reference capstone with:
 
 ```bash
-uv run pytest ramp_up/cpp/02_ownership_and_raii -q
+uv run pytest ramp_up/cpp/02_ownership_and_raii/test_solution.py -q
 ```
 
-Practice the unchanged module capstone with:
+Practice only the module capstone with:
 
 ```bash
-PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii -q
+PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/test_solution.py -q
 ```
 
-Return to the [C++ curriculum](../README.md) or continue to
-[Module 03 — Move semantics and the Rule of Five](../03_move_semantics_rule_of_five/).
+Previous: [Module 01 — C++ values and standard containers](../01_stl_containers/)
+· Next: [Module 03 — Move semantics and the Rule of Five](../03_move_semantics_rule_of_five/).

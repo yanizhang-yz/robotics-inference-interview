@@ -17,6 +17,14 @@ that silent dispatch bug into a compile error at the declaration.
 
 ## How interviewers test this
 
+**Prediction:** predict the result of a non-virtual call and a signature mismatch.
+
+**Implementation:** implement the checked virtual override.
+
+**Follow-up:** explain what `override` catches at compile time.
+
+**Evidence:** tie the declaration to the runtime call target.
+
 Expect to repair a backend that behaves correctly when called directly but not
 through `const Sensor&`, and to explain the different jobs of `virtual` and
 `override`.
@@ -41,3 +49,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/02_virtual_and_override -q
 ```
+
+Continue to the [next lesson](../03_virtual_destructors/).

@@ -3,6 +3,7 @@
 // Scenario: Trace capture and inference parts of a camera pipeline.
 // Implement: TracePart's constructor/destructor event recording.
 // Behavior: capture constructs before inference, then inference dies before capture.
+// Example: the trace begins construct capture, construct inference. Edge: reversed initializer text does not change member order.
 // Interview focus: Explain why initializer-list text cannot reorder member lifetimes.
 // Tests: main checks the trace during and after a PipelineTrace scope.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/02_construction_and_destruction -q

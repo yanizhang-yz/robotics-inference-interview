@@ -3,11 +3,12 @@
 // Scenario: Inference consumers must drain frames and then stop without hanging.
 // Implement: ClosableQueue<T>::push, pop, and close.
 // Behavior: Reject pushes after close, drain accepted items before nullopt, and
+// Example: after close, queued 10 and 20 drain before nullopt. Edge: later pushes fail and every empty waiter exits.
 // release every consumer blocked when shutdown begins.
 // Interview focus: Include shutdown in the wait predicate and name every waiter
 // that the state change must wake; this unbounded queue has no producer wait.
-// Tests: Push rejection, drain order, terminal nullopt, and a private probe that
-// observes all three consumers registered in the blocking wait before close.
+// Tests: Push rejection, drain order, terminal nullopt, and a test-only handshake
+// that distinguishes three wait registrations from any early consumer return.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/08_clean_shutdown -q
 // Done when: The binary prints ALL TESTS PASSED.
 
@@ -26,13 +27,54 @@
 template <typename T>
 class ClosableQueue;
 
-// Test-only observability: this friend probe reads wait registration while holding
-// the queue mutex. It is not part of ClosableQueue's public teaching interface.
+// Test-only synchronization. It is separate from the queue's public interface and
+// protects its own counters with a mutex and condition variable.
+class ConsumerTestHandshake {
+public:
+    enum class Outcome { all_waits_registered, consumer_returned };
+
+    void register_wait() {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            ++registered_;
+        }
+        changed_.notify_one();
+    }
+
+    void consumer_returned() {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            ++returned_;
+        }
+        changed_.notify_one();
+    }
+
+    Outcome wait_for_registrations_or_return(std::size_t expected) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        changed_.wait(lock, [this, expected] {
+            return registered_ == expected || returned_ != 0;
+        });
+        return registered_ == expected ? Outcome::all_waits_registered
+                                       : Outcome::consumer_returned;
+    }
+
+    std::size_t returned_count() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return returned_;
+    }
+
+private:
+    std::mutex mutex_;
+    std::condition_variable changed_;
+    std::size_t registered_ = 0;
+    std::size_t returned_ = 0;
+};
+
 template <typename T>
 struct ClosableQueueWaitProbe {
-    static std::size_t blocked_consumers(ClosableQueue<T>& queue) {
+    static void attach(ClosableQueue<T>& queue, ConsumerTestHandshake& handshake) {
         std::lock_guard<std::mutex> lock(queue.mutex_);
-        return queue.waiting_consumers_;
+        queue.test_handshake_ = &handshake;
     }
 };
 
@@ -61,8 +103,7 @@ private:
     std::condition_variable not_empty_;
     std::deque<T> items_;
     bool closed_ = false;
-    // Test-only count of consumers currently registered in the blocking wait.
-    std::size_t waiting_consumers_ = 0;
+    ConsumerTestHandshake* test_handshake_ = nullptr;
 };
 
 int main() {
@@ -81,27 +122,26 @@ int main() {
     {
         ClosableQueue<int> queue;
         std::atomic<int> stopped{0};
+        ConsumerTestHandshake handshake;
+        ClosableQueueWaitProbe<int>::attach(queue, handshake);
         std::vector<std::thread> consumers;
         for (int i = 0; i < 3; ++i) {
             consumers.emplace_back([&] {
                 if (!queue.pop().has_value()) {
                     stopped.fetch_add(1);
                 }
+                handshake.consumer_returned();
             });
         }
 
-        std::size_t blocked_consumers = 0;
-        for (int poll = 0; poll < 100000 && blocked_consumers < 3; ++poll) {
-            blocked_consumers =
-                ClosableQueueWaitProbe<int>::blocked_consumers(queue);
-            std::this_thread::yield();
-        }
-        assert(blocked_consumers == 3);
+        assert(handshake.wait_for_registrations_or_return(3) ==
+               ConsumerTestHandshake::Outcome::all_waits_registered);
         queue.close();
 
         for (std::thread& consumer : consumers) {
             consumer.join();
         }
+        assert(handshake.returned_count() == 3);
         assert(stopped.load() == 3);
     }
     std::cout << "ALL TESTS PASSED\n";

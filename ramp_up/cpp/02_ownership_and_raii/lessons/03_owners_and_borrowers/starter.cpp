@@ -3,6 +3,7 @@
 // Scenario: Find a frame in owned pipeline storage and inspect its pixels.
 // Implement: find_frame and checksum without allocating, deleting, or mutating.
 // Behavior: Return the matching element's address, nullptr when absent, and pixel sum.
+// Example: finding id 2 aliases its vector element and checksum sums its pixels. Edge: a missing id returns nullptr without mutation.
 // Interview focus: Name the owner, borrower, null case, and vector invalidation boundary.
 // Tests: main checks alias identity, absence, checksum, and unchanged owned storage.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/03_owners_and_borrowers -q

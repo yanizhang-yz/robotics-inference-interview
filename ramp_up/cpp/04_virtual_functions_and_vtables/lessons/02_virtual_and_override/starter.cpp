@@ -3,6 +3,7 @@
 // Scenario: Repair camera and lidar implementations used through const Sensor references.
 // Implement: All four concrete name and rate methods while preserving every override.
 // Behavior: Base references dispatch to each concrete backend's values.
+// Example: const Sensor references select the asserted camera and lidar values. Edge: any signature mismatch must fail override checking.
 // Interview focus: Explain virtual and use override to catch signature mistakes.
 // Tests: main calls both implementations only through const Sensor references.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/02_virtual_and_override -q

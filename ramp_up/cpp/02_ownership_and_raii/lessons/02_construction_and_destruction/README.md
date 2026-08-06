@@ -23,6 +23,14 @@ Put dependencies above their dependents in the member declarations.
 
 ## How interviewers test this
 
+**Prediction:** predict member construction and destruction order.
+
+**Implementation:** implement the `PipelineTrace` trace.
+
+**Follow-up:** explain why initializer-list text cannot reorder members.
+
+**Evidence:** derive the trace from declaration order.
+
 Expect a reordered initializer list and a request to predict actual output, or
 to diagnose a member that reads another member before that dependency exists.
 
@@ -52,3 +60,5 @@ PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/02_constructi
 ```
 
 Drop `PRACTICE=1` to check the reference solution.
+
+Continue to the [next lesson](../03_owners_and_borrowers/).

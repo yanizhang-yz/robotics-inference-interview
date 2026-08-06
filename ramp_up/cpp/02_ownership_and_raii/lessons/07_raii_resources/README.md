@@ -22,6 +22,14 @@ one guard for one acquisition.
 
 ## How interviewers test this
 
+**Prediction:** predict cleanup on normal return and exception unwinding.
+
+**Implementation:** implement the scope-bound device guard and read.
+
+**Follow-up:** explain why copying a guard is unsafe.
+
+**Evidence:** trace the active flag across every exit path.
+
 You may be asked to make cleanup exception-safe, explain stack unwinding, or
 show why a copied resource guard and manual paired cleanup are unsafe.
 
@@ -51,3 +59,5 @@ PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/07_raii_resou
 ```
 
 Drop `PRACTICE=1` to check the reference solution.
+
+Continue to the [module capstone](../../).

@@ -3,6 +3,7 @@
 // Scenario: Replace a pipeline buffer, survive self-move, then reuse the old source.
 // Implement: PixelBuffer::operator=(PixelBuffer&&) noexcept with a self-move guard.
 // Behavior: The target gets the bytes, the source is 0x0, and both remain reusable.
+// Example: distinct-source assignment preserves the source address in the target. Edge: self-move and later source reassignment stay valid.
 // Interview focus: State the moved-from guarantee and explain self-move handling.
 // Tests: main checks address transfer, source emptiness, self-move, and reassignment.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/lessons/04_moved_from_state -q

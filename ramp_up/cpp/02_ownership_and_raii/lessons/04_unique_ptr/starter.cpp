@@ -3,6 +3,7 @@
 // Scenario: Build one owned grayscale camera frame in a factory.
 // Implement: make_frame with the requested dimensions and pixel fill.
 // Behavior: Return a non-null owner with width*height pixels and deterministic cleanup.
+// Example: a 2x3 frame owns six filled pixels. Edge: a zero-sized frame remains valid and every pointee is cleaned once.
 // Interview focus: Explain why unique_ptr cannot be copied and when its pointee dies.
 // Tests: main checks shape, checksum, and a live-object counter before/during/after scope.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/04_unique_ptr -q

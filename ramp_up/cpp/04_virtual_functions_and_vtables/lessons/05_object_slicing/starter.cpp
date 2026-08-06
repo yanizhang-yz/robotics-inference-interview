@@ -3,6 +3,7 @@
 // Scenario: Compare a legacy by-value record API with a const-reference repair.
 // Implement: CameraRecord::kind, kind_by_value, and kind_by_reference.
 // Behavior: The sliced call says sensor; the borrowed call dispatches to camera.
+// Example: kind_by_value(camera) is sensor and kind_by_reference(camera) is camera. Edge: the base-value boundary intentionally discards derived state.
 // Interview focus: Diagnose lost polymorphism at a by-value base-class boundary.
 // Tests: main passes the same CameraRecord through both signatures.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/05_object_slicing -q

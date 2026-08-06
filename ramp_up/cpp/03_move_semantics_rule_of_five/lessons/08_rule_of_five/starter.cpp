@@ -3,6 +3,7 @@
 // Scenario: Wrap a low-level frame allocation while preserving one-owner invariants.
 // Implement: RawFrame's destructor, two copy operations, and two move operations.
 // Behavior: Copies are deep, moves preserve addresses and empty sources, and nothing leaks.
+// Example: copying four bytes produces a distinct address and moving preserves it. Edge: self-assignment, self-move, and empty ownership remain valid.
 // Interview focus: Derive the Rule of Five and explain why Rule of Zero is preferable.
 // Tests: main checks addresses, bytes, self-assignment, moved-from states, and allocations.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/lessons/08_rule_of_five -q

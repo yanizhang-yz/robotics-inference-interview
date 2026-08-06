@@ -14,18 +14,14 @@ implementations.
 
 ## Lesson path
 
-1. [Interfaces and dynamic dispatch](lessons/01_interfaces_and_dynamic_dispatch/README.md)
-   separates a common contract from concrete sensors.
-2. [`virtual` and `override`](lessons/02_virtual_and_override/README.md) makes
-   runtime selection intentional and signature mistakes compile-time errors.
-3. [Virtual destructors](lessons/03_virtual_destructors/README.md) proves safe
-   derived-to-base cleanup through an interface owner.
-4. [Polymorphic ownership](lessons/04_polymorphic_ownership/README.md) combines
-   heterogeneous pointees with a homogeneous vector of `unique_ptr<Sensor>`.
-5. [Object slicing](lessons/05_object_slicing/README.md) contrasts a lossy base
-   value with a polymorphic base reference.
-6. [Dispatch cost](lessons/06_dispatch_cost/README.md) places one virtual call
-   around coarse batch work and verifies the boundary with counters.
+| Lesson | Concept | Application |
+| --- | --- | --- |
+| [01 — Interfaces and dynamic dispatch](lessons/01_interfaces_and_dynamic_dispatch/) | A common interface preserves runtime-selected behavior | Poll interchangeable sensor backends. |
+| [02 — `virtual` and `override`](lessons/02_virtual_and_override/) | `virtual` enables dispatch and `override` checks signatures | Catch a backend method mismatch at compile time. |
+| [03 — Virtual destructors](lessons/03_virtual_destructors/) | Base-owned derived objects need virtual cleanup | Destroy a device through its interface owner. |
+| [04 — Polymorphic ownership](lessons/04_polymorphic_ownership/) | `unique_ptr<Base>` owns heterogeneous implementations | Store camera and lidar backends in one collection. |
+| [05 — Object slicing](lessons/05_object_slicing/) | Base values discard derived state | Preserve dynamic behavior with references. |
+| [06 — Dispatch cost](lessons/06_dispatch_cost/) | Put runtime selection outside inner work | Dispatch once per inference batch. |
 
 ## Diagnostic model
 
@@ -57,11 +53,14 @@ The module-root `starter.cpp` keeps the original `Sensor`, `Camera`, `Lidar`,
 its TODOs after the micro-lessons:
 
 ```bash
-PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables -q
+PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/test_solution.py -q
 ```
 
-The reference suite, including all six lessons and the capstone, runs with:
+Run only the reference capstone with:
 
 ```bash
-uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables -q
+uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/test_solution.py -q
 ```
+
+Previous: [Module 03 — Move semantics and the Rule of Five](../03_move_semantics_rule_of_five/)
+· Next: [Module 05 — Memory layout and cache behavior](../05_memory_layout_and_cache/).

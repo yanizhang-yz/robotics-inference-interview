@@ -17,6 +17,14 @@ transfer to itself.
 
 ## How interviewers test this
 
+**Prediction:** trace distinct-source, self-move, and source-reuse cases.
+
+**Implementation:** implement move assignment.
+
+**Follow-up:** separate class guarantees from unspecified library state.
+
+**Evidence:** state and preserve the invariant after every path.
+
 You may be asked what operations are safe on a moved-from object, whether it is
 destroyed, and how a move-assignment operator handles self-move.
 
@@ -39,3 +47,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/lessons/04_moved_from_state -q
 ```
+
+Continue to the [next lesson](../05_copy_elision/).

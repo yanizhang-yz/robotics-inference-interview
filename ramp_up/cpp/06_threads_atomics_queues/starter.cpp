@@ -1,4 +1,3 @@
-// 06_threads_atomics_queues — YOUR attempt. Fill in the TODO bodies, then run:
 // DRILL BRIEF
 // Concept: Integrate thread lifetime, mutex/atomic synchronization, and bounded
 // producer/consumer backpressure in one camera-to-inference capstone.
@@ -9,13 +8,14 @@
 // Behavior: Both safe counters are exact; the queue is FIFO, bounded, blocking,
 // and delivers every item. The racy result is observed and printed but NEVER
 // asserted because a data race is undefined behavior and need not manifest.
+// Example: safe_count_mutex(4, 25000) returns 100000. Edge: the racy value is never asserted and a full capacity-2 queue blocks its third push.
 // Interview focus: Identify thread ownership, shared invariants, mutex versus
 // atomic scope, the not-full/not-empty predicates, and their notifications.
 // Tests: Safe counts, FIFO delivery, once-only delivery, and producer backpressure.
-// Run: PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues -q
+// Run: PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues/test_solution.py -q
 // Done when: The final output line is ALL TESTS PASSED.
 //
-//   PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues -v
+//   PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues/test_solution.py -v
 // Or compile and run directly (note the extra -pthread vs earlier lessons):
 //   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -pthread -o /tmp/threads starter.cpp && /tmp/threads
 // The stubs compile as-is but fail main()'s asserts until you implement them.
@@ -35,25 +35,13 @@
 #include <utility>
 #include <vector>
 
-// racy_increment_demo() -> the final value of an UNLOCKED counter that two
-// threads each ++ 100000 times. Correct answer: 200000; a data race makes the
-// real result wrong and different almost every run. main() prints it and never
-// asserts on it — the run-to-run inconsistency is the lesson.
-// PYTHON: counter += 1 unlocked — same bug; the GIL usually hid it (README §2).
-// C++:  capture `counter` by reference in a lambda, run it on two std::thread
-//       objects, join BOTH, return the counter. No mutex, no atomic — the bug
-//       is the point.
+// Return one deliberately unsynchronized observation for comparison only.
 int racy_increment_demo() {
-    // TODO: implement (see README §1–2: launch two threads, join both)
+    // TODO: implement the documented two-worker experiment.
     return 0;
 }
 
-// safe_count_mutex(4, 25000) -> exactly 100000, every run.
-// PYTHON: with self.lock: counter += 1 — your ring buffer's pattern; here the
-//         lock_guard IS the with-block (constructor locks, destructor unlocks).
-// C++:  a plain int counter plus std::mutex; inside the loop take a
-//       std::lock_guard<std::mutex> lock(m); then ++counter. Launch `threads`
-//       workers with pool.emplace_back(lambda), then join every one.
+// Return threads*iterations exactly using a mutex-protected counter invariant.
 int safe_count_mutex(int threads, int iters) {
     // TODO: implement
     (void)threads;
@@ -61,11 +49,7 @@ int safe_count_mutex(int threads, int iters) {
     return 0;
 }
 
-// safe_count_atomic(4, 25000) -> exactly 100000, every run — no mutex involved.
-// PYTHON: no everyday equivalent — under the GIL a bare counter was mostly-safe
-//         by luck, so Python never grew one. C++ names the hardware directly.
-// C++:  std::atomic<int> counter{0}; ++counter is one indivisible hardware
-//       instruction. Return counter.load() (an explicit atomic read).
+// Return threads*iterations exactly using one atomic counter transition.
 int safe_count_atomic(int threads, int iters) {
     // TODO: implement
     (void)threads;
@@ -73,38 +57,27 @@ int safe_count_atomic(int threads, int iters) {
     return 0;
 }
 
-// A bounded, blocking, thread-safe FIFO queue — Python's queue.Queue(maxsize=...).
-// push() blocks while the queue is full; pop() blocks while it is empty.
-// This is the camera->inference handoff: camera thread push()es frames, the
-// inference thread pop()s them; a full queue sleeps the camera (backpressure).
-// The private fields you need are already declared at the bottom of the class.
+// BoundedQueue must preserve FIFO, never exceed capacity, and block at full or empty.
 template <typename T>
 class BoundedQueue {
 public:
     explicit BoundedQueue(std::size_t capacity) : capacity_(capacity) {
-        (void)capacity_;  // delete me once capacity_ is really used (silences -Wunused-private-field)
+        (void)capacity_;
     }
 
-    // Blocks while the queue is full. PYTHON: queue.Queue.put(value).
-    // C++:  std::unique_lock<std::mutex> lock(mutex_);  (unique_lock — wait() needs it)
-    //       not_full_.wait(lock, [this] { return items_.size() < capacity_; });
-    //       push_back the value (std::move it), then not_empty_.notify_one().
+    // Block until the value can be accepted without violating capacity.
     void push(T value) {
         // TODO: implement
-        (void)value;  // stub is a no-op ON PURPOSE: fail asserts fast, never hang
+        (void)value;
     }
 
-    // Blocks while the queue is empty. PYTHON: queue.Queue.get().
-    // C++:  mirror image of push(): wait on not_empty_ until !items_.empty(),
-    //       take items_.front() (std::move it), pop_front(), then
-    //       not_full_.notify_one(), and return the value.
+    // Block until the oldest value is available, then return it.
     T pop() {
         // TODO: implement
-        return T{};  // stub returns a dummy ON PURPOSE: fail asserts fast, never hang
+        return T{};
     }
 
-    // C++: lock mutex_ (a lock_guard is enough — no wait() here) and return
-    //      items_.size(). mutex_ is `mutable` so this const method may lock it.
+    // Return a synchronized observation of the current item count.
     std::size_t size() const {
         // TODO: implement
         return 0;
@@ -112,15 +85,14 @@ public:
 
 private:
     std::size_t capacity_;
-    mutable std::mutex mutex_;           // mutable: even const size() must lock it
-    std::condition_variable not_full_;   // push() sleeps here when the queue is full
-    std::condition_variable not_empty_;  // pop() sleeps here when the queue is empty
-    std::deque<T> items_;                // plain FIFO storage — collections.deque
+    mutable std::mutex mutex_;
+    std::condition_variable not_full_;
+    std::condition_variable not_empty_;
+    std::deque<T> items_;
 };
 
 int main() {
-    // racy_increment_demo: printed, deliberately NOT asserted. Run the binary a
-    // few times — the number changes run to run; that inconsistency IS the bug.
+    // The unsynchronized observation is intentionally not asserted.
     {
         int racy = racy_increment_demo();
         std::cout << "racy count (correct answer 200000): " << racy << "\n";

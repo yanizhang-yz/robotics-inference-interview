@@ -3,6 +3,7 @@
 // Scenario: Relay a captured frame to inference, then consume it.
 // Implement: relay_frame and consume_frame using their by-value owner parameters.
 // Behavior: Moves empty the source, preserve the pointee address, and return checksum 15.
+// Example: relaying the asserted frame keeps its address and consuming returns 15. Edge: each moved-from unique_ptr is null.
 // Interview focus: Trace ownership at each std::move and explain moved-from emptiness.
 // Tests: main checks the source/receiver states, address identity, and consumption result.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/05_ownership_transfer -q

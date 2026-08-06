@@ -3,6 +3,7 @@
 // Scenario: Build a frame-returning factory without output parameters or extra moves.
 // Implement: make_frame(int, int) by returning the requested Frame value.
 // Behavior: Dimensions are correct and copy/move counters both remain zero.
+// Example: make_frame(3, 2) yields the asserted 3x2 frame with zero counters. Edge: zero dimensions still form a valid value.
 // Interview focus: Explain guaranteed copy elision and why return std::move(local) can hurt.
 // Tests: main resets counters immediately before the factory call and checks them.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/lessons/05_copy_elision -q
@@ -42,7 +43,7 @@ private:
 };
 
 Frame make_frame(int width, int height) {
-    // TODO: return the requested Frame as a prvalue.
+    // TODO: satisfy the factory contract without extra observed operations.
     (void)width;
     (void)height;
     return Frame(0, 0);

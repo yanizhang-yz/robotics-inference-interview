@@ -53,17 +53,17 @@ elision, caller-selected consumption cost, and a three-move swap.
 ## How to practice
 
 Write attempts in each lesson's `starter.cpp`, then run its `PRACTICE=1`
-command. Run every reference lesson plus the capstone with:
+command. Run only the reference capstone with:
 
 ```bash
-uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five -q
+uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/test_solution.py -q
 ```
 
-Practice the module capstone with:
+Practice only the module capstone with:
 
 ```bash
-PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five -q
+PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/test_solution.py -q
 ```
 
-Return to the [C++ curriculum](../README.md) or continue to
-[Module 04 — Virtual functions and vtables](../04_virtual_functions_and_vtables/).
+Previous: [Module 02 — Ownership and RAII](../02_ownership_and_raii/)
+· Next: [Module 04 — Virtual functions and vtables](../04_virtual_functions_and_vtables/).

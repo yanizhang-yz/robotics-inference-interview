@@ -21,13 +21,20 @@ Without that validation, the not-full predicate could never become true. `size()
 locks because an observation of shared container state is still a shared access.
 
 The backpressure test fills a capacity-two queue before starting a third push. A
-test-only friend probe reads a private waiter count while holding the queue mutex; the
-probe is not part of the public queue interface. Once the probe observes the producer,
-that producer has registered and released the mutex inside the wait. The test proves
-the push is incomplete, pops one item, and then proves the push completes. Bounded
-yield polling awaits instrumented state without inferring behavior from elapsed time.
+test-only condition-variable handshake reports either full-queue wait registration or
+an early producer return. After registration, the test proves the push is incomplete,
+pops one item, and joins the producer to prove completion. No sleep, yield deadline,
+or assumed schedule decides the result.
 
 ## How interviewers test this
+
+**Prediction:** derive full and empty predicates and their enabled transitions.
+
+**Implementation:** implement bounded FIFO push, pop, and size.
+
+**Follow-up:** explain zero capacity and possible shutdown semantics.
+
+**Evidence:** show FIFO, capacity, exact delivery, and registered backpressure.
 
 Derive both predicates, say why predicate waits tolerate spurious wakes, match each
 state transition to the waiter it enables, and explain why a single condition variable
@@ -51,3 +58,5 @@ neutral starter never waits, so an incomplete attempt fails quickly.
 PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/07_bounded_queues -q
 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/07_bounded_queues -q
 ```
+
+Continue to the [next lesson](../08_clean_shutdown/).

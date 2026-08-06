@@ -2,9 +2,11 @@
 // Concept: Resource-owning standard members supply correct special members automatically.
 // Scenario: Copy a frame batch to relabel it, then move a batch into its next stage.
 // Implement: relabel_copy without declaring any FrameBatch special members.
-// Behavior: The relabeled copy is independent and a moved batch preserves allocation identity.
+// Behavior: The copy is independent; the move preserves destination allocation
+// Example: relabeling leaves front-camera unchanged while the copy changes. Edge: after moving, the source is reassigned a rear-camera batch.
+// identity; the valid moved-from source accepts a new batch.
 // Interview focus: Recognize when writing no destructor/copy/move operations is safest.
-// Tests: main checks copy independence, source labels, and moved buffer address identity.
+// Tests: main checks copy independence, destination address identity, and source reuse.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/lessons/07_rule_of_zero -q
 // Done when: The test passes and the program prints ALL TESTS PASSED.
 
@@ -26,7 +28,7 @@ struct FrameBatch {
 };
 
 FrameBatch relabel_copy(FrameBatch batch, std::string source) {
-    // TODO: update the local copy's source, then return it.
+    // TODO: satisfy the relabeling contract.
     (void)source;
     return batch;
 }
@@ -41,6 +43,9 @@ int main() {
     const std::uint8_t* original_address = captured.frames[0].pixels.data();
     FrameBatch moved = std::move(captured);
     assert(moved.frames[0].pixels.data() == original_address);
-    assert(captured.frames.empty());
+    captured = FrameBatch{"rear-camera", {{2, {8, 9}}}};
+    assert(captured.source == "rear-camera");
+    assert(captured.frames.size() == 1);
+    assert(captured.frames[0].pixels[1] == 9);
     std::cout << "ALL TESTS PASSED\n";
 }

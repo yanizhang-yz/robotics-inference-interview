@@ -18,6 +18,14 @@ shape observable: `batch_calls` becomes one, the sum is correct, and
 
 ## How interviewers test this
 
+**Prediction:** predict virtual call counts for per-item versus per-batch dispatch.
+
+**Implementation:** implement the coarse batch boundary.
+
+**Follow-up:** explain inlining and measurement trade-offs.
+
+**Evidence:** use call counters and equal outputs rather than timing claims.
+
 Expect to discuss dispatch overhead without exaggerating it, then move the
 runtime boundary around coarse work such as a frame, tensor, or batch.
 
@@ -41,3 +49,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/06_dispatch_cost -q
 ```
+
+Continue to the [module capstone](../../).

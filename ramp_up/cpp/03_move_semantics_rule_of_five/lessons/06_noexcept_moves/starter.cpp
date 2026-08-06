@@ -3,6 +3,7 @@
 // Scenario: Reallocate a packet queue without duplicating existing payload bytes.
 // Implement: Packet's noexcept move constructor and packet_move_is_noexcept().
 // Behavior: The trait is true; growth records one move and zero copies.
+// Example: reserved growth moves the asserted packet exactly once. Edge: the noexcept probe must remain true.
 // Interview focus: Diagnose why a movable type unexpectedly copies on reallocation.
 // Tests: main resets counters immediately before growth and verifies sizes and counts.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/lessons/06_noexcept_moves -q

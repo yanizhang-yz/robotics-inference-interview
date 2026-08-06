@@ -21,6 +21,14 @@ traversal here, not a change to the buffer's row-major layout.
 
 ## How interviewers test this
 
+**Prediction:** predict row-first and column-first offset sequences.
+
+**Implementation:** implement both traversal traces.
+
+**Follow-up:** explain why equal results can have different locality.
+
+**Evidence:** show identical elements and different address order.
+
 Expect to flatten two-dimensional indices, trace small examples by hand, and
 interchange loops to match a stated storage order.
 
@@ -45,3 +53,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons/04_traversal_and_contiguous_storage -q
 ```
+
+Continue to the [next lesson](../05_aos_and_soa/).

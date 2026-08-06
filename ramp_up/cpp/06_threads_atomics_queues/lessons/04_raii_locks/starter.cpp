@@ -3,6 +3,7 @@
 // Scenario: A sensor read throws while a timed mutex protects shared state.
 // Implement: lock_released_after_exception(std::timed_mutex&).
 // Behavior: After an exception, prove the same mutex is available for reuse.
+// Example: the asserted throwing update unwinds before a successful reacquire. Edge: no manual unlock is required.
 // Interview focus: Explain why manual lock/unlock leaks locks on exceptional or
 // early-return paths and how the guard's lifetime defines the critical section.
 // Tests: The same mutex can be acquired after the exception.

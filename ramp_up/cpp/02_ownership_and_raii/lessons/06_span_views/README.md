@@ -22,6 +22,14 @@ a span into a local vector that is about to die.
 
 ## How interviewers test this
 
+**Prediction:** predict which backing elements a mutable subspan changes.
+
+**Implementation:** implement scaling and mean over spans.
+
+**Follow-up:** explain the empty case and backing-storage lifetime.
+
+**Evidence:** state the viewed range, mutability, and actual owner.
+
 Expect to select mutable versus const span, handle an empty range, and state the
 owner/lifetime and reallocation conditions that keep a view valid.
 
@@ -50,3 +58,5 @@ PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/06_span_views
 ```
 
 Drop `PRACTICE=1` to check the reference solution.
+
+Continue to the [next lesson](../07_raii_resources/).

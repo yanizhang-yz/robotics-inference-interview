@@ -3,6 +3,7 @@
 // Scenario: Sum two disjoint halves of an inference batch concurrently.
 // Implement: parallel_sum(std::span<const int>) with two worker threads.
 // Behavior: Two workers process disjoint portions and return the exact total.
+// Example: the asserted positive and mixed-sign ranges sum exactly. Edge: empty input returns 0 without an invalid join.
 // Interview focus: Explain when construction starts work and why every joinable
 // thread must be joined or have its ownership transferred before destruction.
 // Tests: Empty input is 0; positive and mixed-sign inputs have exact sums.

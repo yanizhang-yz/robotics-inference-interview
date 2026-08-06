@@ -3,6 +3,7 @@
 // Scenario: Compare a packed score scan with one float every 64 bytes.
 // Implement: cache_lines_touched.
 // Behavior: Count unique arithmetic line indices for a fixed access pattern.
+// Example: the asserted stride-1 and stride-16 accesses touch their literal line counts. Edge: zero accesses touch zero lines.
 // Interview focus: Reason from addresses and useful bytes, never timing ratios.
 // Tests: main checks contiguous, strided, and empty access patterns.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons/03_cache_lines_and_locality -q

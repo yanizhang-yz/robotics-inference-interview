@@ -3,6 +3,7 @@
 // Scenario: Scale a tensor slice and compute a read-only mean.
 // Implement: scale_in_place and mean, including the empty-view case.
 // Behavior: Mutate only a middle subspan; whole-range mean is 19.2; empty mean is 0.
+// Example: only the asserted middle tensor values scale. Edge: an empty const span has mean 0.0.
 // Interview focus: Choose span<T> vs span<const T> and state the lifetime requirement.
 // Tests: main checks slice mutation, untouched edges, whole mean, and empty mean.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/06_span_views -q
@@ -21,7 +22,7 @@ void scale_in_place(std::span<float> values, float gain) {
 }
 
 double mean(std::span<const float> values) {
-    // Exercise: return 0.0 for an empty view; otherwise average the values.
+    // Exercise: implement the asserted mean contract.
     (void)values;
     return 0.0;
 }

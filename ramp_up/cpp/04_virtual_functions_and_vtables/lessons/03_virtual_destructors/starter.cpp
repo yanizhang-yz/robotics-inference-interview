@@ -3,6 +3,7 @@
 // Scenario: Destroy a Camera safely through a unique_ptr<Sensor>.
 // Implement: Both logging destructors and the payload's release counter.
 // Behavior: Log Camera then Sensor and release the Camera payload exactly once.
+// Example: destroying a Camera through unique_ptr<Sensor> logs Camera, Sensor. Edge: payload release count is exactly one.
 // Interview focus: Recognize why polymorphic base classes need virtual destructors.
 // Tests: main performs only safe unique_ptr-based deletion and checks cleanup evidence.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/03_virtual_destructors -q

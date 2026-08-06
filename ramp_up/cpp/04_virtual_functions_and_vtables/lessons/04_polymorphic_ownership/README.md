@@ -18,6 +18,14 @@ delete their concrete objects safely through `Sensor`'s virtual destructor.
 
 ## How interviewers test this
 
+**Prediction:** predict ownership and dispatch in a mixed base-owner vector.
+
+**Implementation:** implement construction and polling of owned backends.
+
+**Follow-up:** explain move-only storage and cleanup.
+
+**Evidence:** identify one owner per object and the dynamic result for each.
+
 Expect to build a heterogeneous collection with one ownership type and to
 explain why raw owning pointers or a vector of base values are inferior choices.
 
@@ -42,3 +50,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/04_polymorphic_ownership -q
 ```
+
+Continue to the [next lesson](../05_object_slicing/).

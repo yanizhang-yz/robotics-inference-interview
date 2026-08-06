@@ -3,6 +3,7 @@
 // Scenario: Trace nested sensor-session scopes named outer, inner-a, and inner-b.
 // Implement: scope_trace using the provided ScopeMarker and nested braces.
 // Behavior: Record all construction/destruction events, with after-inner before outer dies.
+// Example: outer, inner-a, inner-b construct before reverse inner cleanup. Edge: after-inner occurs before outer destruction.
 // Interview focus: Predict the exact event sequence from construction order and braces.
 // Tests: main compares the complete seven-event trace.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/01_scope_and_lifetime -q

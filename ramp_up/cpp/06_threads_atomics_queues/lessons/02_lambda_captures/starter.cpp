@@ -3,6 +3,7 @@
 // Scenario: Offset independent sensor samples in parallel without reordering.
 // Implement: offset_samples(samples, offset), one worker per sample.
 // Behavior: Produce one offset result per input in the same stable order.
+// Example: each asserted sample receives the requested offset in place order. Edge: empty input returns an empty result.
 // Interview focus: Choose safe capture modes and diagnose loop-index or dangling
 // capture bugs without relying on a particular worker schedule.
 // Tests: The result preserves input order and handles an empty input.

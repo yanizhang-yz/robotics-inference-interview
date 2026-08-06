@@ -22,6 +22,14 @@ the same owner; letting it leave the final consumer's scope destroys the frame.
 
 ## How interviewers test this
 
+**Prediction:** trace the owner and allocation address through `std::move`.
+
+**Implementation:** implement relay and consuming sink functions.
+
+**Follow-up:** compare a by-value sink with a borrowed parameter.
+
+**Evidence:** identify the sole owner before and after every call.
+
 You may be asked to trace which pointer is null after each move, distinguish
 moving the owner from moving the pointee, and explain a by-value owner parameter.
 
@@ -50,3 +58,5 @@ PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/05_ownership_
 ```
 
 Drop `PRACTICE=1` to check the reference solution.
+
+Continue to the [next lesson](../06_span_views/).

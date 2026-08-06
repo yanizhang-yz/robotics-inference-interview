@@ -1,4 +1,3 @@
-#include <atomic>
 #include <cassert>
 #include <condition_variable>
 #include <cstddef>
@@ -12,13 +11,51 @@
 template <typename T>
 class BoundedQueue;
 
-// Test-only observability: this friend probe reads wait registration while holding
-// the queue mutex. It is not part of BoundedQueue's public teaching interface.
+// Test-only synchronization. The producer reports wait registration from inside
+// the full-queue protocol; its wrapper reports completion after push returns.
+class ProducerTestHandshake {
+public:
+    enum class Outcome { wait_registered, producer_returned };
+
+    void register_wait() {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            wait_registered_ = true;
+        }
+        changed_.notify_one();
+    }
+
+    void producer_returned() {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            producer_returned_ = true;
+        }
+        changed_.notify_one();
+    }
+
+    Outcome wait_for_registration_or_return() {
+        std::unique_lock<std::mutex> lock(mutex_);
+        changed_.wait(lock, [this] { return wait_registered_ || producer_returned_; });
+        return wait_registered_ ? Outcome::wait_registered : Outcome::producer_returned;
+    }
+
+    bool producer_has_returned() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return producer_returned_;
+    }
+
+private:
+    std::mutex mutex_;
+    std::condition_variable changed_;
+    bool wait_registered_ = false;
+    bool producer_returned_ = false;
+};
+
 template <typename T>
 struct BoundedQueueWaitProbe {
-    static std::size_t blocked_producers(const BoundedQueue<T>& queue) {
+    static void attach(BoundedQueue<T>& queue, ProducerTestHandshake& handshake) {
         std::lock_guard<std::mutex> lock(queue.mutex_);
-        return queue.waiting_producers_;
+        queue.test_handshake_ = &handshake;
     }
 };
 
@@ -34,9 +71,10 @@ public:
     void push(T value) {
         std::unique_lock<std::mutex> lock(mutex_);
         if (items_.size() >= capacity_) {
-            ++waiting_producers_;
+            if (test_handshake_ != nullptr) {
+                test_handshake_->register_wait();
+            }
             not_full_.wait(lock, [this] { return items_.size() < capacity_; });
-            --waiting_producers_;
         }
         items_.push_back(std::move(value));
         not_empty_.notify_one();
@@ -64,8 +102,7 @@ private:
     std::condition_variable not_full_;
     std::condition_variable not_empty_;
     std::deque<T> items_;
-    // Test-only count of producers currently registered in the blocking wait.
-    std::size_t waiting_producers_ = 0;
+    ProducerTestHandshake* test_handshake_ = nullptr;
 };
 
 int main() {
@@ -91,28 +128,21 @@ int main() {
         BoundedQueue<int> queue(2);
         queue.push(10);
         queue.push(20);
-        std::atomic<bool> third_push_completed{false};
+        ProducerTestHandshake handshake;
+        BoundedQueueWaitProbe<int>::attach(queue, handshake);
         std::thread producer([&] {
             queue.push(30);
-            third_push_completed.store(true);
+            handshake.producer_returned();
         });
 
-        bool producer_is_blocked = false;
-        for (int poll = 0; poll < 100000 && !producer_is_blocked; ++poll) {
-            producer_is_blocked =
-                BoundedQueueWaitProbe<int>::blocked_producers(queue) == 1;
-            std::this_thread::yield();
-        }
-        assert(producer_is_blocked);
-        assert(!third_push_completed.load());
+        assert(handshake.wait_for_registration_or_return() ==
+               ProducerTestHandshake::Outcome::wait_registered);
+        assert(!handshake.producer_has_returned());
         assert(queue.size() == 2);
 
         assert(queue.pop() == 10);
-        for (int poll = 0; poll < 100000 && !third_push_completed.load(); ++poll) {
-            std::this_thread::yield();
-        }
-        assert(third_push_completed.load());
         producer.join();
+        assert(handshake.producer_has_returned());
 
         assert(queue.size() == 2);
         assert(queue.pop() == 20);

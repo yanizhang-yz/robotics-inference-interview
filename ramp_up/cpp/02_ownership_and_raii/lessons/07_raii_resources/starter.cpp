@@ -3,6 +3,7 @@
 // Scenario: Keep a sensor device active only during one read operation.
 // Implement: ScopedDevice's constructor/destructor state changes and read result.
 // Behavior: active is true during reads and false after normal or exceptional exit.
+// Example: a normal read returns 42 while the device is active. Edge: a thrown read still leaves active false.
 // Interview focus: Explain exception safety and why explicit paired cleanup is fragile.
 // Tests: main checks normal return, a thrown runtime_error, and both cleanup paths.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/07_raii_resources -q

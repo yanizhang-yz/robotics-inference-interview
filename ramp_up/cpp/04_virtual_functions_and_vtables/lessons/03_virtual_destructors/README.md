@@ -18,6 +18,14 @@ safe virtual destructor and `std::unique_ptr<Sensor>` throughout.
 
 ## How interviewers test this
 
+**Prediction:** predict the destructor trace through a base owner.
+
+**Implementation:** implement safe observable base destruction.
+
+**Follow-up:** explain the failure mode of a non-virtual base destructor.
+
+**Evidence:** show derived-then-base cleanup in the log.
+
 Expect to spot a polymorphic base without a virtual destructor and explain why a
 smart pointer cannot repair an unsafe deletion contract by itself.
 
@@ -43,3 +51,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/03_virtual_destructors -q
 ```
+
+Continue to the [next lesson](../04_polymorphic_ownership/).

@@ -30,6 +30,14 @@ join-before-read relationship.
 
 ## How interviewers test this
 
+**Prediction:** predict joinability and destruction behavior.
+
+**Implementation:** implement `parallel_sum` with owned join boundaries.
+
+**Follow-up:** explain exception-safe alternatives such as `jthread`.
+
+**Evidence:** account for worker lifetime and every join.
+
 Expect to point to every thread's owner and every exit path. Explain why forgetting a
 join terminates the process, why detaching would make the captured span unsafe, and
 why two independent partial sums need no mutex.
@@ -51,3 +59,5 @@ ranges.
 PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/01_thread_lifetime -q
 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/01_thread_lifetime -q
 ```
+
+Continue to the [next lesson](../02_lambda_captures/).

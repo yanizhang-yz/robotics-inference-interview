@@ -3,14 +3,15 @@
 // Scenario: Review the memory behavior of an inference data path end to end.
 // Implement: The existing five drill groups in this file.
 // Behavior: Preserve exact results while making each memory decision explicit.
+// Example: row-first and column-first sums match for the asserted matrices. Edge: empty score inputs return -1 and timing output never controls correctness.
 // Interview focus: Derive structural behavior; timing lines are informational.
 // Tests: main retains its existing result and invariant assertions unchanged.
-// Run: PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache -q
+// Run: PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/test_solution.py -q
 // Done when: The last line printed is ALL TESTS PASSED.
 
 // 05_memory_layout_and_cache — YOUR attempt. Fill in the TODO bodies (and fix
 // one struct's field order), then run:
-//   PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache -v
+//   PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/test_solution.py -v
 // Or compile and run directly:
 //   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/mem starter.cpp && /tmp/mem
 // For honest timings, add -O2. The stubs compile as-is but fail main()'s
@@ -27,30 +28,22 @@
 #include <utility>
 #include <vector>
 
-// Stopwatch used by main() to PRINT timings. Correctness asserts never look
-// at these numbers — timings vary machine to machine; results must not.
+// Provided stopwatch; timing output is informational and never graded.
 static double ms_since(std::chrono::steady_clock::time_point start) {
     return std::chrono::duration<double, std::milli>(
                std::chrono::steady_clock::now() - start)
         .count();
 }
 
-// ---- Drill 1: struct padding ------------------------------------------------
-// Each field must sit at an offset divisible by its alignment (double: 8,
-// int: 4, char: 1), the compiler may NOT reorder fields for you — it can only
-// insert invisible padding bytes — and the total size rounds up to a multiple
-// of the largest field alignment.
-// PYTHON: plain objects hide layout entirely, but NumPy shows it: a structured
-//         dtype with align=True pads exactly like this (itemsize 24 vs 14 packed).
-struct BadOrder {   // predict this sizeof on paper before checking
+// Drill 1: retain the same fields while producing a denser declaration order.
+struct BadOrder {
     char   ready;
     double timestamp;
     char   flags;
     int    id;
 };
 
-// TODO: reorder these SAME four fields (largest alignment first) so that
-// sizeof(GoodOrder) shrinks. Right now it is a copy of BadOrder's order.
+// TODO: reorder only these four fields so GoodOrder is smaller than BadOrder.
 struct GoodOrder {
     char   ready;
     double timestamp;
@@ -58,93 +51,64 @@ struct GoodOrder {
     int    id;
 };
 
-// Return {sizeof(BadOrder), sizeof(GoodOrder)}. Predict both numbers on paper
-// FIRST — that prediction is the interview skill this drill trains.
+// Return both object sizes in BadOrder, GoodOrder order.
 std::pair<std::size_t, std::size_t> padded_size_report() {
-    // TODO: implement (and fix GoodOrder above — main asserts it got smaller)
+    // TODO: implement after fixing GoodOrder.
     return {0, 0};
 }
 
-// ---- Drill 2: traversal order over a row-major matrix -----------------------
-// The matrix is ONE flat vector; element (r, c) lives at index r * cols + c —
-// row-major: each row's floats sit side by side in memory.
-// PYTHON: np.zeros((rows, cols)) is exactly this flat buffer ("C order" IS
-//         row-major), and arr[r, c] computes r * cols + c for you. Here you
-//         write the multiplication yourself — it is how images and tensors arrive.
-// Sum with r in the OUTER loop, c inner: addresses in increasing order, every
-// byte of every cache line used, prefetcher streaming ahead.
+// Drill 2: sum every row-major matrix element in row-first order.
 double sum_rows_first(const std::vector<float>& m, std::size_t rows,
                       std::size_t cols) {
-    // TODO: implement (accumulate into a double)
+    // TODO: implement.
     return 0.0;
 }
 
-// Same elements, same Big-O, loops swapped: c outer, r inner. The inner loop
-// hops `cols * 4` bytes per step, using 4 bytes of each cache line it drags in.
+// Sum the same elements in column-first order; results must be identical.
 double sum_cols_first(const std::vector<float>& m, std::size_t rows,
                       std::size_t cols) {
-    // TODO: implement (same indexing m[r * cols + c], loops swapped)
+    // TODO: implement.
     return 0.0;
 }
 
-// ---- Drill 3: contiguous vs pointer-chasing ---------------------------------
-// std::vector<int>: the ints themselves, back to back — one cache line holds
-// 16-32 of them.
-// PYTHON: a NumPy array is this exact layout — drill 08's "single fixed-size
-//         block of raw memory". A Python list is the next function's layout.
+// Drill 3: sum all values in the contiguous and node-based inputs.
 long long sum_vector(const std::vector<int>& values) {
-    // TODO: implement (range-for, accumulate into long long)
+    // TODO: implement.
     return 0;
 }
 
-// std::list<int>: a doubly-linked list — every element its own heap allocation
-// holding {prev, next, value}. Each ++it is a dependent pointer load.
-// The loop body is IDENTICAL to sum_vector's — only the layout differs.
+// The list result must match the vector result for equal values.
 long long sum_list(const std::list<int>& values) {
     // TODO: implement
     return 0;
 }
 
-// ---- Drill 4: AoS vs SoA ----------------------------------------------------
-// One detected object from a vision model. Six 4-byte fields, alignment 4:
-// no padding anywhere — predict sizeof(Detection) yourself.
+// Drill 4: compare equivalent detection-score queries over AoS and SoA layouts.
 struct Detection {
-    float x, y, w, h;   // box center + size, pixels
-    float score;        // confidence in [0, 1]
+    float x, y, w, h;
+    float score;
     int   class_id;
 };
 
-// AoS (array of structs): vector<Detection>. Scan d.score for the max; return
-// -1.0f for an empty frame (real scores are >= 0). Note what the loop drags
-// through the cache: 24 bytes per element to use 4.
+// Return the highest AoS score, or -1.0f for empty input.
 float top_score_aos(const std::vector<Detection>& dets) {
     // TODO: implement
     return -1.0f;
 }
 
-// SoA (struct of arrays): the scores alone, packed. Same answer (and the same
-// -1.0f empty sentinel), 1/6 the memory traffic, SIMD-friendly.
+// Return the highest SoA score with the same empty-input contract.
 float top_score_soa(const std::vector<float>& scores) {
     // TODO: implement
     return -1.0f;
 }
 
-// ---- Drill 5: reserve() and reallocation ------------------------------------
-// Build a vector<int> of n elements with push_back and return how many times
-// capacity() CHANGED along the way — each change is a reallocation (allocate
-// bigger block, copy everything, free old block).
-// PYTHON: list.append does the same geometric-growth dance invisibly;
-//         reserve(n) is the control Python never gives you.
-// Here: call reserve(n) first, then push_back n times. Track capacity from
-// construction onward (a fresh vector has capacity 0), counting the reserve's
-// own jump too. Empirically on this libc++ the answer is exactly 1.
+// Drill 5: build n values and report capacity changes with an up-front reserve.
 int fill_with_reserve(std::size_t n) {
-    // TODO: implement — remember `std::size_t cap = v.capacity();` then
-    // compare after reserve() and after every push_back
+    // TODO: implement the specified count.
     return 0;
 }
 
-// Same, WITHOUT reserve: watch capacity double 1, 2, 4, 8, ... as it overflows.
+// Build the same n values without reserving and report the observed count.
 int fill_without_reserve(std::size_t n) {
     // TODO: implement
     return 0;
@@ -153,26 +117,22 @@ int fill_without_reserve(std::size_t n) {
 int main() {
     std::cout << std::fixed << std::setprecision(1);
 
-    // padded_size_report
+    // Layout assertions.
     {
         std::pair<std::size_t, std::size_t> report = padded_size_report();
         assert(report.first == sizeof(BadOrder));
         assert(report.second == sizeof(GoodOrder));
-        // The four fields alone need 14 bytes; only padding explains more.
         assert(report.first >= 14 && report.second >= 14);
-        // The whole point: reordering the SAME fields genuinely shrank it.
         assert(report.second < report.first);
         std::cout << "[layout] BadOrder = " << report.first
                   << " bytes, GoodOrder = " << report.second
                   << " bytes (same four fields)\n";
-        assert(sizeof(Detection) == 6 * 4);  // six 4-byte fields, no padding
+        assert(sizeof(Detection) == 6 * 4);
     }
 
-    // sum_rows_first / sum_cols_first
+    // Traversal assertions.
     {
-        // Small exact case: 3x4 matrix holding 1..12, both orders must see 78.
-        // Integer-valued floats accumulate EXACTLY in a double (every value
-        // and partial sum is a smallish integer), so == is safe here.
+        // Small exact case.
         std::vector<float> small(12);
         for (std::size_t i = 0; i < 12; ++i) {
             small[i] = static_cast<float>(i + 1);
@@ -180,10 +140,10 @@ int main() {
         assert(sum_rows_first(small, 3, 4) == 78.0);
         assert(sum_cols_first(small, 3, 4) == 78.0);
 
-        const std::size_t R = 2048, C = 2048;  // 4M floats = 16 MB
+        const std::size_t R = 2048, C = 2048;
         std::vector<float> m(R * C);
         for (std::size_t i = 0; i < m.size(); ++i) {
-            m[i] = static_cast<float>(i % 7);  // integer-valued: exact sums
+            m[i] = static_cast<float>(i % 7);
         }
         auto t0 = std::chrono::steady_clock::now();
         double rows = sum_rows_first(m, R, C);
@@ -191,12 +151,12 @@ int main() {
         t0 = std::chrono::steady_clock::now();
         double cols = sum_cols_first(m, R, C);
         double cols_ms = ms_since(t0);
-        assert(rows == cols);  // same elements => identical sum, either order
+        assert(rows == cols);
         std::cout << "[timing] 2048x2048 sum: rows-first " << rows_ms
                   << " ms, cols-first " << cols_ms << " ms\n";
     }
 
-    // sum_vector / sum_list
+    // Container assertions.
     {
         assert(sum_vector({1, 2, 3}) == 6);
         assert(sum_list({1, 2, 3}) == 6);
@@ -215,12 +175,12 @@ int main() {
         long long sl = sum_list(lst);
         double list_ms = ms_since(t0);
         assert(sv == sl);
-        assert(sv > 0);  // a stub returning 0 must not sneak past
+        assert(sv > 0);
         std::cout << "[timing] 2M ints: vector " << vec_ms << " ms, list "
                   << list_ms << " ms\n";
     }
 
-    // top_score_aos / top_score_soa
+    // Layout-equivalence assertions.
     {
         std::vector<Detection> tiny = {
             {10.f, 20.f, 5.f, 5.f, 0.30f, 3},
@@ -229,7 +189,7 @@ int main() {
         };
         assert(top_score_aos(tiny) == 0.90f);
         assert(top_score_soa({0.30f, 0.90f, 0.75f}) == 0.90f);
-        assert(top_score_aos({}) == -1.0f);  // empty frame sentinel
+        assert(top_score_aos({}) == -1.0f);
         assert(top_score_soa({}) == -1.0f);
 
         const std::size_t N = 2'000'000;
@@ -240,7 +200,7 @@ int main() {
             aos[i] = {1.f, 2.f, 3.f, 4.f, s, static_cast<int>(i % 80)};
             scores[i] = s;
         }
-        aos[N / 2].score = 1.5f;  // plant one exact, known winner
+        aos[N / 2].score = 1.5f;
         scores[N / 2] = 1.5f;
         auto t0 = std::chrono::steady_clock::now();
         float best_aos = top_score_aos(aos);
@@ -250,15 +210,13 @@ int main() {
         double soa_ms = ms_since(t0);
         assert(best_aos == 1.5f);
         assert(best_soa == 1.5f);
-        assert(best_aos == best_soa);  // layout must never change the answer
+        assert(best_aos == best_soa);
         std::cout << "[timing] 2M detections, top score: AoS " << aos_ms
                   << " ms, SoA " << soa_ms << " ms\n";
     }
 
-    // fill_with_reserve / fill_without_reserve
+    // Capacity-growth assertions.
     {
-        // Verified empirically on this libc++: reserve makes capacity change
-        // exactly ONCE (0 -> n); without it, growth doubles over and over.
         assert(fill_with_reserve(1) == 1);
         assert(fill_with_reserve(100'000) == 1);
         int changes = fill_without_reserve(100'000);

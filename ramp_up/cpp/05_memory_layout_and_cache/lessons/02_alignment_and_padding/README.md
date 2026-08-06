@@ -19,6 +19,14 @@ offset calculation, not as a substitute for doing it.
 
 ## How interviewers test this
 
+**Prediction:** calculate member offsets, padding, and total size.
+
+**Implementation:** implement the denser field order.
+
+**Follow-up:** explain ABI dependence without assuming packing.
+
+**Evidence:** justify every offset from alignment constraints.
+
 Expect to calculate member offsets, explain internal and tail padding, reorder a
 record without dropping fields, and connect the smaller stride to more records
 per cache line.
@@ -49,3 +57,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons/02_alignment_and_padding -q
 ```
+
+Continue to the [next lesson](../03_cache_lines_and_locality/).

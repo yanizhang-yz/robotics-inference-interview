@@ -29,16 +29,16 @@ lesson map below.
 
 ## Lesson map
 
-| Lesson | Build | Interview checkpoint |
+| Lesson | Concept | Application |
 | --- | --- | --- |
-| [01 — Thread lifetime](lessons/01_thread_lifetime/) | Two-thread `parallel_sum` | Construction starts work; every joinable thread needs an owner and join boundary. |
-| [02 — Lambda captures](lessons/02_lambda_captures/) | Ordered parallel sample offsets | Capture mode controls sharing and lifetime; disjoint slots need no mutex. |
-| [03 — Data races and mutexes](lessons/03_data_races_and_mutexes/) | Exact shared counter | A data race is undefined behavior; name the invariant and lock boundary. |
-| [04 — RAII locks](lessons/04_raii_locks/) | Exception-safe lock release | Guard lifetime, not manual cleanup, defines reliable release. |
-| [05 — Atomics](lessons/05_atomics/) | CAS publisher election | Atomics suit one independent transition, not a compound invariant. |
-| [06 — Condition variables](lessons/06_condition_variables/) | One-slot sample mailbox | Wait for protected state with a predicate; notifications are not stored events. |
-| [07 — Bounded queues](lessons/07_bounded_queues/) | Blocking FIFO with capacity | `not_empty` and `not_full` express delivery and backpressure. |
-| [08 — Clean shutdown](lessons/08_clean_shutdown/) | Draining closable queue | Closure belongs in the predicate and must wake the complete waiter set. |
+| [01 — Thread lifetime](lessons/01_thread_lifetime/) | Joinable threads need an owner and join boundary | Sum sensor ranges with two workers. |
+| [02 — Lambda captures](lessons/02_lambda_captures/) | Capture mode controls sharing and lifetime | Write ordered sample offsets into disjoint slots. |
+| [03 — Data races and mutexes](lessons/03_data_races_and_mutexes/) | A mutex protects a shared invariant | Count completed inference jobs exactly. |
+| [04 — RAII locks](lessons/04_raii_locks/) | Guard lifetime makes release unconditional | Preserve a protected probe across exceptions. |
+| [05 — Atomics](lessons/05_atomics/) | Atomics suit one independent transition | Elect exactly one publisher with compare-exchange. |
+| [06 — Condition variables](lessons/06_condition_variables/) | Predicate waits block on protected state | Deliver one sample to a waiting consumer. |
+| [07 — Bounded queues](lessons/07_bounded_queues/) | Two predicates express delivery and backpressure | Connect camera production to bounded inference. |
+| [08 — Clean shutdown](lessons/08_clean_shutdown/) | Closure is a wakeable terminal state | Drain work and release all consumers. |
 
 ## The camera-to-inference mental model
 
@@ -66,10 +66,9 @@ end-of-stream so the queue drains before returning `nullopt`.
 Reference assertions cover invariants and protocol outcomes: exact counts, ordered
 delivery, once-only delivery, capacity bounds, blocked-producer progress, post-close
 rejection, draining, and waiter exit. They do not require a particular worker order or
-a data race to visibly lose updates. Private friend probes observe waiter registration
-under each queue's mutex before the triggering pop or close. Bounded yield polling is
-used only to await that instrumented state; every lesson also has a 10-second fixture
-limit.
+a data race to visibly lose updates. Test-only condition-variable handshakes observe
+wait registration before the triggering put, pop, or close. Worker joins prove
+completion without polling the scheduler.
 
 The practice mailbox and queue methods return neutral values immediately until you
 implement them. That choice is intentional: an incomplete exercise fails an assertion
@@ -92,7 +91,7 @@ The capstone is not a shutdown queue; Lesson 08 supplies that final protocol lay
 Reference solutions:
 
 ```bash
-uv run pytest ramp_up/cpp/06_threads_atomics_queues -q
+uv run pytest ramp_up/cpp/06_threads_atomics_queues/test_solution.py -q
 ```
 
 One practice lesson:
@@ -106,3 +105,6 @@ Capstone practice:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues/test_solution.py -q
 ```
+
+Previous: [Module 05 — Memory layout and cache behavior](../05_memory_layout_and_cache/)
+· Next: [C++ curriculum overview](../README.md).

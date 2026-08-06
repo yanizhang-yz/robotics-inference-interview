@@ -31,7 +31,11 @@ int main() {
     const std::uint8_t* original_address = captured.frames[0].pixels.data();
     FrameBatch moved = std::move(captured);
     assert(moved.frames[0].pixels.data() == original_address);
-    assert(captured.frames.empty());
+
+    captured = FrameBatch{"rear-camera", {{2, {8, 9}}}};
+    assert(captured.source == "rear-camera");
+    assert(captured.frames.size() == 1);
+    assert(captured.frames[0].pixels[1] == 9);
 
     std::cout << "ALL TESTS PASSED\n";
 }

@@ -3,6 +3,7 @@
 // Scenario: Build and aggregate a mixed collection of camera and lidar sensors.
 // Implement: make_sensors and total_rate using unique_ptr and virtual calls.
 // Behavior: Return both dynamic types, total 40 Hz, and clean everything at scope exit.
+// Example: camera plus lidar totals 40 Hz. Edge: leaving scope returns the live-object count to zero.
 // Interview focus: Explain how a homogeneous vector can own heterogeneous pointees.
 // Tests: main checks type behavior, total rate, live count, and automatic cleanup.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/04_polymorphic_ownership -q

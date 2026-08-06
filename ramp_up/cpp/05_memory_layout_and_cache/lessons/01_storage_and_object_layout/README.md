@@ -20,6 +20,14 @@ rules, but the two regions are still distinct.
 
 ## How interviewers test this
 
+**Prediction:** separate inline object bytes from vector payload bytes.
+
+**Implementation:** implement the layout/address report.
+
+**Follow-up:** explain what move or reallocation changes.
+
+**Evidence:** draw both storage regions and identify their owners.
+
 Expect to account for an image or tensor object's bytes, identify where each
 region lives, and explain why `sizeof` does not recursively include dynamic
 allocations.
@@ -45,3 +53,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons/01_storage_and_object_layout -q
 ```
+
+Continue to the [next lesson](../02_alignment_and_padding/).

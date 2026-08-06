@@ -15,10 +15,21 @@
 - Compile every lesson with `-std=c++20 -Wall -Wextra -Werror=return-type`.
 - Add `-pthread` only to the threading lessons in module 06.
 - Every successful C++ program must print `ALL TESTS PASSED` as its final non-empty line.
-- Every lesson directory contains exactly the teaching contract files `README.md`, `starter.cpp`, `solution.cpp`, and `test_solution.py`, plus only genuinely necessary supporting sources.
+- The exact public module directory set is modules 01–06; reject every extra
+  top-level `[0-9][0-9]_*` directory.
+- Every lesson directory contains exactly `README.md`, `starter.cpp`,
+  `solution.cpp`, and `test_solution.py`. The only support-file whitelist entry
+  is module-01 lesson 02's `joint_limits.hpp` and `joint_limits.cpp`;
+  `__pycache__` is ignored as generated state.
 - Every lesson README contains these level-two headings in order: `The problem this lesson solves`, `The lesson`, `How interviewers test this`, `Muscle memory`, `The drills`, and `How to practice`.
-- Every lesson introduces one primary C++ concept and connects it to a robotics or inference scenario.
-- Every `starter.cpp` begins with the labels `DRILL BRIEF`, `Concept:`, `Scenario:`, `Implement:`, `Behavior:`, `Interview focus:`, `Tests:`, `Run:`, and `Done when:`.
+- Every lesson introduces one primary C++ concept, connects it to a robotics or
+  inference scenario, and gives explicit Prediction, Implementation, Follow-up,
+  and Evidence probes in `How interviewers test this`.
+- Every `starter.cpp` begins with one leading comment block whose first content
+  is `DRILL BRIEF`, followed in order by `Concept:`, `Scenario:`, `Implement:`,
+  `Behavior:`, `Interview focus:`, `Tests:`, `Run:`, and `Done when:`.
+- Every new lesson and capstone `Behavior:` block includes a concrete `Example:`
+  and an important `Edge:` case.
 - Starter comments specify observable behavior and edge cases without containing a completed algorithm or copy-pasteable solution.
 - Starter stubs compile and fail an assertion quickly; concurrency starters must never wait indefinitely when incomplete.
 - Preserve the learner's existing implementations in module-01 lesson starters
@@ -27,11 +38,22 @@
   unchanged from their committed baseline and edit only comments.
 - The module-01 capstone stays in `01_stl_containers/capstone/`; module 02–06 capstones stay at their existing module roots.
 - Memory-layout correctness tests never depend on timing ratios.
-- Concurrency tests use deterministic invariants and bounded execution rather than requiring a particular thread schedule or a data race to manifest.
+- Concurrency tests use deterministic, race-free in-protocol condition-variable
+  handshakes and thread joins. They never use sleeps, yield polling, fixed poll
+  counts, or scheduler-dependent proof.
+- Every module-02–06 capstone reference or practice command targets that
+  module's root `test_solution.py`, never the recursively collected directory.
 
 ## File and Content Map
 
-The shared contract test owns inventory, heading, file, and drill-brief validation. Each lesson's `test_solution.py` owns compilation of that lesson through `run_cpp_lesson`. Each C++ `main()` owns the lesson-specific behavioral assertions. Each module README owns only module navigation, prerequisite diagnostics, capstone positioning, and commands; concept teaching lives in lesson READMEs.
+The shared contract test owns the exact module tree, exact lesson file sets,
+inventory, headings, interview probes, navigation, capstone-only commands, and
+ordered leading drill briefs. Each lesson's `test_solution.py` owns compilation
+of that lesson through `run_cpp_lesson`. Each C++ `main()` owns the
+lesson-specific behavioral assertions. Each module README owns its Concept and
+Application lesson table, prerequisite diagnostics, capstone positioning,
+reference and learner commands, and previous/next navigation; concept teaching
+lives in lesson READMEs.
 
 For a normal lesson test, use this exact shape with the function name from the lesson specification below:
 
@@ -57,7 +79,9 @@ DRILL BRIEF
 Concept: Local objects are destroyed at scope exit in reverse construction order.
 Scenario: Trace nested sensor-session helpers that must clean up predictably.
 Implement: scope_trace().
-Behavior: Record outer construction, both inner constructions, reverse inner destruction, after-inner, then outer destruction.
+Behavior: Record the required lifetime trace.
+Example: outer, inner-a, and inner-b construct before reverse inner cleanup.
+Edge: after-inner occurs before outer destruction.
 Interview focus: Predict the exact lifetime trace and name each scope boundary.
 Tests: main() compares every construction, ordinary event, and destruction entry in order.
 Run: PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/01_scope_and_lifetime -q
@@ -179,7 +203,14 @@ def test_module_has_approved_micro_lesson_inventory(
 
 Remove the superseded `MODULE_01`, `MODULE_01_LESSONS`, and module-01-only inventory test.
 
-- [ ] **Step 3: Add starter drill-brief validation for all lessons and capstones**
+- [ ] **Step 2a: Enforce the exact public tree and file sets**
+
+Assert that the sorted top-level `[0-9][0-9]_*` directory set is exactly the
+six `MODULE_LESSONS` keys. For every lesson, assert the exact four contract
+files plus the explicit module-01 lesson-02 `joint_limits.hpp/.cpp` whitelist;
+ignore only generated `__pycache__` directories.
+
+- [ ] **Step 3: Add ordered leading starter drill-brief validation for all lessons and capstones**
 
 Add this exact test:
 
@@ -215,12 +246,35 @@ def test_all_starters_have_self_contained_drill_briefs() -> None:
         if not starter.is_file():
             violations.append(f"{starter.relative_to(ROOT)}: missing starter.cpp")
             continue
-        text = starter.read_text()
-        for field in DRILL_BRIEF_FIELDS:
-            if field not in text:
-                violations.append(f"{starter.relative_to(ROOT)}: missing {field}")
+        comment_lines = _leading_comment_lines(starter.read_text())
+        if not comment_lines or comment_lines[0] != "DRILL BRIEF":
+            violations.append(
+                f"{starter.relative_to(ROOT)}: DRILL BRIEF must start the "
+                "leading comment block"
+            )
+            continue
+        positions = [
+            next(
+                index
+                for index, line in enumerate(comment_lines)
+                if line == field or line.startswith(field)
+            )
+            for field in DRILL_BRIEF_FIELDS
+        ]
+        if positions != sorted(positions):
+            violations.append(
+                f"{starter.relative_to(ROOT)}: drill-brief fields are out of order"
+            )
     assert violations == []
 ```
+
+Add companion structural tests that require all 35 new lesson interview
+sections to contain Prediction, Implementation, Follow-up, and Evidence probes;
+require each new-lesson and capstone `Behavior:` block to contain `Example:`
+and `Edge:`; validate every next-lesson/capstone link; validate each module's
+Concept / Application table and previous/next navigation; and validate exact
+capstone-only `test_solution.py` commands. Reject sleep/yield polling in module
+06 lessons 06–08.
 
 - [ ] **Step 4: Run the structural test and verify the new contract fails for the intended reasons**
 
@@ -499,11 +553,19 @@ Expected: 4 PASS.
 
 - [ ] **Step 8: Replace the monolithic module README with the index and diagnostic**
 
-The lesson table uses the seven lesson names and applications above. The fast-path questions require the learner to predict destruction order, identify owner versus borrower, trace a `unique_ptr` move, state a span's lifetime requirement, and explain exception cleanup. Retain the module-root capstone command and link forward to module 03.
+The lesson table uses Concept and Application columns for the seven lessons.
+The fast-path questions require the learner to predict destruction order,
+identify owner versus borrower, trace a `unique_ptr` move, state a span's
+lifetime requirement, and explain exception cleanup. Include previous-module
+and next-module navigation. Document reference and learner capstone commands
+against `ramp_up/cpp/02_ownership_and_raii/test_solution.py` only.
 
 - [ ] **Step 9: Add the module-02 capstone drill brief without changing capstone code**
 
-Name the existing `Buffer`, `makeBuffer`, `moveBuffer`, and `ScopedLogger` work; state their asserted ownership and cleanup behavior; retain `PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii -q`.
+Name the existing `Buffer`, `makeBuffer`, `moveBuffer`, and `ScopedLogger` work;
+state concrete asserted inputs, outputs, and edge cases without giving the
+implementation; use `PRACTICE=1 uv run pytest
+ramp_up/cpp/02_ownership_and_raii/test_solution.py -q`.
 
 - [ ] **Step 10: Run the module and contract tests**
 
@@ -545,12 +607,12 @@ git commit -m "feat: add ownership and RAII micro-lessons"
 | Lesson | Required interface and assertions | Mental model, application, and interview focus |
 | --- | --- | --- |
 | 01 copy cost | Instrumented `TrackedFrame`; `long long inspect_by_value(TrackedFrame)` and `inspect_by_const_ref(const TrackedFrame&)`; assert equal checksums but one copy versus zero | Passing an owning value duplicates its payload; choose signatures for large frames and quantify the copy boundary. |
-| 02 value categories | Overloads `std::string category(const Frame&)` and `category(Frame&&)`; assert named frame is `lvalue`, temporary and `std::move(frame)` are `rvalue`, and `std::move` alone does not mutate the frame | Value category affects overload selection; predict calls and explain that `std::move` is a cast. |
+| 02 value categories | Overloads `std::string category(const Frame&)` and `category(Frame&&)`; for the non-const examples assert named frame selects `const-reference overload`, while the temporary and `std::move(frame)` select `rvalue-reference overload`; `std::move` alone does not mutate the frame | Value category affects overload selection, but `const Frame&` can also accept a const xvalue; name the selected reference overload rather than overstating classification. |
 | 03 move construction | `PixelBuffer(PixelBuffer&&) noexcept` over `std::vector<std::uint8_t>`; assert destination keeps the original `data()` address and source becomes `0x0` empty | A move transfers a resource handle rather than pixels; implement and trace a capture-to-inference handoff. |
 | 04 moved-from state | `PixelBuffer& operator=(PixelBuffer&&) noexcept`; assert target receives bytes, source is valid empty, self-move leaves the object valid, and reassignment after a move works | Moved-from means valid but only specified operations are safe; define a useful class invariant and discuss self-move. |
 | 05 copy elision | Instrumented `Frame make_frame(int, int)` returns a prvalue; assert dimensions and zero copy/move counters | C++17 constructs a returned prvalue in its destination; explain why `return std::move(local)` can be worse. |
 | 06 noexcept moves | `Packet(Packet&&) noexcept`; `bool packet_move_is_noexcept()` uses a `noexcept(...)` expression; vector growth asserts moves and zero copies | Containers prefer a non-throwing move to preserve strong guarantees; identify why a type unexpectedly copies during reallocation. |
-| 07 Rule of Zero | `FrameBatch` contains `std::string source` and `std::vector<Frame>` with no declared special members; `FrameBatch relabel_copy(FrameBatch, std::string)`; assert independent copy and inexpensive moved transfer | Resource-owning members already implement correct special members; recognize when writing none is safest. |
+| 07 Rule of Zero | `FrameBatch` contains `std::string source` and `std::vector<Frame>` with no declared special members; `FrameBatch relabel_copy(FrameBatch, std::string)`; assert independent copy, destination allocation-address preservation, and safe reassignment of the moved-from source without asserting its unspecified vector state | Resource-owning members already implement correct special members; moved-from standard members are valid but unspecified. |
 | 08 Rule of Five | `RawFrame` owns `std::uint8_t*`; implement destructor, copy/move constructors, copy/move assignments; assert deep-copy addresses, move address preservation, empty sources, self-assignment, and live allocation count returns to zero | Low-level wrappers sometimes require all five operations; derive each from the ownership invariant and prefer Rule of Zero elsewhere. |
 
 Use these reference implementation kernels:
@@ -561,8 +623,8 @@ long long inspect_by_const_ref(const TrackedFrame& frame) {
     return frame.checksum();
 }
 
-std::string category(const Frame&) { return "lvalue"; }
-std::string category(Frame&&) { return "rvalue"; }
+std::string category(const Frame&) { return "const-reference overload"; }
+std::string category(Frame&&) { return "rvalue-reference overload"; }
 
 PixelBuffer::PixelBuffer(PixelBuffer&& other) noexcept
     : width_(other.width_), height_(other.height_), data_(std::move(other.data_)) {
@@ -604,8 +666,8 @@ FrameBatch relabel_copy(FrameBatch batch, std::string source) {
 }
 
 RawFrame::~RawFrame() {
-    delete[] data_;
     if (data_ != nullptr) --live_allocations;
+    delete[] data_;
 }
 
 RawFrame::RawFrame(const RawFrame& other)
@@ -629,8 +691,8 @@ RawFrame::RawFrame(RawFrame&& other) noexcept
 
 RawFrame& RawFrame::operator=(RawFrame&& other) noexcept {
     if (this != &other) {
-        delete[] data_;
         if (data_ != nullptr) --live_allocations;
+        delete[] data_;
         size_ = std::exchange(other.size_, 0);
         data_ = std::exchange(other.data_, nullptr);
     }
@@ -676,7 +738,13 @@ Expected: 4 PASS. Lesson 08 uses `new[]`/`delete[]` only because manual resource
 
 - [ ] **Step 5: Replace the module README and add the capstone drill brief**
 
-The diagnostic asks the learner to distinguish lvalues/rvalues, trace buffer addresses through a move, state the moved-from guarantee, explain copy elision and `noexcept`, and choose Rule of Zero versus Rule of Five. The capstone brief names `FrameBuffer`, `make_frame`, `consume`, and `swap_frames` and preserves every existing assertion.
+The diagnostic asks the learner to distinguish reference-overload selection,
+trace buffer addresses through a move, state the moved-from guarantee, explain
+copy elision and `noexcept`, and choose Rule of Zero versus Rule of Five. The
+capstone brief names `FrameBuffer`, `make_frame`, `consume`, and `swap_frames`,
+preserves every existing executable line and assertion, avoids solution-level
+comments, and targets the root `test_solution.py`. Include the required lesson
+table and previous/next navigation.
 
 - [ ] **Step 6: Run module 03 and structural tests**
 
@@ -812,7 +880,12 @@ Expected: 3 PASS. Lesson 06 includes `<span>` and asserts call count rather than
 
 - [ ] **Step 5: Replace the module README and add the capstone drill brief**
 
-The diagnostic covers static versus dynamic type, forgotten `virtual`, override checking, base destruction, slicing, and dispatch boundary cost. The capstone brief retains the existing `Sensor`, `Camera`, `Lidar`, `pollAll`, `describe`, and broken-dispatch drill behavior.
+The diagnostic covers static versus dynamic type, forgotten `virtual`, override
+checking, base destruction, slicing, and dispatch boundary cost. Use the exact
+Concept / Application lesson table, reference and learner capstone-only
+`test_solution.py` commands, and previous/next module navigation. The capstone
+brief retains the existing `Sensor`, `Camera`, `Lidar`, `pollAll`, `describe`,
+and broken-dispatch behavior while replacing revealing algorithm comments.
 
 - [ ] **Step 6: Run module 04 and structural tests**
 
@@ -856,7 +929,7 @@ git commit -m "feat: add runtime polymorphism micro-lessons"
 | 03 cache lines/locality | `std::size_t cache_lines_touched(std::size_t elements, std::size_t stride_elements, std::size_t element_bytes, std::size_t line_bytes)`; assert 16 contiguous floats touch 1 line, 16 floats at stride 16 touch 16 lines, and zero elements touch 0 | Memory moves in cache-line chunks; reason about useful bytes per line without unreliable timing. |
 | 04 traversal/contiguity | `row_major_offsets(rows, cols)` and `column_major_offsets(rows, cols)`; for 2×3 assert `{0,1,2,3,4,5}` versus `{0,3,1,4,2,5}` and both visit every element once | Row-major indexing is `r * cols + c`; predict address order and explain why loop interchange changes locality but not Big-O. |
 | 05 AoS/SoA | `best_detection_aos(const std::vector<Detection>&)` and `best_detection_soa(const DetectionColumns&)`; assert the same best ID, empty optional result, and theoretical scanned bytes `N*sizeof(Detection)` versus `N*sizeof(float)` | Choose layout by which fields travel together; compare detection record scans and discuss SIMD/cache implications. |
-| 06 allocation/reserve | `reallocations_with_reserve(std::size_t)` and `reallocations_without_reserve(std::size_t)`; assert `n=0` gives 0, reserve with `n=100` gives 1 capacity change, and no-reserve gives more than 1 | Vector growth reallocates and invalidates borrows; pre-size predictable frame batches and explain complexity versus latency spikes. |
+| 06 allocation/reserve | `reallocations_with_reserve(std::size_t)` and `reallocations_without_reserve(std::size_t)`; assert `n=0` gives 0 and reserve with `n=100` gives one initial capacity change with no later growth; print the unreserved count as information only | Vector growth policy is implementation-defined; prove the portable reserved construction path and explain reallocation invalidation. |
 
 Use these reference implementation kernels:
 
@@ -990,7 +1063,12 @@ Expected: 3 PASS. Lesson 05 uses `std::optional<int>` for the empty result rathe
 
 - [ ] **Step 5: Replace the module README and add the capstone drill brief**
 
-The diagnostic asks the learner to distinguish object from payload storage, calculate padding, count cache lines, trace row-major offsets, choose AoS/SoA, and explain iterator invalidation after growth. The capstone brief retains the existing five drill groups and states that timing lines are informational.
+The diagnostic asks the learner to distinguish object from payload storage,
+calculate padding, count cache lines, trace row-major offsets, choose AoS/SoA,
+and explain iterator invalidation after growth. Use the exact Concept /
+Application table, capstone-only `test_solution.py` commands, and previous/next
+navigation. The capstone brief retains the existing five drill groups and
+states that timing lines are informational while removing solution algorithms.
 
 - [ ] **Step 6: Run module 05 and structural tests**
 
@@ -1036,9 +1114,9 @@ git commit -m "feat: add memory layout micro-lessons"
 | 03 races/mutexes | `int safe_count_mutex(int threads, int iterations)` protects a plain counter with one mutex; assert 4×25000 and 1×1000 exact | A data race is undefined behavior; name the shared invariant and mutex boundary rather than relying on observed output. |
 | 04 RAII locks | `bool lock_released_after_exception(std::timed_mutex&)` acquires through `std::lock_guard`, throws, catches outside the lock scope, then proves `try_lock()` succeeds and unlocks it; assert true | RAII releases a mutex on every scope exit; explain why manual `lock()`/`unlock()` fails under exceptions and early returns. |
 | 05 atomics | `int elect_publisher(int threads)` uses `std::atomic<bool>::compare_exchange_strong` so exactly one worker wins; assert one winner for 1 and 8 threads | Atomics protect one independent state transition, not multi-field invariants; explain CAS expected-value behavior and when a mutex is clearer. |
-| 06 condition variables | `SampleMailbox<T>` with `put(T)` and `wait_and_take()` over one mutex, one condition variable, and `std::optional<T>`; producer/consumer asserts delivered value and empty state; wait uses a predicate | A condition variable waits for a state predicate and may wake spuriously; identify mutex, predicate, state change, and notification. |
-| 07 bounded queues | `BoundedQueue<T>` with blocking `push(T)`, `pop()`, and locked `size()`; assert FIFO, every value delivered once, capacity never exceeded, and a producer blocks until a pop creates space | Backpressure bounds memory; derive the two predicates and two notifications for camera-to-inference handoff. |
-| 08 clean shutdown | `ClosableQueue<T>` with `bool push(T)`, `std::optional<T> pop()`, and `close()`; assert close rejects pushes, consumers drain queued items then receive `nullopt`, and a consumer blocked on empty wakes after close | Shutdown is part of the synchronization protocol; include closed state in predicates and wake every waiter. |
+| 06 condition variables | `SampleMailbox<T>` with `put(T)` and `wait_and_take()` over one mutex, one condition variable, and `std::optional<T>`; a race-free test handshake proves the consumer registered an empty-mailbox wait before `put`, then asserts delivery and empty state | A condition variable waits for a state predicate and may wake spuriously; identify mutex, predicate, state change, and notification. |
+| 07 bounded queues | `BoundedQueue<T>` with blocking `push(T)`, `pop()`, and locked `size()`; a test-only condition-variable handshake reports either producer wait registration or early return; join proves completion after pop | Backpressure bounds memory; derive the two predicates and two notifications without testing the scheduler. |
+| 08 clean shutdown | `ClosableQueue<T>` with `bool push(T)`, `std::optional<T> pop()`, and `close()`; a test-only handshake proves all consumers registered empty waits before close; joins prove all exit after draining | Shutdown is part of the synchronization protocol; include closed state in predicates and wake every waiter. |
 
 Use these reference implementation kernels:
 
@@ -1231,11 +1309,20 @@ Expected: 4 PASS within 10 seconds each. All shared writes are protected or prov
 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/05_atomics ramp_up/cpp/06_threads_atomics_queues/lessons/06_condition_variables -q
 ```
 
-Expected: 2 PASS. The condition-variable starter returns a neutral value without waiting so an incomplete practice run fails quickly.
+Expected: 2 PASS. Lesson 06 uses a separate race-free test handshake whose
+outcome is either empty-wait registration or early consumer return. Call `put`
+only after registration and join the consumer for completion. The neutral
+starter returns immediately, reports the early-return outcome, and fails an
+assertion without any timeout.
 
 - [ ] **Step 5: Implement and verify lesson 07**
 
-Use a capacity-2 queue and atomic progress counter to prove a third producer push remains blocked until one item is popped. Poll progress with a bounded loop; never assert a narrow elapsed-time ratio. Run its pytest directory and expect 1 PASS within 10 seconds.
+Use a capacity-2 queue and a test-only condition-variable handshake. The queue
+reports full-wait registration from inside the protected protocol; the producer
+wrapper reports completion only after `push` returns. Wait for either event,
+assert registration won, pop one item, then join and assert completion. Do not
+sleep, yield, poll, or impose a fixed scheduler deadline. Run its pytest
+directory and expect 1 PASS.
 
 - [ ] **Step 6: Implement and verify lesson 08**
 
@@ -1244,7 +1331,10 @@ The `pop()` predicate is `closed_ || !items_.empty()`. After wake-up, return
 `close()` sets `closed_` while holding the mutex and calls
 `not_empty_.notify_all()` so every waiting consumer reevaluates the predicate.
 No producer condition variable exists because this lesson's closable queue is
-unbounded. Run its pytest directory and expect 1 PASS within 10 seconds.
+unbounded. Use a test-only condition-variable handshake that waits for either
+all three consumer wait registrations or any early return. Close only after all
+registrations, then join every consumer. Do not use sleeps, yields, polling, or
+fixed scheduler deadlines. Run its pytest directory and expect 1 PASS.
 
 - [ ] **Step 7: Prove incomplete queue starters fail quickly**
 
@@ -1254,11 +1344,18 @@ Run:
 PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/06_condition_variables ramp_up/cpp/06_threads_atomics_queues/lessons/07_bounded_queues ramp_up/cpp/06_threads_atomics_queues/lessons/08_clean_shutdown -q
 ```
 
-Expected: FAIL on assertions within the 10-second fixture timeout; no pytest case reports `exceeded the 10-second runtime limit`.
+Expected: FAIL on assertions promptly; invoke these incomplete starters without
+an external timeout and verify no case hangs or reports a runtime-limit failure.
 
 - [ ] **Step 8: Replace the module README and add the capstone drill brief**
 
-The diagnostic covers joinability, capture lifetimes, the data-race definition, lock scope, atomic suitability, wait predicates, backpressure, and shutdown wake-ups. The capstone brief retains `racy_increment_demo`, both safe counters, and `BoundedQueue`; it clearly states that the racy result is observed but never asserted.
+The diagnostic covers joinability, capture lifetimes, the data-race definition,
+lock scope, atomic suitability, wait predicates, backpressure, and shutdown
+wake-ups. Use the exact Concept / Application table, capstone-only
+`test_solution.py` commands, and previous/next navigation. The capstone brief
+retains `racy_increment_demo`, both safe counters, and `BoundedQueue`; it states
+that the racy result is observed but never asserted and removes line-by-line
+algorithm hints without changing any executable line or assertion.
 
 - [ ] **Step 9: Run module 06 and structural tests**
 
@@ -1285,7 +1382,8 @@ git commit -m "feat: add concurrency and queue micro-lessons"
 
 **Interfaces:**
 - Consumes: all course files from Tasks 2–7 and shared repository tests.
-- Produces: evidence that the complete 51-program C++ curriculum is runnable and the downstream question bank is untouched.
+- Produces: evidence that all 53 C++ pytest cases covering 51 programs are
+  runnable and the downstream question bank is untouched.
 
 - [ ] **Step 1: Run formatting and placeholder checks**
 
@@ -1302,7 +1400,10 @@ Expected: both commands produce no violations. Exercise stubs may use the word `
 uv run pytest tests/test_cpp_curriculum_structure.py -q
 ```
 
-Expected: PASS for all six inventories, every contract file, all README headings, and all 51 lesson/capstone drill briefs.
+Expected: PASS for the exact six-module tree, exact lesson file sets, all
+inventories, README headings and interview probes, lesson/module navigation,
+ordered leading drill briefs with concrete examples and edges, capstone-only
+commands, and deterministic concurrency-proof constraints.
 
 - [ ] **Step 3: Run every C++ reference program**
 
@@ -1310,7 +1411,9 @@ Expected: PASS for all six inventories, every contract file, all README headings
 uv run pytest ramp_up/cpp -q
 ```
 
-Expected: 51 PASS (45 micro-lessons and 6 capstones), or compiler-dependent skips only if neither `clang++` nor `g++` is available.
+Expected: 53 pytest cases PASS, covering 45 micro-lessons and 6 capstone
+programs (51 programs total), or compiler-dependent skips only if neither
+`clang++` nor `g++` is available.
 
 - [ ] **Step 4: Run the full repository suite**
 
@@ -1318,7 +1421,8 @@ Expected: 51 PASS (45 micro-lessons and 6 capstones), or compiler-dependent skip
 uv run pytest -q
 ```
 
-Expected: PASS with no regression outside the C++ ramp-up.
+Expected: the 605-case baseline plus the added structural regression cases all
+PASS with no regression outside the C++ ramp-up.
 
 - [ ] **Step 5: Verify the question bank and learner work boundaries**
 

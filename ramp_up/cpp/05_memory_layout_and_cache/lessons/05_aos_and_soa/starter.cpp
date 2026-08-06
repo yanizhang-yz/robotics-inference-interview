@@ -3,6 +3,7 @@
 // Scenario: Find the highest-scoring detection ID in an inference result.
 // Implement: best_detection_aos and best_detection_soa.
 // Behavior: Return the same best ID, or an empty optional for an empty frame.
+// Example: both layouts select the asserted highest-score ID. Edge: empty input returns nullopt and unequal SoA columns are rejected.
 // Interview focus: Compare field access, SIMD shape, and modeled scanned bytes.
 // Tests: main checks IDs, empty results, equal columns, and the byte model.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons/05_aos_and_soa -q

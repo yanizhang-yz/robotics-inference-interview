@@ -3,6 +3,7 @@
 // Scenario: Poll camera and lidar sensors without branching on their concrete types.
 // Implement: Camera::name, Camera::rate_hz, Lidar::name, Lidar::rate_hz, and poll.
 // Behavior: Produce camera and lidar readings in the input order.
+// Example: camera and lidar produce their asserted names and rates. Edge: an empty sensor list returns no readings.
 // Interview focus: Separate an abstract interface from its implementations.
 // Tests: main checks both virtual results and their order through Sensor pointers.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/01_interfaces_and_dynamic_dispatch -q

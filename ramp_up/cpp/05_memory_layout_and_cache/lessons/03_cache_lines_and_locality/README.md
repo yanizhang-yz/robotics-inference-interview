@@ -20,6 +20,14 @@ machine has a 64-byte hardware cache line.
 
 ## How interviewers test this
 
+**Prediction:** predict literal modeled line indices for packed and strided access.
+
+**Implementation:** implement the line-count calculation.
+
+**Follow-up:** explain what the model omits about real caches.
+
+**Evidence:** enumerate touched lines from addresses, not timing.
+
 Expect to translate element strides into byte strides, enumerate line indices,
 and explain spatial locality without promising a hardware-specific speedup.
 
@@ -44,3 +52,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons/03_cache_lines_and_locality -q
 ```
+
+Continue to the [next lesson](../04_traversal_and_contiguous_storage/).

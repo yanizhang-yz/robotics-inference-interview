@@ -28,6 +28,14 @@ released; a successful probe must itself be followed by `unlock()`.
 
 ## How interviewers test this
 
+**Prediction:** predict whether a mutex releases across an exception.
+
+**Implementation:** implement the guarded update.
+
+**Follow-up:** contrast a guard with manual lock/unlock.
+
+**Evidence:** show a later probe can acquire the same mutex.
+
 Expect a function containing manual lock/unlock plus an early return or throw. Explain
 which scope owns the lock and the exact point where its destructor runs. A catch block
 inside the guarded scope would not yet prove release.
@@ -49,3 +57,5 @@ the successful probe.
 PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/04_raii_locks -q
 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/04_raii_locks -q
 ```
+
+Continue to the [next lesson](../05_atomics/).

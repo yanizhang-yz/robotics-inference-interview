@@ -17,8 +17,8 @@ public:
         }
     }
     ~RawFrame() {
-        delete[] data_;
         if (data_ != nullptr) --live_allocations;
+        delete[] data_;
     }
     RawFrame(const RawFrame& other)
         : size_(other.size_),
@@ -39,8 +39,8 @@ public:
           data_(std::exchange(other.data_, nullptr)) {}
     RawFrame& operator=(RawFrame&& other) noexcept {
         if (this != &other) {
-            delete[] data_;
             if (data_ != nullptr) --live_allocations;
+            delete[] data_;
             size_ = std::exchange(other.size_, 0);
             data_ = std::exchange(other.data_, nullptr);
         }

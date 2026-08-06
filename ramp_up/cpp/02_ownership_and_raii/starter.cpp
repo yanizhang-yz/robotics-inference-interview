@@ -3,9 +3,10 @@
 // Scenario: Manage an owned integer buffer and trace nested scoped logging.
 // Implement: Buffer, makeBuffer, moveBuffer, and ScopedLogger TODO bodies.
 // Behavior: Buffers size/fill/sum correctly; moves consume owners; scopes log enter/exit.
+// Example: Buffer(5) filled with 3 sums to 15. Edge: Buffer(0) sums to 0 and nested scopes always balance cleanup.
 // Interview focus: Explain who owns each allocation and when each cleanup runs.
 // Tests: main asserts buffer state, factory ownership, moved-from nullness, and log order.
-// Run: PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii -q
+// Run: PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/test_solution.py -q
 // Done when: The test run passes and the program prints ALL TESTS PASSED.
 
 #include <cassert>
@@ -16,31 +17,27 @@
 #include <utility>
 #include <vector>
 
-// A Buffer owns a heap-allocated int array via std::unique_ptr<int[]>.
-// PYTHON: a class holding a list; the GC frees it eventually, whenever it likes.
-// C++:  store std::unique_ptr<int[]> — its destructor frees the array, so you
-//       never write delete[] (the "rule of zero"). Allocate zero-initialized
-//       storage with std::make_unique<int[]>(n).
+// Buffer must exclusively own exactly size() zero-initialized integers.
 class Buffer {
 public:
     explicit Buffer(std::size_t n) {
-        // TODO: remember n in size_ and allocate data_ with std::make_unique<int[]>(n)
+        // TODO: establish the size and ownership invariant.
         (void)n;
-        (void)size_;  // delete me once size_ is really used (silences -Wunused-private-field)
+        (void)size_;
     }
 
     std::size_t size() const {
-        // TODO: return the element count
+        // TODO: report the element count.
         return 0;
     }
 
     void fill(int v) {
-        // TODO: set every element to v (index data_ like a plain array: data_[i])
+        // TODO: set every owned element to v.
         (void)v;
     }
 
     long long sum() const {
-        // TODO: add up all elements into a long long
+        // TODO: return the sum without changing the buffer.
         return 0;
     }
 
@@ -49,99 +46,84 @@ private:
     std::unique_ptr<int[]> data_;
 };
 
-// Factory: heap-allocates a Buffer and hands OWNERSHIP to the caller.
-// PYTHON: a factory just returns the object; every name that receives it is one
-//         more shared reference, and nobody in particular owns it.
-// C++:  return std::make_unique<Buffer>(n). Returning a local unique_ptr moves
-//       it out automatically — do NOT write std::move on the return.
+// Return one non-null exclusive owner of a Buffer containing n integers.
 std::unique_ptr<Buffer> makeBuffer(std::size_t n) {
     // TODO: implement
     (void)n;
     return nullptr;
 }
 
-// Takes the unique_ptr BY VALUE: calling this CONSUMES the caller's pointer.
-// The caller must write moveBuffer(std::move(theirPtr)) — ownership transfer is
-// visible at the call site, and their pointer is null afterwards.
-// PYTHON: impossible to express — handing out a reference never revokes the
-//         caller's name.
-// C++:  return owned->sum(); the Buffer is destroyed when `owned` dies at the
-//       end of this function — at a brace you can point to, no GC involved.
+// Consume the exclusive owner and return the buffer's sum. Null is not an input.
 long long moveBuffer(std::unique_ptr<Buffer> owned) {
     // TODO: implement
     (void)owned;
     return 0;
 }
 
-// RAII scope logger: constructor records "enter", destructor records "exit".
-// PYTHON: a context manager — __enter__ appends "enter", __exit__ appends
-//         "exit", guaranteed even mid-exception.
-// C++:  the destructor IS the __exit__ — it runs at the closing brace, even if
-//       an exception unwinds the scope; no `with` line needed. push_back onto
-//       log_ in the constructor body and destructor body.
+// A live ScopedLogger contributes one "enter" and exactly one matching "exit".
 class ScopedLogger {
 public:
     explicit ScopedLogger(std::vector<std::string>& log) : log_(log) {
         // TODO: record "enter"
-        (void)log_;  // delete me once log_ is really used (silences -Wunused-private-field)
+        (void)log_;
     }
 
     ~ScopedLogger() {
         // TODO: record "exit"
     }
 
-    // Copying a "scope guard" makes no sense — forbid it at compile time.
+    // A scope guard has one lifetime and is not copyable.
     ScopedLogger(const ScopedLogger&) = delete;
     ScopedLogger& operator=(const ScopedLogger&) = delete;
 
 private:
-    std::vector<std::string>& log_;  // borrowed, not owned: no cleanup duty here
+    std::vector<std::string>& log_;
 };
 
 int main() {
-    // Buffer: stack-constructed object owning heap memory
+    // Buffer invariants and edge cases.
     {
         Buffer b(5);
         assert(b.size() == 5);
-        assert(b.sum() == 0);  // make_unique<int[]> zero-initializes, like [0] * n
+        assert(b.sum() == 0);
         b.fill(3);
         assert(b.sum() == 15);
 
         Buffer empty(0);
         assert(empty.size() == 0);
         assert(empty.sum() == 0);
-    }  // <- b's destructor frees the heap array RIGHT HERE. No GC involved.
+    }
 
-    // makeBuffer: ownership flows out of a factory
+    // Factory ownership.
     {
         auto buf = makeBuffer(4);
         assert(buf != nullptr);
         assert(buf->size() == 4);
         buf->fill(2);
         assert(buf->sum() == 8);
-    }  // <- buf dies, Buffer destroyed
+    }
 
-    // moveBuffer: passing unique_ptr by value transfers ownership
+    // Consuming ownership.
     {
         auto buf = makeBuffer(3);
         buf->fill(7);
-        long long total = moveBuffer(std::move(buf));  // hand it over — visibly
+        long long total = moveBuffer(std::move(buf));
         assert(total == 21);
-        assert(buf == nullptr);  // moved-from unique_ptr is GUARANTEED empty
+        assert(buf == nullptr);
     }
 
-    // ScopedLogger: destructor as deterministic scope-exit hook
+    // Scoped cleanup and nesting.
     {
         std::vector<std::string> log;
         {
             ScopedLogger logger(log);
             assert(log.size() == 1);
             assert(log[0] == "enter");
-        }  // <- destructor runs at this exact brace
+        }
         assert(log.size() == 2);
         assert(log[1] == "exit");
 
-        // Nested scopes: destructors fire in reverse construction order.
+        // Nested scopes must balance their entries and exits.
         std::vector<std::string> nested;
         {
             ScopedLogger outer(nested);

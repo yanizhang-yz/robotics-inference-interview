@@ -25,6 +25,14 @@ cache lines, alignment, compiler output, and prior cache state.
 
 ## How interviewers test this
 
+**Prediction:** predict which bytes each score scan consumes.
+
+**Implementation:** implement equivalent AoS and SoA queries.
+
+**Follow-up:** explain column-length invariants and update trade-offs.
+
+**Evidence:** show equal answers while naming the fields touched.
+
 Expect to choose a layout from the fields that travel together, preserve column
 invariants, and discuss cache/SIMD implications without inventing timing ratios.
 
@@ -49,3 +57,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons/05_aos_and_soa -q
 ```
+
+Continue to the [next lesson](../06_allocation_and_reserve/).

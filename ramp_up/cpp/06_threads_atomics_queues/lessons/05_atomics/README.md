@@ -28,6 +28,14 @@ is usually clearer when correctness spans several fields or steps.
 
 ## How interviewers test this
 
+**Prediction:** predict the winning compare-exchange transition.
+
+**Implementation:** implement single-publisher election.
+
+**Follow-up:** explain when compound state needs a mutex instead.
+
+**Evidence:** show exactly one successful state transition.
+
 Explain why the check and claim must be indivisible, why each attempt needs its own
 `expected`, and what value `expected` holds after failure. Do not generalize one atomic
 flag into protection for unrelated non-atomic state.
@@ -49,3 +57,5 @@ exactly one winner.
 PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/05_atomics -q
 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/05_atomics -q
 ```
+
+Continue to the [next lesson](../06_condition_variables/).

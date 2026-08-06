@@ -11,22 +11,22 @@ struct Frame {
 
 std::string category(const Frame& frame) {
     (void)frame;
-    return "lvalue";
+    return "const-reference overload";
 }
 
 std::string category(Frame&& frame) {
     (void)frame;
-    return "rvalue";
+    return "rvalue-reference overload";
 }
 
 int main() {
     Frame frame{{1, 2, 3}};
-    assert(category(frame) == "lvalue");
-    assert(category(Frame{{4, 5}}) == "rvalue");
+    assert(category(frame) == "const-reference overload");
+    assert(category(Frame{{4, 5}}) == "rvalue-reference overload");
 
     const auto* address = frame.pixels.data();
     const std::size_t size = frame.pixels.size();
-    assert(category(std::move(frame)) == "rvalue");
+    assert(category(std::move(frame)) == "rvalue-reference overload");
     assert(frame.pixels.data() == address);
     assert(frame.pixels.size() == size);
 

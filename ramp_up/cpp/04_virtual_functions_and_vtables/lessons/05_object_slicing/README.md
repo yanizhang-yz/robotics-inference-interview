@@ -17,6 +17,14 @@ still denotes the original `CameraRecord`, so dynamic dispatch reports `camera`.
 
 ## How interviewers test this
 
+**Prediction:** predict output after base-value slicing versus base-reference binding.
+
+**Implementation:** implement the comparison helpers.
+
+**Follow-up:** choose API signatures that preserve polymorphism.
+
+**Evidence:** show where derived state is discarded or retained.
+
 Expect to diagnose a virtual call that still reaches the base implementation.
 Check whether a derived object crossed a base-class boundary by value before
 blaming the vtable.
@@ -42,3 +50,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/05_object_slicing -q
 ```
+
+Continue to the [next lesson](../06_dispatch_cost/).

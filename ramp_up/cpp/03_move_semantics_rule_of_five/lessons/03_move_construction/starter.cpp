@@ -3,6 +3,7 @@
 // Scenario: Hand a captured pixel buffer into a newly constructed inference input.
 // Implement: PixelBuffer(PixelBuffer&&) noexcept and establish an empty source.
 // Behavior: The destination preserves the allocation address; the source becomes 0x0.
+// Example: moving the asserted pixel buffer keeps its data() address. Edge: the source has zero dimensions and is safe to destroy.
 // Interview focus: Trace ownership and distinguish handle movement from byte copying.
 // Tests: main checks dimensions, size, address identity, and moved-from state.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/lessons/03_move_construction -q

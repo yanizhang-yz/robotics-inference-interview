@@ -3,6 +3,7 @@
 // Scenario: Choose loop nesting for a flat image or tensor plane.
 // Implement: row_major_offsets and column_major_offsets.
 // Behavior: Visit every row-major offset once in the requested loop order.
+// Example: a 2x3 buffer yields the asserted row-first and column-first sequences. Edge: zero-sized dimensions yield no offsets.
 // Interview focus: Explain locality changes without changing the loop's Big-O.
 // Tests: main checks literal access orders for a 2-by-3 buffer.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons/04_traversal_and_contiguous_storage -q

@@ -24,13 +24,20 @@ closed queue returns `std::nullopt`, so closure drains buffered work before sign
 end-of-stream. `close` sets `closed_` under the mutex and calls `notify_all`; every
 blocked consumer must reevaluate the now-true predicate.
 
-The wake-all test uses a private waiter count exposed only through a friend test probe.
-The probe locks the queue mutex, so observing all three registered consumers proves
-they have entered the empty-queue wait and released that mutex. Only then does the test
-close the queue and join all three consumers. No sleep or assumed schedule stands in
-for wait registration.
+The wake-all test uses a test-only condition-variable handshake to report either all
+three empty-queue wait registrations or any early consumer return. Only after all
+three registrations does the test close the queue and join every consumer. No sleep,
+yield deadline, or assumed schedule stands in for wait registration or completion.
 
 ## How interviewers test this
+
+**Prediction:** predict drain and exit behavior across close races.
+
+**Implementation:** implement push, pop, and close.
+
+**Follow-up:** explain rejection, drain policy, and `notify_all`.
+
+**Evidence:** show all waiters registered, queued work drained, and terminal `nullopt`.
 
 Expect questions about close-versus-push races, why queued items are checked before
 returning `nullopt`, and why shutdown requires `notify_all`. Also explain why this
@@ -54,3 +61,5 @@ neutral starter methods return immediately so practice failures cannot deadlock.
 PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/08_clean_shutdown -q
 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/08_clean_shutdown -q
 ```
+
+Continue to the [module capstone](../../).

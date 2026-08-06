@@ -46,20 +46,14 @@ micro-lesson and derive the structural reason first.
 
 ## Micro-lessons
 
-Work in order:
-
-1. [`01_storage_and_object_layout`](lessons/01_storage_and_object_layout/) — draw
-   the object and its separately owned pixel allocation.
-2. [`02_alignment_and_padding`](lessons/02_alignment_and_padding/) — calculate
-   offsets and improve record density.
-3. [`03_cache_lines_and_locality`](lessons/03_cache_lines_and_locality/) — count
-   modeled line indices for packed and strided access.
-4. [`04_traversal_and_contiguous_storage`](lessons/04_traversal_and_contiguous_storage/)
-   — trace literal row-major offsets under two loop orders.
-5. [`05_aos_and_soa`](lessons/05_aos_and_soa/) — compare record and column scans
-   while preserving equal-length columns.
-6. [`06_allocation_and_reserve`](lessons/06_allocation_and_reserve/) — observe
-   vector growth through capacity changes.
+| Lesson | Concept | Application |
+| --- | --- | --- |
+| [01 — Storage and object layout](lessons/01_storage_and_object_layout/) | Inline object bytes differ from owned payload storage | Draw a frame and its pixel allocation. |
+| [02 — Alignment and padding](lessons/02_alignment_and_padding/) | Alignment inserts predictable padding | Reorder detection metadata for density. |
+| [03 — Cache lines and locality](lessons/03_cache_lines_and_locality/) | Access stride determines modeled line use | Compare packed and strided tensor reads. |
+| [04 — Traversal and contiguous storage](lessons/04_traversal_and_contiguous_storage/) | Loop order maps to row-major offsets | Traverse an image in storage order. |
+| [05 — AoS and SoA](lessons/05_aos_and_soa/) | Layout should match the fields a pass consumes | Scan point or detection columns. |
+| [06 — Allocation and `reserve`](lessons/06_allocation_and_reserve/) | Reserved capacity removes known mid-build growth | Build a predictable frame batch. |
 
 Run all six reference solutions with:
 
@@ -86,11 +80,14 @@ results, never an elapsed-time comparison.
 Edit the module-root `starter.cpp`, then run:
 
 ```bash
-PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache -q
+PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/test_solution.py -q
 ```
 
-Run the reference capstone and all micro-lessons with:
+Run only the reference capstone with:
 
 ```bash
-uv run pytest ramp_up/cpp/05_memory_layout_and_cache -q
+uv run pytest ramp_up/cpp/05_memory_layout_and_cache/test_solution.py -q
 ```
+
+Previous: [Module 04 — Virtual functions and vtables](../04_virtual_functions_and_vtables/)
+· Next: [Module 06 — Threads, atomics, and queues](../06_threads_atomics_queues/).

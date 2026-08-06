@@ -3,6 +3,7 @@
 // Scenario: Pack many fixed-shape inference metadata records more densely.
 // Implement: Reorder GoodOrder and implement padded_sizes.
 // Behavior: Preserve the same fields while making GoodOrder smaller.
+// Example: both records retain the asserted field values. Edge: tests compare relative density without assuming one ABI size.
 // Interview focus: Calculate aligned offsets; the compiler never reorders fields.
 // Tests: main compares field values, alignments, reported sizes, and density.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons/02_alignment_and_padding -q

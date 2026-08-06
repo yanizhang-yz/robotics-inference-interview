@@ -17,6 +17,14 @@ constructing an object.
 
 ## How interviewers test this
 
+**Prediction:** predict whether vector growth copies or moves packets.
+
+**Implementation:** implement the move and its `noexcept` probe.
+
+**Follow-up:** relate exception guarantees to container choice.
+
+**Evidence:** cite the trait result and observed copy/move counters.
+
 You may be shown unexpected copies during vector growth and asked to inspect the
 move signature, or asked what semantic promise `noexcept` makes to containers.
 
@@ -39,3 +47,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/lessons/06_noexcept_moves -q
 ```
+
+Continue to the [next lesson](../07_rule_of_zero/).

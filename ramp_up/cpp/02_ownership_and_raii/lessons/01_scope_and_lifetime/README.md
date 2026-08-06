@@ -22,6 +22,14 @@ invisible lifetime events observable without manual cleanup calls.
 
 ## How interviewers test this
 
+**Prediction:** trace the exact nested construction and destruction order.
+
+**Implementation:** implement `scope_trace()` with the required events.
+
+**Follow-up:** explain early-return and exception cleanup.
+
+**Evidence:** name each scope boundary and justify reverse destruction.
+
 You may be shown nested declarations and asked to predict the exact destructor
 sequence, or asked whether a pointer/reference remains valid after a brace.
 
@@ -52,3 +60,5 @@ PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/01_scope_and_
 ```
 
 Drop `PRACTICE=1` to check the reference solution.
+
+Continue to the [next lesson](../02_construction_and_destruction/).

@@ -3,6 +3,7 @@
 // Scenario: Send one span to an inference backend instead of dispatching per item.
 // Implement: CountingBackend::infer_batch and run_batch.
 // Behavior: Sum the inputs with one batch virtual call and zero per-item calls.
+// Example: the asserted batch sum uses exactly one virtual call. Edge: per-item virtual-call count remains zero.
 // Interview focus: Reason about dispatch placement without unreliable timing claims.
 // Tests: main checks the result and explicit batch/item call counters.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/06_dispatch_cost -q

@@ -3,13 +3,14 @@
 // Scenario: Move grayscale frames through capture, inference, consumption, and swapping.
 // Implement: FrameBuffer's copy/move operations, make_frame, consume, and swap_frames.
 // Behavior: Copies are deep; moves preserve buffer addresses and empty their sources.
+// Example: consuming a 2x2 frame filled with 7 returns 28. Edge: self-assignment and the capstone's empty moved-from invariant remain valid.
 // Interview focus: Trace value categories and costs, then explain noexcept and elision.
 // Tests: Existing main assertions cover construction, handoffs, factories, sinks, and swap.
-// Run: PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five -q
+// Run: PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/test_solution.py -q
 // Done when: Every existing assertion passes and the program prints ALL TESTS PASSED.
 
 // 03_move_semantics_rule_of_five — YOUR attempt. Fill in the TODO bodies, then run:
-//   PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five -v
+//   PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/test_solution.py -v
 // Or compile and run directly:
 //   clang++ -std=c++20 -Wall -Wextra -Werror=return-type -o /tmp/moves starter.cpp && /tmp/moves
 // The stubs compile as-is but fail main()'s asserts until you implement them.
@@ -21,54 +22,41 @@
 #include <utility>
 #include <vector>
 
-// FrameBuffer owns one grayscale image: width*height bytes in a std::vector.
-// Normally a vector member means Rule of Zero (write NONE of the five) — you
-// hand-write all five here because they're instrumented with counters, and
-// because writing them once, correctly, is the drill.
+// FrameBuffer owns width*height grayscale bytes and records copy/move operations.
 class FrameBuffer {
 public:
-    // Proof instruments: bump copies_made in BOTH copy operations and
-    // moves_made in BOTH move operations, so main() can prove which ran.
-    inline static int copies_made = 0;  // inline static (C++17): defined right here
+    // These counters make the selected special members observable to main().
+    inline static int copies_made = 0;
     inline static int moves_made = 0;
     static void reset_counters() { copies_made = 0; moves_made = 0; }
 
-    // Given: the ordinary constructor is not one of the five.
+    // Given ordinary construction.
     FrameBuffer(int width, int height, unsigned char fill = 0)
         : width_(width),
           height_(height),
           data_(static_cast<std::size_t>(width) * height, fill) {}
 
-    // ---- The Rule of Five: your work ----------------------------------
-
-    // 1) Destructor — already correct: data_ is a vector, it frees its own
-    //    heap buffer. Your work is the other four.
+    // Complete the copy/move operations while preserving the ownership invariant.
     ~FrameBuffer() = default;
 
-    // 2) Copy constructor: DEEP copy — copy width_/height_/data_ from other
-    //    (member initializer list preferred; copying the vector duplicates
-    //    every pixel), then ++copies_made.
+    // Copies must be independent and increment copies_made.
     FrameBuffer(const FrameBuffer& other) {
         // TODO: implement
     }
 
-    // 3) Copy assignment: same deep copy into an already-built object.
-    //    Guard against self-assignment (`if (this != &other)`), count the call.
+    // Copy assignment must also preserve valid self-assignment.
     FrameBuffer& operator=(const FrameBuffer& other) {
         // TODO: implement
         return *this;
     }
 
-    // 4) Move constructor: STEAL other's guts — std::move(other.data_) hands
-    //    the heap buffer over without touching pixels — then leave other as a
-    //    valid 0x0 empty frame, and ++moves_made. Keep the noexcept: vector
-    //    only moves elements during reallocation if the move ctor cannot throw.
+    // Moves preserve the allocation address, establish the documented empty
+    // source invariant, and increment moves_made.
     FrameBuffer(FrameBuffer&& other) noexcept {
         // TODO: implement
     }
 
-    // 5) Move assignment: same steal into an already-built object.
-    //    Self-assignment guard, zero out other, count the call.
+    // Move assignment must additionally preserve valid self-move.
     FrameBuffer& operator=(FrameBuffer&& other) noexcept {
         // TODO: implement
         return *this;
@@ -76,8 +64,8 @@ public:
 
     int width() const { return width_; }
     int height() const { return height_; }
-    std::size_t size() const { return data_.size(); }  // pixel count
-    const unsigned char* pixels() const { return data_.data(); }  // buffer address
+    std::size_t size() const { return data_.size(); }
+    const unsigned char* pixels() const { return data_.data(); }
     const std::vector<unsigned char>& bytes() const { return data_; }
 
 private:
@@ -86,28 +74,19 @@ private:
     std::vector<unsigned char> data_;
 };
 
-// make_frame(8, 2) -> an 8x2 zero-filled frame, returned BY VALUE.
-// PYTHON: `return frame` hands back a reference — free by definition.
-// C++:  return the freshly constructed FrameBuffer directly and it is free
-//       here too — C++17 guarantees copy elision (built in the caller's
-//       variable, zero copies, zero moves). Do NOT write
-//       `return std::move(...)` — that disables it.
+// Return a zero-filled width-by-height value without observable copy/move work.
 FrameBuffer make_frame(int width, int height) {
     // TODO: implement
     return FrameBuffer(0, 0);
 }
 
-// consume(fb) -> sum of every pixel byte. Takes its argument BY VALUE on
-// purpose (the "sink" idiom): the caller picks the cost at the call site —
-// consume(frame) copies once, consume(std::move(frame)) moves once.
-// Loop over fb.bytes(), accumulate into a long long.
+// Return the checksum of the by-value frame; the call site selects copy or move.
 long long consume(FrameBuffer fb) {
     // TODO: implement
     return -1;
 }
 
-// Swap two frames without copying a single pixel: exactly three moves via a
-// temporary — tmp steals a, a steals b, b steals tmp (how std::swap works).
+// Exchange two complete frame values with zero copies and exactly three moves.
 void swap_frames(FrameBuffer& a, FrameBuffer& b) {
     // TODO: implement
 }
@@ -134,7 +113,7 @@ int main() {
         frames.push_back(std::move(fb));  // rvalue argument -> move constructor
         assert(FrameBuffer::copies_made == 1 && FrameBuffer::moves_made == 1);
         assert(frames[1].pixels() == buffer_before);  // the SAME heap buffer: stolen
-        // Moved-from: valid but empty — safe to destroy or assign to, nothing more.
+        // This capstone defines an empty moved-from invariant for FrameBuffer.
         assert(fb.size() == 0 && fb.width() == 0 && fb.height() == 0);
     }
 

@@ -24,6 +24,14 @@ read-only borrow and must not mutate the frame.
 
 ## How interviewers test this
 
+**Prediction:** identify the owner, borrower, null result, and invalidation point.
+
+**Implementation:** implement `find_frame` and read-only `checksum`.
+
+**Follow-up:** explain how vector growth can end a borrow.
+
+**Evidence:** name ownership, lifetime, aliasing, and nullability explicitly.
+
 You may be asked to label owner, borrower, and nullable result, explain why no
 `delete` belongs in `find_frame`, and identify a `push_back` invalidation risk.
 
@@ -52,3 +60,5 @@ PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/03_owners_and
 ```
 
 Drop `PRACTICE=1` to check the reference solution.
+
+Continue to the [next lesson](../04_unique_ptr/).

@@ -23,6 +23,14 @@ inside it, and zero again afterward.
 
 ## How interviewers test this
 
+**Prediction:** predict whether an owner can be copied and when cleanup runs.
+
+**Implementation:** implement the owning frame factory.
+
+**Follow-up:** explain exception cleanup and why copying is disabled.
+
+**Evidence:** use the live-object count and one-owner boundary as proof.
+
 Expect to write a factory returning `std::unique_ptr`, explain why it is
 move-only, and identify the exact scope where its pointee is destroyed.
 
@@ -50,3 +58,5 @@ PRACTICE=1 uv run pytest ramp_up/cpp/02_ownership_and_raii/lessons/04_unique_ptr
 ```
 
 Drop `PRACTICE=1` to check the reference solution.
+
+Continue to the [next lesson](../05_ownership_transfer/).

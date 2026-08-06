@@ -3,6 +3,7 @@
 // Scenario: Compare two read-only inspection boundaries for a camera frame.
 // Implement: inspect_by_value and inspect_by_const_ref using the supplied checksum.
 // Behavior: Equal checksums, with exactly one copy by value and zero by const reference.
+// Example: both inspections return the asserted checksum. Edge: counters reset before each call isolate one copy versus zero.
 // Interview focus: Choose a signature for a large frame and identify the copy boundary.
 // Tests: main resets counters immediately before each measured call and checks the cost.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/lessons/01_observing_copy_cost -q

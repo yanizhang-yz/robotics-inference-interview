@@ -3,6 +3,7 @@
 // Scenario: Many inference workers race to publish one shared result.
 // Implement: elect_publisher(threads) with atomic<bool>::compare_exchange_strong.
 // Behavior: Exactly one worker wins for any positive worker count.
+// Example: eight competing workers produce one winner. Edge: one worker also produces exactly one winner.
 // Interview focus: Explain CAS expected-value updates and when a mutex is clearer
 // for invariants spanning more than one field.
 // Tests: One worker and eight workers both elect exactly one publisher.

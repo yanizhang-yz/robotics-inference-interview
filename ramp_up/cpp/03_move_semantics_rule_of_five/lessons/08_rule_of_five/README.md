@@ -17,6 +17,14 @@ Prefer Rule of Zero and standard owning members everywhere else.
 
 ## How interviewers test this
 
+**Prediction:** trace allocation ownership through all five operations.
+
+**Implementation:** implement the destructor and copy/move operations.
+
+**Follow-up:** explain copy-assignment safety and why Rule of Zero is preferred.
+
+**Evidence:** account for every allocation with deep-copy and move-address checks.
+
 Expect to derive all five operations from the ownership invariant, discuss
 self-assignment and exception safety, and contrast deep copy with move transfer.
 
@@ -40,3 +48,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/lessons/08_rule_of_five -q
 ```
+
+Continue to the [module capstone](../../).

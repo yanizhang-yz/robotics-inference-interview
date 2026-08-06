@@ -16,15 +16,24 @@ That reallocation invalidates borrows into the former block.
 `reserve(n)` requests capacity for at least `n` elements without constructing
 them. Starting from an empty vector and reserving a positive final count produces
 one observable capacity change; the following `n` pushes fit without another.
-Without reserve, the standard library grows capacity repeatedly. The precise
-growth sequence is implementation-defined, so the lesson asserts only that 100
-pushes cause more than one change.
+Without reserve, the standard library chooses its own growth policy. The
+unreserved change count is printed as an observation, not asserted. The
+portable claim is that `reserve(100)` causes one initial capacity change and
+the following 100 pushes cause no additional change.
 
 Both builds still have amortized linear total work. Reserving removes predictable
 growth events from the middle of this construction path; it does not make every
 allocation free or guarantee a timing ratio.
 
 ## How interviewers test this
+
+**Prediction:** predict capacity changes and borrow invalidation with reserve.
+
+**Implementation:** implement the capacity-change counter.
+
+**Follow-up:** explain why unreserved growth count is implementation-defined.
+
+**Evidence:** prove one reserved change and treat the unreserved count as observation.
 
 Expect to distinguish size from capacity, state exactly when reallocation
 invalidates borrows, and use `reserve` when a credible upper bound is known.
@@ -42,7 +51,8 @@ exist.
 ## The drills
 
 Track capacity from an empty vector through optional reserve and every push.
-Return the number of capacity changes for reserved and unreserved construction.
+Assert the reserved construction path and report the implementation-defined
+unreserved count for comparison.
 
 ## How to practice
 
@@ -51,3 +61,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons/06_allocation_and_reserve -q
 ```
+
+Continue to the [module capstone](../../).

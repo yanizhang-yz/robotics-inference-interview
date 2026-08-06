@@ -3,6 +3,7 @@
 // Scenario: Account for the bytes in a grayscale inference frame.
 // Implement: frame_payload_bytes and pixels_are_contiguous.
 // Behavior: Report width-times-height payload bytes and verify adjacent pixels.
+// Example: a 3x2 frame reports six payload bytes and contiguous addresses. Edge: an empty frame reports zero payload bytes.
 // Interview focus: Explain why sizeof(Frame) is not the image payload size.
 // Tests: main checks payload bytes, adjacent addresses, and object versus payload.
 // Run: PRACTICE=1 uv run pytest ramp_up/cpp/05_memory_layout_and_cache/lessons/01_storage_and_object_layout -q

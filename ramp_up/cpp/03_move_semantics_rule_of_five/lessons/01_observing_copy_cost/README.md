@@ -17,6 +17,14 @@ setup can make the evidence ambiguous.
 
 ## How interviewers test this
 
+**Prediction:** predict the copy counter for value versus const-reference calls.
+
+**Implementation:** implement both inspection boundaries.
+
+**Follow-up:** choose a signature for a large frame and justify the cost.
+
+**Evidence:** connect the counter delta to the exact copy boundary.
+
 Expect to choose between value and `const&` for a large read-only frame and to
 quantify exactly where the copy occurs.
 
@@ -43,3 +51,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/03_move_semantics_rule_of_five/lessons/01_observing_copy_cost -q
 ```
+
+Continue to the [next lesson](../02_temporaries_and_value_categories/).

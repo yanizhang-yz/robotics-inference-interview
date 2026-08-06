@@ -18,6 +18,14 @@ interface, so adding another sensor does not change its loop.
 
 ## How interviewers test this
 
+**Prediction:** select the implementation called through an interface reference.
+
+**Implementation:** implement the minimal sensor interface and concrete backends.
+
+**Follow-up:** explain how a new backend joins without caller type tests.
+
+**Evidence:** name static type, dynamic type, and observed dispatch target.
+
 Expect to distinguish an interface from an implementation and to explain why a
 base pointer or reference can preserve runtime polymorphism while a plain base
 value cannot.
@@ -46,3 +54,5 @@ Edit `starter.cpp`, then run:
 ```bash
 PRACTICE=1 uv run pytest ramp_up/cpp/04_virtual_functions_and_vtables/lessons/01_interfaces_and_dynamic_dispatch -q
 ```
+
+Continue to the [next lesson](../02_virtual_and_override/).

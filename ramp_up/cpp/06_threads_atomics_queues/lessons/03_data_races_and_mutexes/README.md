@@ -28,6 +28,14 @@ fail on one schedule.
 
 ## How interviewers test this
 
+**Prediction:** identify the conflicting accesses that form a data race.
+
+**Implementation:** implement the mutex-protected counter.
+
+**Follow-up:** choose lock granularity for a larger invariant.
+
+**Evidence:** state the invariant and show every access is protected.
+
 Define the race precisely, then name the shared invariant and every access it covers.
 Be ready to explain why adding sleeps, observing lost updates, or testing many times
 cannot make undefined behavior acceptable.
@@ -50,3 +58,5 @@ results for four workers and one worker.
 PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/03_data_races_and_mutexes -q
 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/03_data_races_and_mutexes -q
 ```
+
+Continue to the [next lesson](../04_raii_locks/).

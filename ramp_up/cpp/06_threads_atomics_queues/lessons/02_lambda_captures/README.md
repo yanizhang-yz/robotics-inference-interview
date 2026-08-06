@@ -25,6 +25,14 @@ keeps the referenced vectors alive and makes the completed ordered result visibl
 
 ## How interviewers test this
 
+**Prediction:** predict copied, shared, and dangling captures.
+
+**Implementation:** implement ordered parallel offsets.
+
+**Follow-up:** explain why disjoint result slots avoid a mutex.
+
+**Evidence:** name each captured object's owner and lifetime.
+
 You may be shown `[&]` inside a loop and asked why every worker can use the same final
 index. Name which captures are values, which are borrows, and the join boundary that
 keeps each borrow valid. Do not promise a worker execution order; the slot mapping
@@ -48,3 +56,5 @@ empty input.
 PRACTICE=1 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/02_lambda_captures -q
 uv run pytest ramp_up/cpp/06_threads_atomics_queues/lessons/02_lambda_captures -q
 ```
+
+Continue to the [next lesson](../03_data_races_and_mutexes/).
